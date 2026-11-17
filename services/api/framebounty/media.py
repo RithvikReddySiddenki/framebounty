@@ -31,7 +31,7 @@ class LocalStorage:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def path(self, key: str) -> Path:
-        if not re.fullmatch(r"[0-9a-f]{32}\.(?:video|upload)", key):
+        if not re.fullmatch(r"[0-9a-f]{32}\.(?:video|upload|jpg)", key):
             raise InvalidMedia("Invalid storage key")
         result = (self.root / key).resolve()
         if result.parent != self.root:
@@ -92,7 +92,7 @@ def validate_probe(payload: dict) -> VideoMetadata:
 
 
 def inspect_video(path: Path) -> VideoMetadata:
-    executable = shutil.which("ffprobe")
+    executable = media_executable("ffprobe")
     if not executable:
         raise MediaUnavailable("ffprobe is not installed; verification cannot run")
     try:
@@ -111,15 +111,73 @@ def inspect_video(path: Path) -> VideoMetadata:
 
 def decode_video(path: Path):
     """Decode the entire bounded clip; metadata alone cannot establish a valid file."""
-    executable = shutil.which("ffmpeg")
+    executable = media_executable("ffmpeg")
     if not executable:
         raise MediaUnavailable("ffmpeg is not installed; verification cannot run")
     try:
         result = subprocess.run([executable, "-v", "error", "-xerror", "-nostdin",
             "-protocol_whitelist", "file,pipe", "-threads", "1", "-i", str(path.resolve()),
-            "-map", "0:v:0", "-an", "-t", "31", "-f", "null", "-"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=45, check=False)
+            "-map", "0:v:0", "-an", "-t", "31", "-progress", "pipe:1", "-stats_period", "1", "-f", "null", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=45, check=False)
     except subprocess.TimeoutExpired as exc:
         raise InvalidMedia("Video decoding exceeded its time limit") from exc
     if result.returncode:
         raise InvalidMedia("Video cannot be decoded completely")
+    if len(result.stdout) > 128 * 1024:
+        raise InvalidMedia("Decoder progress exceeded its output limit")
+    times = [int(line.split(b"=", 1)[1]) for line in result.stdout.splitlines() if line.startswith(b"out_time_us=") and line.split(b"=", 1)[1].isdigit()]
+    if not times or max(times) < 9_500_000 or max(times) > 30_100_000:
+        raise InvalidMedia("Decoded video timing is outside supported limits")
+
+
+def media_executable(name: str) -> str | None:
+    configured = os.getenv(name.upper() + "_BIN")
+    if configured:
+        return configured
+    portable = Path(__file__).resolve().parents[3] / ".local" / "ffmpeg" / (name + ".exe")
+    if os.name == "nt" and portable.is_file():
+        return str(portable)
+    return shutil.which(name)
+
+
+def sample_frames(path: Path, storage: LocalStorage, duration_ms: int) -> list[dict]:
+    """Five bounded, timestamped samples. Similarity is a review flag, never rejection."""
+    import secrets
+    import warnings
+    import imagehash
+    from PIL import Image, ImageFilter, ImageStat
+
+    executable = media_executable("ffmpeg")
+    if not executable:
+        raise MediaUnavailable("ffmpeg is not installed")
+    frames = []
+    created = []
+    try:
+        for timestamp in sorted({0, duration_ms // 4, duration_ms // 2, duration_ms * 3 // 4, max(0, duration_ms - 250)}):
+            key = secrets.token_hex(16) + ".jpg"
+            target = storage.path(key)
+            created.append(target)
+            try:
+                result = subprocess.run([executable, "-v", "error", "-nostdin", "-protocol_whitelist", "file,pipe",
+                    "-threads", "1", "-ss", f"{timestamp / 1000:.3f}", "-i", str(path.resolve()),
+                    "-frames:v", "1", "-vf", "scale=640:640:force_original_aspect_ratio=decrease",
+                    "-q:v", "3", "-y", str(target)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=15, check=False)
+            except subprocess.TimeoutExpired as exc:
+                raise InvalidMedia("Frame extraction exceeded its time limit") from exc
+            if result.returncode or not target.exists() or target.stat().st_size > 2_000_000:
+                raise InvalidMedia("Could not extract a bounded frame")
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(target) as image:
+                    if image.width * image.height > 640 * 640:
+                        raise InvalidMedia("Sample frame is unexpectedly large")
+                    gray = image.convert("L")
+                    frames.append({"key": key, "timestamp_ms": timestamp, "dhash": str(imagehash.dhash(gray)),
+                        "brightness": round(ImageStat.Stat(gray).mean[0], 2),
+                        "edge_variance": round(ImageStat.Stat(gray.filter(ImageFilter.FIND_EDGES)).var[0], 2)})
+        return frames
+    except BaseException:
+        for target in created:
+            target.unlink(missing_ok=True)
+        raise

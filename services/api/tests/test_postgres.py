@@ -52,8 +52,8 @@ def pg():
         admin.dispose()
 
 
-def seeded(db, slots=1):
-    buyer = "0x" + "1" * 40
+def seeded(db, slots=1, buyer=None):
+    buyer = buyer or "0x" + "1" * 40
     job = create_job(db, buyer, draft())
     job.fixture = True
     job.state = "open"

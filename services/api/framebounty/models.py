@@ -100,3 +100,36 @@ class Audit(Base):
     resource_id: Mapped[str] = mapped_column(String(64))
     details: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Submission(Base):
+    __tablename__ = "submissions"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reservation_id: Mapped[str] = mapped_column(ForeignKey("reservations.id"), unique=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
+    wallet: Mapped[str] = mapped_column(String(42), index=True)
+    object_key: Mapped[str] = mapped_column(String(64), unique=True)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    size_bytes: Mapped[int] = mapped_column(BigInteger)
+    content_type: Mapped[str] = mapped_column(String(80))
+    rights_declaration: Mapped[str] = mapped_column(Text)
+    rubric_hash: Mapped[str] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(32), default="queued")
+    findings: Mapped[dict] = mapped_column(JSONB, default=dict)
+    reviewed_tags: Mapped[list] = mapped_column(JSONB, default=list)
+    review_reason: Mapped[str | None] = mapped_column(Text)
+    review_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class VerificationJob(Base):
+    __tablename__ = "verification_jobs"
+    __table_args__ = (CheckConstraint("attempts >= 0 AND attempts <= 3", name="verification_attempt_bounds"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id"), unique=True)
+    state: Mapped[str] = mapped_column(String(20), default="queued")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_token: Mapped[str | None] = mapped_column(String(64))
+    last_error: Mapped[str | None] = mapped_column(String(300))

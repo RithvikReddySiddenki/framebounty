@@ -1,4 +1,21 @@
 services:
+  worker:
+    profiles: ["worker"]
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://framebounty:framebounty@postgres:5432/framebounty
+      APP_MODE: fixture
+      STORAGE_ROOT: /app/.local/media
+    volumes: ["./.local/media:/app/.local/media"]
+    mem_limit: 768m
+    cpus: 1
+    pids_limit: 64
+    depends_on:
+      postgres:
+        condition: service_healthy
   postgres:
     image: postgres:16-alpine
     environment:

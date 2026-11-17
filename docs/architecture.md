@@ -19,9 +19,18 @@ do not add the balances together. Native gas and token amounts differ by 10^12.
 The docs recommend Arc Foundry for protocol-specific simulation; ordinary local
 EVM tests do not reproduce Arc's runtime. Blocklist failures can leave uncertain
 transaction outcomes; never infer payment from a broadcast hash.
-The current contract-address page and further requests timed out. Token address,
-gas parameters, tooling installation and live RPC behavior remain unverified.
-No transfer implementation or runtime token-address default is enabled.
+Fallback direct HTTPS retrieval subsequently succeeded for
+https://docs.arc.io/arc/references/contract-addresses.md and
+https://docs.arc.io/arc/tutorials/install-arc-foundry.md.
+Official testnet USDC ERC-20 address: 0x3600000000000000000000000000000000000000.
+Read-only live RPC confirmed chain 0x4cef52 (5042002), decimals 6, and a
+gas-price snapshot of 25000000000 native atomic units per gas. This is not
+a funded smoke test or a prediction of future gas prices. The official docs
+describe a 20 Gwei fee-cap floor. Never treat these gas units as reward atoms.
+`scripts/inspect_arc.py` reproduces the read-only preflight.
+`scripts/setup_arc_tools.py` downloads the SHA-256-pinned official Linux x86_64
+Arc Foundry v0.8.0-4 archive into ignored .local, executed through installed WSL.
+No mainnet work or live payment has been authorized or performed.
 
 Official Gemini model and pricing pages were read:
 https://aistudio.google.com/docs/models and https://aistudio.google.com/docs/pricing.
@@ -55,8 +64,19 @@ unique confirmation and wallet/idempotency constraints enforce retry safety.
 Real reservations are disabled; simulated rows cannot silently become live ones.
 
 Media helpers validate private generated keys, supported container headers,
-metadata, dimensions, duration, frame rate and decode timeouts. Upload routes,
-OS decoder memory isolation, frame sampling and perceptual hashes remain pending.
+metadata, dimensions, duration, frame rate and decode timeouts. Authenticated raw
+uploads create one immutable submission and leased PostgreSQL verification job.
+FFmpeg performs bounded real decoding and five timestamped frame extracts; Pillow
+reports brightness/edge metrics, ImageHash reports possible near-duplicates.
+Similarity flags never automatically reject repeated actions. Review access is
+limited to contributor, job owner and designated reviewer. Only the designated
+reviewer may decide quality, with required full-video/task-completion attestations.
+Fixture acceptance updates only simulated accounting. Submitted obligations survive
+original upload deadlines; an explicit review-timeout path releases funds safely.
+Streaming ZIP export contains accepted videos, hashes, reviewed tags and rights text.
 GeminiFrames uses bounded inline samples, a closed result schema and visible
-provider failures. It is not connected to an upload worker and has not been
-verified against the live API. All observations still require human review.
+provider failures. It is connected to the worker but has not been verified against
+the live API. Fixture mode produces explicitly uncertain observations without
+sending media anywhere. Live media calls additionally require ALLOW_MODEL_MEDIA=true.
+All observations still require human review. Native process timeouts are not a total
+decoder memory cap; the opt-in resource-limited worker container is not yet tested.

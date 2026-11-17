@@ -6,9 +6,11 @@ An AI-powered marketplace where labs and developers commission custom data, agen
 Implemented locally: signed EOA wallet login, buyer-owned versioned draft plans,
 database-backed filtered task search, explicit version/reward confirmation,
 atomic and idempotent fixture reservations, private reservation lists, strict
-money/coverage rules, and bounded media/model adapter helpers. Fixtures are
-clearly labeled and never represent real funds. Live escrow, upload endpoints,
-review, payouts, agent conversations and exports are still pending.
+money/coverage rules, private phone uploads, durable verification jobs, real
+FFmpeg decoding and sampled frames, human review, next-batch allocation, and
+accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
+security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
+Live chain orchestration, payouts, agent conversations and provider evaluation remain pending.
 See [workboard](docs/workboard.md).
 
 ## Local setup (PowerShell)
@@ -17,6 +19,7 @@ See [workboard](docs/workboard.md).
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r services/api/requirements.lock
 .\.venv\Scripts\python.exe -m pip install --no-deps -e './services/api[test]'
+.\.venv\Scripts\python.exe scripts/setup_media_tools.py
 Copy-Item .env.example .env
 docker compose up -d postgres
 $env:DATABASE_URL='postgresql+psycopg://framebounty:framebounty@localhost:5432/framebounty'
@@ -45,8 +48,28 @@ and run:
 
 Use the contributor workspace to filter equipment (e.g. `phone,towel,dark_table`),
 review the displayed task terms, and confirm a reservation. Seed rewards are not
-redeemable. No upload or payment is implied. Re-running seed creates another
+redeemable. Re-running seed creates another
 fixture job; it never resets or deletes other users' data.
+
+Alternatively, save a plan in the buyer UI, explicitly confirm simulated funding,
+and publish the first two fixture slots. The contributor can reserve, acknowledge
+the displayed usage rights, and upload a 10–30 second MP4/MOV. In another terminal,
+set the same `DATABASE_URL` and `APP_MODE=fixture` and run:
+
+```powershell
+.\.venv\Scripts\python.exe -m framebounty.worker
+```
+
+The reviewer loads their collections, watches the full video and timestamped frames,
+confirms task completion and category definitions, and accepts/rejects with a reason.
+Acceptance updates the **simulated** ledger and overlapping coverage. It does not
+show a confirmed payment. Commission another fixture batch or export accepted media.
+For phone/LAN testing configure `AUTH_ORIGIN` and `NEXT_PUBLIC_API_URL` for that origin
+and use secure hosting for wallet/browser capabilities; actual phone testing is pending.
+
+The optional `docker compose --profile worker up -d worker` imposes a 768 MiB
+memory limit and one CPU. Apply migrations first and configure `LOCAL_UID`/`LOCAL_GID`
+to match ownership of `.local/media` on Linux. Container image/runtime is not yet tested.
 
 ## Checks
 
@@ -63,6 +86,22 @@ npm run build
 `scripts/check.ps1` runs unit/HTTP tests (plus PostgreSQL tests when
 `TEST_DATABASE_URL` is set), typecheck and production build. If Windows profile
 temp permissions fail, add `--basetemp=.local/pytest-UNIQUE_RUN_NAME` using a fresh
-workspace directory. Contract, browser, live model and Arc smoke suites are not
-implemented yet. See [test matrix](docs/test-matrix.md), [architecture](docs/architecture.md)
+workspace directory. Additional gates from the repository root:
+
+```powershell
+npm ci --prefix contracts
+.\.venv\Scripts\python.exe scripts/setup_arc_tools.py
+.\scripts\test-contract.ps1
+# Isolated Chromium + real PostgreSQL/FFmpeg workflow:
+$env:PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/browsers"
+npm exec --prefix apps/web -- playwright install chromium
+.\.venv\Scripts\python.exe scripts/test_e2e.py
+# Explicit read-only live Arc preflight; does not send transactions:
+.\.venv\Scripts\python.exe scripts/inspect_arc.py
+```
+
+The browser harness uses dedicated ports 3002/8002, a random temporary PostgreSQL
+schema and generated non-human video. It removes its schema and stops its servers.
+No live provider calls or testnet fund transfers occur in ordinary tests.
+See [test matrix](docs/test-matrix.md), [architecture](docs/architecture.md)
 and [state machine](docs/state-machine.md).

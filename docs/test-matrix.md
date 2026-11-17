@@ -1,5 +1,45 @@
 # Test matrix
 
+## Current evidence (2026-11-17)
+
+- Full backend: **80 passed**, no skips, one upstream Starlette/httpx deprecation warning.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-03`
+  with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
+- Escrow: **14 passed**, no skips, including two 256-run fuzz tests.
+  Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
+- Chromium: **1 passed** in the isolated browser harness, using real wallet signatures,
+  PostgreSQL, API, Next.js, video decode/sampling and standalone worker. Funds/model
+  observations are explicitly fixtures; video is a generated test pattern.
+  Command: `python scripts/test_e2e.py` with TEST_DATABASE_URL configured.
+- Web production build passed, including TypeScript validation of the final export UI.
+- Read-only Arc preflight confirmed chain ID 5042002 and ERC-20 USDC decimals 6.
+  Command: `python scripts/inspect_arc.py`. No transactions were submitted.
+
+| Requirement | Current files / evidence | Remaining limit |
+| --- | --- | --- |
+| C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund and randomized sequences | Local EVM/test token; no Arc deployment or application-chain reconciliation |
+| B03/B06/B08/B12 | test_submission_flow.py + test_media.py: bounded raw upload, private access, hashes, actual malformed/valid decode, review expiry, durable lease fencing | Process timeouts are not a total native-worker memory ceiling |
+| B07/B14 | Exact and perceptual review flags in worker; real decode/frame tests | Similarity threshold is heuristic, no false-positive/negative evaluation |
+| B13 | Completion attestation and full-video watch required; invalid decode cannot be overridden | Synthetic orchestration tests are not a model/task-quality evaluation |
+| B02/I08/I12 (fixture portion) | test_planning.py + test_submission_flow.py: overlap, accepted/pending distinction, commitments preserved, published slots counted, fixed budget | No live chain projection |
+| I06/I07 (media portion) | Real DB job leases, stale completion fencing, cross-wallet video/frame/export denial | Live provider retries/reconciliation not exercised |
+| E01/E02/E03/E05 (fixture portion) | e2e/collection.spec.ts: buyer draft/simulated funding, phone viewport upload, authenticated playback, human review, next batch, manifest download | No physical phone, live model or blockchain payment |
+| Export | Authorized manifest and streaming ZIP; ZIP contents match accepted media bytes in regression test | Downloaded data is outside subsequent access control |
+| Agent roles | Deterministic service building blocks implemented | Separate logical agent conversations/tools not yet implemented |
+| Live/evaluation | Separately gated | No Gemini accuracy/latency evaluation, consented physical-task sample set, or funded Arc smoke |
+
+The first contract attempt hit Foundry's removed `testFail*` naming convention;
+the test was renamed without weakening its assertions. The browser flow initially
+exposed a duplicate worker CLI entry point, then a Windows console encoding issue.
+Both were fixed; the full browser command subsequently passed. The optional worker
+container has configuration only and was not built or run in this session.
+The privacy hardening regression exposed a duplicate GET route that shadowed the
+reviewer-specific response; it was removed, and a route-uniqueness regression plus
+contributor identity-redaction test now pass. Three further real-DB tests cover
+concurrent worker claiming and terminal review-timeout fencing.
+
+## Historical baseline (2026-11-16)
+
 Actual persistence/auth run, 2026-11-16:
 `$env:TEST_DATABASE_URL='postgresql+psycopg://framebounty@127.0.0.1:55432/framebounty'`
 then `./.venv/Scripts/python.exe -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-auth-01`:

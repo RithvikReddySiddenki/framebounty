@@ -231,3 +231,6 @@ out/
 .env.*
 !.env.example
 contracts/cache/
+.next-e2e/
+test-results/
+playwright-report/

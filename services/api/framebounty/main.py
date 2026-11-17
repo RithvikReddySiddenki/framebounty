@@ -13,11 +13,13 @@ from .auth import current_wallet, issue_challenge, sign_in, wallet_address
 from .db import session
 from .domain import Plan
 from .marketplace import create_job, prepare_confirmation, reserve, search_tasks
-from .models import Job, Reservation
+from .models import Job, Reservation, Submission
+from .submission_routes import router as submissions_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0")
+app.include_router(submissions_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
-                   allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+                   allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
 
 @app.exception_handler(OperationalError)
@@ -119,4 +121,12 @@ def post_reservation(body: ReserveRequest, wallet: str = Depends(current_wallet)
 @app.get("/me/reservations")
 def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     items = db.scalars(select(Reservation).where(Reservation.wallet == wallet).order_by(Reservation.id).limit(100)).all()
-    return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic), "expires_at": r.expires_at} for r in items]}
+    return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic),
+        "expires_at": r.expires_at, "rights_declaration": db.get(Job, r.job_id).plan["rights_declaration"],
+        "submission_id": db.scalar(select(Submission.id).where(Submission.reservation_id == r.id))} for r in items]}
+
+
+@app.get("/me/jobs")
+def my_jobs(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    items = db.scalars(select(Job).where((Job.buyer == wallet) | (Job.reviewer == wallet)).order_by(Job.created_at.desc()).limit(100)).all()
+    return {"jobs": [{"id": item.id, "title": item.plan["title"], "state": item.state, "fixture": item.fixture} for item in items]}
