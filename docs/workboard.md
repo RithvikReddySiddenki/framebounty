@@ -10,7 +10,7 @@ No concurrent editors have been identified. Shared interfaces are owned here unt
 | Escrow | Contract accounting/security suite and local integration | Contract implemented; 14 local-EVM tests pass, including two 256-run fuzz cases; application/Arc smoke integration pending |
 | Collection | Funded search, confirmed atomic reservation, private mobile upload | Fixture search/reservation and authenticated raw phone upload implemented; real-chain reservation integration pending |
 | Review/payment | Bounded verification, reviewer decisions, durable reconciliation | Leased PostgreSQL verification, real decode/sampling, private playback and human decisions implemented; live payment/reconciliation pending |
-| Agents/export | Grounded tools, overlap-aware replanning, authorized dataset export | Deterministic overlap-aware next batches and private manifest/ZIP export implemented; logical agent conversations/tools pending |
+| Agents/export | Grounded tools, overlap-aware replanning, authorized dataset export | Role-scoped conversations/tools, durable intent retry, grounded search, confirmed reservation, next batches and private export implemented; live Gemini/evaluation pending |
 | Live demo | Arc smoke, Gemini evaluation, real phone verification | Blocked on external setup |
 
 Canonical interfaces: `services/api/framebounty/domain.py` owns plan and atomic money rules;
@@ -41,3 +41,20 @@ Submission states: queued, verifying, needs_review, invalid, fixture_accepted,
 rejected, timed_out. Queue states: queued, leased, done, failed, cancelled.
 Reviewer decisions cannot set paid. `payment_confirmed` stays false for fixtures.
 Streaming exports include only accepted data and never expose storage keys.
+
+07b4b15 pushed: escrow/private collection milestone; 80 backend tests, 14 contract
+tests (two 256-run fuzz cases), one Chromium full fixture flow and web build passed.
+Current slice: separate buyer/contributor conversation state, closed role-scoped tools,
+grounded search, explicit reservation confirmation, auditable decisions and retry safety.
+Implementation lead owns migration 0003 and agent API/UI interfaces. Required tests:
+cross-session reads, role escalation, invented task IDs, model injection, no-match,
+explicit confirmation and duplicate request recovery. No model may approve quality.
+
+Agent implementation now passes the real-DB role/tool tests and the Chromium two-agent
+fixture workflow. Migration 0003 adds immutable-role sessions and durable proposing /
+prepared / completed / failed turns. Browser-facing proposed plan money serializes as
+atomic strings, preserving values above JavaScript's safe-integer range. Canonical
+ReservationIntent is shared by ordinary UI and contributor tools. Final wider gates
+passed before the next feature-branch commit: 95 backend tests, production build,
+and Chromium's complete two-agent fixture flow. Remote CI for 07b4b15 passed all
+three jobs (API/browser, contracts, web), run 44128224384.

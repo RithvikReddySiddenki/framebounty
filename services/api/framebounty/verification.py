@@ -69,19 +69,28 @@ class GeminiFrames:
             "Task completion requires evidence of a completed fold; lighting or visible hands are insufficient. "
             "Do not infer exact physical size from pixels. Cite only provided timestamps. Samples may miss actions; "
             "when evidence is insufficient, use uncertain. No assessment proves ownership, consent or authenticity.")
+        return parse_assessment(self.generate(parts, Assessment.model_json_schema(), instruction), duration_ms)
+
+    def structured_text(self, prompt: str, schema: dict, instruction: str) -> str:
+        """Shared adapter for role-scoped planning; schemas come from server code."""
+        if not 1 <= len(prompt) <= 20000:
+            raise ValueError("Agent context exceeds its input limit")
+        return self.generate([{"text": prompt}], schema, instruction)
+
+    def generate(self, parts: list[dict], schema: dict, instruction: str) -> str:
         try:
             with httpx.Client(timeout=httpx.Timeout(45, connect=10), transport=self.transport) as client:
                 response = client.post(f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
                     headers={"x-goog-api-key": self.api_key}, json={"systemInstruction": {"parts": [{"text": instruction}]},
                     "contents": [{"role": "user", "parts": parts}],
-                    "generationConfig": {"responseMimeType": "application/json", "responseJsonSchema": Assessment.model_json_schema(), "maxOutputTokens": 3000}})
+                    "generationConfig": {"responseMimeType": "application/json", "responseJsonSchema": schema, "maxOutputTokens": 3000}})
                 response.raise_for_status()
                 data = response.json()
             candidate = data["candidates"][0]
             if candidate.get("finishReason") != "STOP":
                 raise ProviderFailure("Model did not complete its assessment")
             payload = "".join(p.get("text", "") for p in candidate["content"]["parts"])
-            return parse_assessment(payload, duration_ms)
+            return payload
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
             raise ProviderFailure("Gemini unavailable or invalid response; retry or use human review") from exc
 

@@ -133,3 +133,29 @@ class VerificationJob(Base):
     lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     lease_token: Mapped[str | None] = mapped_column(String(64))
     last_error: Mapped[str | None] = mapped_column(String(300))
+
+
+class AgentSession(Base):
+    __tablename__ = "agent_sessions"
+    __table_args__ = (CheckConstraint("role IN ('buyer', 'contributor')", name="agent_role_bounds"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    wallet: Mapped[str] = mapped_column(String(42), index=True)
+    role: Mapped[str] = mapped_column(String(20))
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"))
+    profile: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentTurn(Base):
+    __tablename__ = "agent_turns"
+    __table_args__ = (UniqueConstraint("session_id", "request_id", name="agent_turn_retry_unique"),
+                      CheckConstraint("state IN ('proposing', 'prepared', 'completed', 'failed')", name="agent_turn_state_bounds"))
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(ForeignKey("agent_sessions.id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(64))
+    message: Mapped[str | None] = mapped_column(Text)
+    tool: Mapped[str | None] = mapped_column(String(64))
+    arguments: Mapped[dict] = mapped_column(JSONB)
+    state: Mapped[str] = mapped_column(String(20))
+    result: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -28,6 +28,16 @@ class ClosedModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class ReservationIntent(ClosedModel):
+    """Canonical confirmed intention shared by UI and contributor tools."""
+    confirmation_id: str = Field(min_length=32, max_length=32)
+    task_id: str = Field(min_length=1, max_length=64)
+    version: int = Field(strict=True, ge=1)
+    reward_atomic: str = Field(pattern=r"^[1-9][0-9]{0,18}$")
+    idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_-]{8,64}$")
+    confirmed: bool = Field(strict=True)
+
+
 class Requirement(ClosedModel):
     key: str = Field(pattern=r"^[a-z][a-z0-9_]{0,39}$")
     description: str = Field(min_length=8, max_length=1000)

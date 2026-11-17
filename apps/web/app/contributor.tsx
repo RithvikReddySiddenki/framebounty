@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { request, usdc } from "./api";
 import Upload from "./upload";
+import AgentPane from "./agent-pane";
 
 type Task = {
   task_id: string;
@@ -157,6 +158,19 @@ export default function Contributor({ token }: { token?: string }) {
           {busy ? "Working…" : "Find matching tasks ↗"}
         </button>
       </form>
+      <AgentPane
+        role="contributor"
+        token={token}
+        equipment={equipment}
+        minutes={minutes}
+        onReserved={async () => {
+          const data = await request<{ reservations: Reservation[] }>(
+            "/me/reservations",
+            token,
+          );
+          setReservations(data.reservations);
+        }}
+      />
       {error && (
         <p className="error" role="alert">
           {error}

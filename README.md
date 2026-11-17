@@ -10,8 +10,19 @@ money/coverage rules, private phone uploads, durable verification jobs, real
 FFmpeg decoding and sampled frames, human review, next-batch allocation, and
 accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
 security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
-Live chain orchestration, payouts, agent conversations and provider evaluation remain pending.
+Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
+Live chain orchestration, payouts and provider evaluation remain pending.
 See [workboard](docs/workboard.md).
+
+In the buyer conversation, request the towel example and review its proposal in
+the editor before confirming the plan. The fixture planner is a fixed example,
+not a general prompt interpreter. In the contributor workspace, edit equipment/time,
+then send a message to search actual listings. Review and explicitly confirm the
+agent's specific task before uploading. In an owned collection's buyer conversation,
+`Inspect my coverage` observes records; `Commission next batch` publishes within the
+approved simulated policy. Saved conversations and pending intentions can be resumed.
+Neither agent can approve quality. Live Gemini text additionally requires
+`ALLOW_MODEL_TEXT=true` and an account-verified model/key configured locally.
 
 ## Local setup (PowerShell)
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiBase, request } from "./api";
 import MediaView from "./media-view";
+import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
 
 type Job = { id: string; title: string; state: string; fixture: boolean };
@@ -321,15 +322,15 @@ export default function Reviews({ token }: { token?: string }) {
     try {
       const picker = (
         window as Window & {
-          showSaveFilePicker?: (
-            options: unknown,
-          ) => Promise<{
+          showSaveFilePicker?: (options: unknown) => Promise<{
             createWritable: () => Promise<WritableStream<Uint8Array>>;
           }>;
         }
       ).showSaveFilePicker;
       const handle = picker
-        ? await picker({ suggestedName: `framebounty-${selected}.zip` })
+        ? await picker.call(window, {
+            suggestedName: `framebounty-${selected}.zip`,
+          })
         : undefined;
       const response = await fetch(`${apiBase}/jobs/${selected}/dataset.zip`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -422,6 +423,14 @@ export default function Reviews({ token }: { token?: string }) {
                 <p key={r.key}>{r.description}</p>
               ))}
             </details>
+          )}
+          {selected && (
+            <AgentPane
+              key={selected}
+              role="buyer"
+              token={token}
+              jobId={selected}
+            />
           )}
           {coverage && (
             <div className="metrics">

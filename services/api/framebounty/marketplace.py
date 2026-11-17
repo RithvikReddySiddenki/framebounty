@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from .domain import Plan
@@ -55,15 +56,23 @@ def search_tasks(db: Session, equipment: set[str], minutes: int) -> list[dict]:
             for t, j in rows if set(t.equipment) <= equipment]
 
 
-def prepare_confirmation(db: Session, wallet: str, task_id: str) -> Confirmation:
+def prepare_confirmation(db: Session, wallet: str, task_id: str, confirmation_id: str | None = None) -> Confirmation:
     task = db.get(Task, task_id)
     if task is None or task.state != "open" or task.deadline <= datetime.now(UTC):
         raise HTTPException(409, "Task is no longer available; refresh search")
     job = db.get(Job, task.job_id)
     if job.state != "open" or task.claimed >= task.slots or job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic < task.reward_atomic:
         raise HTTPException(409, "Task is no longer funded or available")
-    item = Confirmation(id=new_id(), wallet=wallet, task_id=task.id, version=task.version,
+    item = Confirmation(id=confirmation_id or new_id(), wallet=wallet, task_id=task.id, version=task.version,
                         reward_atomic=task.reward_atomic, expires_at=datetime.now(UTC) + timedelta(minutes=5))
+    if confirmation_id:
+        db.execute(insert(Confirmation).values(id=item.id, wallet=item.wallet, task_id=item.task_id,
+            version=item.version, reward_atomic=item.reward_atomic, expires_at=item.expires_at).on_conflict_do_nothing(index_elements=["id"]))
+        db.commit()
+        saved = db.get(Confirmation, item.id)
+        if saved.wallet != wallet or saved.task_id != task_id:
+            raise HTTPException(409, "Confirmation identity belongs to different terms")
+        return saved
     db.add(item)
     db.commit()
     return item

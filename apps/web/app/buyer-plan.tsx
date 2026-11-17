@@ -1,19 +1,36 @@
 "use client";
 import { useState } from "react";
 import { request } from "./api";
+import type { PlanProposal } from "./agent-pane";
 
-export default function BuyerPlan({ token }: { token?: string }) {
-  const [total, setTotal] = useState(20);
-  const [large, setLarge] = useState(5);
-  const [dark, setDark] = useState(5);
-  const [hours, setHours] = useState(72);
+export default function BuyerPlan({
+  token,
+  initialPlan,
+}: {
+  token?: string;
+  initialPlan?: PlanProposal;
+}) {
+  const [total, setTotal] = useState(initialPlan?.total || 20);
+  const [large, setLarge] = useState(
+    initialPlan?.requirements.find((r) => r.key === "large_towel")?.minimum ||
+      5,
+  );
+  const [dark, setDark] = useState(
+    initialPlan?.requirements.find((r) => r.key === "dark_surface")?.minimum ||
+      5,
+  );
+  const [hours, setHours] = useState(initialPlan?.review_hours || 72);
   const [largeDescription, setLargeDescription] = useState(
-    "A large bath towel matching the buyer-approved reference example.",
+    initialPlan?.requirements.find((r) => r.key === "large_towel")
+      ?.description ||
+      "A large bath towel matching the buyer-approved reference example.",
   );
   const [darkDescription, setDarkDescription] = useState(
-    "A dark tabletop matching the buyer-approved reference example.",
+    initialPlan?.requirements.find((r) => r.key === "dark_surface")
+      ?.description ||
+      "A dark tabletop matching the buyer-approved reference example.",
   );
-  const [rights, setRights] = useState("");
+  const [rights, setRights] = useState(initialPlan?.rights_declaration || "");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -52,7 +69,7 @@ export default function BuyerPlan({ token }: { token?: string }) {
         token,
         {
           version: 1,
-          title: "Towel-folding demonstrations",
+          title: initialPlan?.title || "Towel-folding demonstrations",
           total,
           budget_atomic: total * 1000000,
           reward_atomic: 1000000,

@@ -466,3 +466,47 @@ progress {
   width: 100%;
   margin: 14px 0;
 }
+
+.agent-pane {
+  margin: 24px 0;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f7f8f1;
+}
+.agent-pane > button {
+  margin: 6px 8px 12px 0;
+}
+.agent-pane form {
+  margin-top: 20px;
+}
+.agent-pane form button {
+  margin-top: 12px;
+}
+.conversation-log {
+  max-height: 650px;
+  overflow: auto;
+}
+.conversation-entry {
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.agent-task {
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 12px 0;
+}
+.agent-task h3 {
+  font-size: 17px;
+  font-weight: 500;
+}
+.agent-task button {
+  margin-top: 12px;
+}
+.agent-task details {
+  margin: 12px 0;
+}

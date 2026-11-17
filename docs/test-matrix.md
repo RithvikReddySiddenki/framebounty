@@ -2,8 +2,8 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **80 passed**, no skips, one upstream Starlette/httpx deprecation warning.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-03`
+- Full backend: **95 passed**, no skips, one upstream Starlette/httpx deprecation warning.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-08 --junitxml=.local/agent-release-results.xml`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
 - Escrow: **14 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
@@ -25,7 +25,7 @@
 | I06/I07 (media portion) | Real DB job leases, stale completion fencing, cross-wallet video/frame/export denial | Live provider retries/reconciliation not exercised |
 | E01/E02/E03/E05 (fixture portion) | e2e/collection.spec.ts: buyer draft/simulated funding, phone viewport upload, authenticated playback, human review, next batch, manifest download | No physical phone, live model or blockchain payment |
 | Export | Authorized manifest and streaming ZIP; ZIP contents match accepted media bytes in regression test | Downloaded data is outside subsequent access control |
-| Agent roles | Deterministic service building blocks implemented | Separate logical agent conversations/tools not yet implemented |
+| Agent roles B09/B10/B11, I09/I11 (fixture portion) | test_agents.py: 15 cases for grounded data, explicit confirmation, role/HTTP ownership, injection/outage handling, concurrent/restarted tool intents, same-wallet role context isolation, exact plan money | Live model accuracy and chain-backed actions not evaluated |
 | Live/evaluation | Separately gated | No Gemini accuracy/latency evaluation, consented physical-task sample set, or funded Arc smoke |
 
 The first contract attempt hit Foundry's removed `testFail*` naming convention;

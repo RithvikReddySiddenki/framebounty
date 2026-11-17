@@ -5,6 +5,7 @@ import { authenticate, watchWalletChange } from "./api";
 import Contributor from "./contributor";
 import BuyerPlan from "./buyer-plan";
 import Reviews from "./reviews";
+import AgentPane, { type PlanProposal } from "./agent-pane";
 
 const requirements = [
   "20 accepted videos",
@@ -17,11 +18,19 @@ export default function Home() {
   const [session, setSession] = useState<{ wallet: string; token: string }>();
   const [authError, setAuthError] = useState("");
   const [connecting, setConnecting] = useState(false);
-  useEffect(() => watchWalletChange(() => setSession(undefined)), []);
+  useEffect(
+    () =>
+      watchWalletChange(() => {
+        setSession(undefined);
+        resetWorkspace();
+      }),
+    [],
+  );
   async function connect() {
     setConnecting(true);
     setAuthError("");
     try {
+      resetWorkspace();
       setSession(await authenticate());
     } catch (err) {
       setAuthError(
@@ -36,6 +45,38 @@ export default function Home() {
     "We need 20 videos of people folding towels, each 10–30 seconds, including at least five using large towels and five on dark surfaces. Keep contributor rewards under 20 USDC.",
   );
   const [showPlan, setShowPlan] = useState(false);
+  const [proposal, setProposal] = useState<PlanProposal>();
+  const [proposalRevision, setProposalRevision] = useState(0);
+  const [proposalError, setProposalError] = useState("");
+  function reviewProposal(plan: PlanProposal) {
+    if (
+      plan.version !== 1 ||
+      plan.requirements.length !== 2 ||
+      plan.reward_atomic !== "1000000" ||
+      plan.budget_atomic !== String(plan.total * 1000000) ||
+      plan.min_seconds !== 10 ||
+      plan.max_seconds !== 30 ||
+      !plan.requirements.some((r) => r.key === "large_towel") ||
+      !plan.requirements.some((r) => r.key === "dark_surface")
+    ) {
+      setProposalError(
+        "This demo editor supports fixed 1 USDC rewards and 10–30 second towel videos with both category definitions. The different proposal was not applied.",
+      );
+      return;
+    }
+    setProposalError("");
+    setProposal(plan);
+    setProposalRevision((value) => value + 1);
+    setShowPlan(true);
+  }
+  function resetWorkspace() {
+    setProposal(undefined);
+    setShowPlan(false);
+    setProposalError("");
+    setPrompt(
+      "We need 20 videos of people folding towels, each 10–30 seconds, including at least five using large towels and five on dark surfaces. Keep contributor rewards under 20 USDC.",
+    );
+  }
   return (
     <main>
       <header>
@@ -44,7 +85,12 @@ export default function Home() {
         </a>
         <button
           className="network"
-          onClick={() => (session ? setSession(undefined) : void connect())}
+          onClick={() => {
+            if (session) {
+              setSession(undefined);
+              resetWorkspace();
+            } else void connect();
+          }}
           disabled={connecting}
         >
           {connecting
@@ -143,6 +189,19 @@ export default function Home() {
               </p>
             </aside>
           </section>
+          <div className="panel plan">
+            <AgentPane
+              key={session?.wallet || "buyer-agent-anonymous"}
+              role="buyer"
+              token={session?.token}
+              onPlan={reviewProposal}
+            />
+          </div>
+          {proposalError && (
+            <p className="error" role="alert">
+              {proposalError}
+            </p>
+          )}
           {showPlan && (
             <section className="panel plan">
               <p className="eyebrow">EXAMPLE STARTING POINT</p>
@@ -152,8 +211,9 @@ export default function Home() {
                 ))}
               </div>
               <BuyerPlan
-                key={session?.wallet || "anonymous"}
+                key={`${session?.wallet || "anonymous"}-${proposalRevision}`}
                 token={session?.token}
+                initialPlan={proposal}
               />
             </section>
           )}

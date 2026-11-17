@@ -11,13 +11,15 @@ from sqlalchemy.orm import Session
 
 from .auth import current_wallet, issue_challenge, sign_in, wallet_address
 from .db import session
-from .domain import Plan
+from .domain import Plan, ReservationIntent as ReserveRequest
 from .marketplace import create_job, prepare_confirmation, reserve, search_tasks
 from .models import Job, Reservation, Submission
 from .submission_routes import router as submissions_router
+from .agent_routes import router as agents_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0")
 app.include_router(submissions_router)
+app.include_router(agents_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -48,16 +50,6 @@ class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     nonce: str = Field(min_length=48, max_length=48)
     signature: str = Field(min_length=128, max_length=132)
-
-
-class ReserveRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    confirmation_id: str = Field(min_length=32, max_length=32)
-    task_id: str = Field(min_length=1, max_length=64)
-    version: int = Field(strict=True, ge=1)
-    reward_atomic: str = Field(pattern=r"^[1-9][0-9]{0,18}$")
-    idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_-]{8,64}$")
-    confirmed: bool = Field(strict=True)
 
 
 @app.post("/auth/challenge")

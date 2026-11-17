@@ -80,3 +80,15 @@ the live API. Fixture mode produces explicitly uncertain observations without
 sending media anywhere. Live media calls additionally require ALLOW_MODEL_MEDIA=true.
 All observations still require human review. Native process timeouts are not a total
 decoder memory cap; the opt-in resource-limited worker container is not yet tested.
+
+## Logical agents
+
+Migration 0003 adds wallet-owned, immutable-role agent sessions and durable turn intents.
+Buyer sessions may optionally bind one owned job; contributor sessions bind an explicit,
+editable-before-creation profile. Session/turn reads are owner-only. See decision 0004
+for the tool matrix and retry ordering. Both roles share the same Gemini transport;
+model selection cannot bypass the domain services or invoke a quality/payment tool.
+Contributor reservation is a separate explicit intention bound to task/version/reward.
+The canonical ReservationIntent schema serves both the ordinary UI and agent tool.
+Browser-facing agent plan money uses exact atomic strings; database/internal plans
+keep strict integer atoms. Live text needs ALLOW_MODEL_TEXT=true, model and API key.

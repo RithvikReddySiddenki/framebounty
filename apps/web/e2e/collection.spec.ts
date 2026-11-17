@@ -42,7 +42,10 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   const buyer = await buyerContext.newPage();
   const contributor = await contributorContext.newPage();
   await connect(buyer);
-  await buyer.getByRole("button", { name: "View example plan" }).click();
+  await buyer.getByRole("button", { name: "Send buyer message" }).click();
+  await buyer
+    .getByRole("button", { name: "Review proposed plan in editor" })
+    .click();
   await buyer
     .getByLabel(
       "Requested usage rights (contributors must acknowledge these before submitting)",
@@ -64,13 +67,13 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     .getByRole("button", { name: "Contributor workspace" })
     .click();
   await contributor
-    .getByRole("button", { name: "Find matching tasks" })
+    .getByRole("button", { name: "Send contributor message" })
     .click();
   await contributor
-    .getByRole("button", { name: "Review reservation terms" })
+    .getByRole("button", { name: "Review agent reservation terms" })
     .click();
   await contributor
-    .getByRole("button", { name: "Confirm & reserve", exact: true })
+    .getByRole("button", { name: "Confirm agent task & reward", exact: true })
     .click();
   await contributor
     .getByLabel("Choose a phone video")
@@ -142,7 +145,12 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     buyer.getByText("accepted clips", { exact: true }).locator(".."),
   ).toContainText("1");
   await buyer
-    .getByRole("button", { name: "Commission next fixture batch" })
+    .getByRole("textbox", { name: "Buyer message", exact: true })
+    .last()
+    .fill("Commission next batch");
+  await buyer
+    .getByRole("button", { name: "Send buyer message", exact: true })
+    .last()
     .click();
   await expect(buyer.getByText(/2 fixture slots published/)).toBeVisible();
   const download = buyer.waitForEvent("download");
