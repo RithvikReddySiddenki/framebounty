@@ -47,8 +47,10 @@ npm run dev
 ```
 
 Open http://localhost:3000 and API docs at http://localhost:8000/docs.
-The `.env` example documents settings; shell commands above explicitly export the
-ones currently needed. The API does not automatically load `.env`. Do not put any
+The API does not automatically load `.env`. Run `./scripts/load-env.ps1` in each
+terminal before starting the API or workers; it loads documented settings without
+displaying values or evaluating shell expressions. The explicit shell exports
+above are an alternative for fixture mode. Do not put any
 Gemini or signing secret in a `NEXT_PUBLIC_` variable. No Gemini key is needed for
 draft editing or deterministic search. Saving or reserving requires a browser
 wallet on Arc testnet and a signed login challenge (no payment authority).
@@ -154,3 +156,10 @@ Expiry/timeout controls also wait for chain receipts. `projected` recovers a cra
 between receipt verification and ledger update. Testnet accepted data is included
 in exports/replanning; fixture data remains explicitly simulated. Pending unsigned
 allocations have no automatic cancellation, and close/refund UI is still pending.
+
+For a new local allocator, `python scripts/setup_local_allocator.py` creates a
+dedicated wallet directly in ignored `.env` and prints only its public address.
+It preserves existing allocator settings and leaves live transactions disabled.
+Fund that public address using the Arc testnet faucet; keep buyer/reviewer wallets
+separate. Put the Gemini API key only in `GEMINI_API_KEY` in `.env`; account/model
+access must be checked before selecting `GEMINI_MODEL` or enabling inference.

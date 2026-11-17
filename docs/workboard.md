@@ -101,3 +101,12 @@ Chromium regression and web typecheck/build pass. No Arc deployment/phone or liv
 Gemini evaluation is claimed. Close/refund UI, fee replacement, hashless recovery
 and unsigned pending-allocation cancellation remain open. Additive migrations have
 been applied to the task-owned local development database through 0005.
+
+ab88134 pushed and remote CI passed (44186470014). Draft PR #1 created after the
+user explicitly approved using existing Git authentication; the connector lacked
+PR-write permission. Local setup helpers parse only documented environment keys
+without evaluation/output and create a dedicated allocator without showing its
+private key. Manual checks passed: literal dollar values survive loading, invalid
+files reject atomically, key/address match, repeated setup preserves the existing
+file, and live flags remain false. Local .env is ignored; credentials are not
+committed. User still needs to add their Gemini key and faucet-fund the allocator.
