@@ -221,3 +221,13 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Frontend and local-only data
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.local/
+.env.*
+!.env.example
+contracts/cache/
