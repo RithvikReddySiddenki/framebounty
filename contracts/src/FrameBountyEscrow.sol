@@ -40,6 +40,7 @@ contract FrameBountyEscrow is ReentrancyGuard {
     IERC20 public immutable token;
     mapping(bytes32 => Job) public jobs;
     mapping(bytes32 => Reservation) public reservations;
+    mapping(bytes32 => mapping(bytes32 => bool)) public usedRefunds;
 
     error Unauthorized();
     error InvalidState();
@@ -54,7 +55,7 @@ contract FrameBountyEscrow is ReentrancyGuard {
     event Paid(bytes32 indexed jobId, bytes32 indexed reservationId, address indexed recipient, uint256 reward);
     event Released(bytes32 indexed jobId, bytes32 indexed reservationId, State terminalState, bytes32 reasonHash, uint256 reward);
     event Closed(bytes32 indexed jobId);
-    event Refunded(bytes32 indexed jobId, address indexed buyer, uint256 amount);
+    event Refunded(bytes32 indexed jobId, bytes32 indexed refundId, address indexed buyer, uint256 amount);
 
     constructor(address tokenAddress) {
         // No mainnet execution. Standard local tests use 31337; Arc uses its
@@ -86,6 +87,9 @@ contract FrameBountyEscrow is ReentrancyGuard {
         Job storage job = jobs[jobId];
         if (msg.sender != job.buyer) revert Unauthorized();
         if (job.closed || amount == 0) revert InvalidTerms();
+        // A job represents one buyer-confirmed fixed budget. A lost wallet/RPC
+        // response must not make a retry debit that budget for a second time.
+        if (job.deposited != 0) revert InvalidState();
         uint256 beforeBalance = token.balanceOf(address(this));
         token.safeTransferFrom(msg.sender, address(this), amount);
         if (token.balanceOf(address(this)) - beforeBalance != amount) revert UnsupportedToken();
@@ -163,13 +167,15 @@ contract FrameBountyEscrow is ReentrancyGuard {
         emit Closed(jobId);
     }
 
-    function refund(bytes32 jobId, uint256 amount) external nonReentrant {
+    function refund(bytes32 jobId, bytes32 refundId, uint256 amount) external nonReentrant {
         Job storage job = jobs[jobId];
         if (msg.sender != job.buyer) revert Unauthorized();
         if (!job.closed || amount == 0) revert InvalidTerms();
+        if (refundId == bytes32(0) || usedRefunds[jobId][refundId]) revert InvalidTerms();
         if (amount > available(jobId)) revert InsufficientFunds();
         job.refunded += amount;
+        usedRefunds[jobId][refundId] = true;
         token.safeTransfer(job.buyer, amount);
-        emit Refunded(jobId, job.buyer, amount);
+        emit Refunded(jobId, refundId, job.buyer, amount);
     }
 }

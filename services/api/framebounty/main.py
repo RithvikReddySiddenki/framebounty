@@ -1,4 +1,4 @@
-"""Initial HTTP shell. No funding, authentication or payment behavior is implied."""
+"""Authenticated marketplace API; chain funding is gated, live payouts disabled."""
 import os
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -16,10 +16,12 @@ from .marketplace import create_job, prepare_confirmation, reserve, search_tasks
 from .models import Job, Reservation, Submission
 from .submission_routes import router as submissions_router
 from .agent_routes import router as agents_router
+from .funding_routes import router as funding_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0")
 app.include_router(submissions_router)
 app.include_router(agents_router)
+app.include_router(funding_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -78,7 +80,7 @@ def get_job(job_id: str, wallet: str = Depends(current_wallet), db: Session = De
     item = db.get(Job, job_id)
     if item is None or wallet not in (item.buyer, item.reviewer):
         raise HTTPException(404, "Job not found")
-    return {"id": item.id, "state": item.state, "plan": item.plan, "fixture": item.fixture,
+    return {"id": item.id, "state": item.state, "plan": item.plan, "plan_hash": item.plan_hash, "fixture": item.fixture,
             "deposited_atomic": str(item.deposited_atomic), "committed_atomic": str(item.committed_atomic),
             "paid_atomic": str(item.paid_atomic), "refunded_atomic": str(item.refunded_atomic),
             "available_atomic": str(item.deposited_atomic - item.committed_atomic - item.paid_atomic - item.refunded_atomic)}

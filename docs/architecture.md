@@ -92,3 +92,28 @@ Contributor reservation is a separate explicit intention bound to task/version/r
 The canonical ReservationIntent schema serves both the ordinary UI and agent tool.
 Browser-facing agent plan money uses exact atomic strings; database/internal plans
 keep strict integer atoms. Live text needs ALLOW_MODEL_TEXT=true, model and API key.
+
+## Chain intentions and funding
+
+Migration 0004 stores immutable action terms, unique signer nonces, private signed
+bytes, transaction hashes and verified receipts. `transactions.py` serializes nonce
+allocation using PostgreSQL advisory locks. Server broadcast retries reuse the
+same bytes; pending/reverted transactions never constitute payment recognition.
+The chain boundary checks network, exact canonical runtime (including token
+immutable), token decimals, actual sender/destination/calldata, canonical receipt
+block and every expected event field. The canonical ABI/runtime is exported from
+the pinned compiler, packaged with the API and checked in CI.
+
+`funding.py` authorizes only the saved job's buyer and derives all three actions
+from the immutable plan: create, exact allowance, fixed-budget deposit. It publishes
+a first batch only after all receipts and current escrow terms/accounting agree.
+The endpoint is disabled unless explicitly in testnet mode with the chain flag;
+its UI has a separate public build flag. No HTTP endpoint accepts arbitrary Action
+objects or signing keys. A resumed browser submits the existing hash; automatic
+hashless event recovery and fee replacement are pending. Reverted intents require
+deliberate operator/user recovery rather than automatic repeat spending.
+
+The isolated chain harness deploys the actual contract/test token and uses random
+ephemeral local node accounts. Local signing refuses remote/non-local networks.
+Real Arc deployment, native/token semantics, wallet transaction UX on an actual
+phone and the live reservation/submission/review ledger still need validation.

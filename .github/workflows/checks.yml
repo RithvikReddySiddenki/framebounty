@@ -15,6 +15,7 @@ jobs:
       - run: npm ci --prefix contracts
       - run: python scripts/setup_arc_tools.py
       - run: .local/arc-foundry/forge test --root contracts --use "$PWD/.local/arc-foundry/solc-0.8.24" --offline -vv
+      - run: python scripts/export_contract.py --check
   api:
     runs-on: ubuntu-latest
     services:
@@ -43,6 +44,14 @@ jobs:
       - run: pip install -r services/api/requirements.lock
       - run: pip install --no-deps -e './services/api[test]'
       - run: python -m pytest services/api/tests -q
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --prefix contracts
+      - run: python scripts/setup_arc_tools.py
+      - run: .local/arc-foundry/forge build --root contracts --use "$PWD/.local/arc-foundry/solc-0.8.24" --offline
+      - run: python scripts/export_contract.py --check
+      - run: python scripts/test_chain.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

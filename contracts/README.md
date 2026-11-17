@@ -15,8 +15,11 @@ npm ci --prefix contracts
 The setup helper installs checksum-pinned Linux x86_64 Arc Foundry and solc 0.8.24
 in ignored `.local`; Windows uses Ubuntu WSL. On Linux invoke the installed forge
 with `test --root contracts --use "$PWD/.local/arc-foundry/solc-0.8.24" --offline -vv`.
-The 14-test suite includes two 256-run fuzz tests, malicious token callbacks,
+The 16-test suite includes two 256-run fuzz tests, malicious token callbacks,
 cross-job funding isolation, failed payment, timeout and close/refund races.
+One fixed-budget deposit per job and unique job-scoped refund IDs prevent retries
+from debiting again. Re-export the canonical ABI after contract changes with
+`python scripts/export_contract.py`; CI enforces its `--check` mode.
 These tests use a real local EVM and a local test token. They do not establish
 Arc's shared native/token balance behavior or a deployed testnet workflow.
 

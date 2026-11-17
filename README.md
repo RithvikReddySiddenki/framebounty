@@ -11,7 +11,10 @@ FFmpeg decoding and sampled frames, human review, next-batch allocation, and
 accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
 security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
 Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
-Live chain orchestration, payouts and provider evaluation remain pending.
+Durable chain intents, exact receipt verification and wallet-owned fixed-budget
+funding/publication are implemented and tested against a local chain. Live
+reservation/payment ledger integration, Arc deployment and provider evaluation
+remain pending. No funded Arc workflow is claimed.
 See [workboard](docs/workboard.md).
 
 In the buyer conversation, request the towel example and review its proposal in
@@ -103,6 +106,9 @@ workspace directory. Additional gates from the repository root:
 npm ci --prefix contracts
 .\.venv\Scripts\python.exe scripts/setup_arc_tools.py
 .\scripts\test-contract.ps1
+.\.venv\Scripts\python.exe scripts/export_contract.py --check
+# Owned ephemeral local chain + real PostgreSQL transaction/funding tests:
+.\.venv\Scripts\python.exe scripts/test_chain.py
 # Isolated Chromium + real PostgreSQL/FFmpeg workflow:
 $env:PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/browsers"
 npm exec --prefix apps/web -- playwright install chromium
@@ -116,3 +122,19 @@ schema and generated non-human video. It removes its schema and stops its server
 No live provider calls or testnet fund transfers occur in ordinary tests.
 See [test matrix](docs/test-matrix.md), [architecture](docs/architecture.md)
 and [state machine](docs/state-machine.md).
+
+Optional Arc funding requires a separately deployed canonical escrow,
+`APP_MODE=testnet`, `ALLOW_CHAIN_TRANSACTIONS=true`, and public
+`ARC_RPC_URL`, `ARC_ESCROW_ADDRESS`, `ARC_ALLOCATOR_ADDRESS` configuration.
+Use a dedicated allocator address. Set `NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true`
+when building the web app to expose saved-job funding/recovery controls. Buyer
+wallets sign creation, exact-budget allowance and deposit separately; no buyer key
+is configured on the server. Apply Alembic through migration 0004 first. Do not
+enable this for a demonstration expecting contributor payouts yet: chain-backed
+reservation/submission/review projection is the next integration step.
+
+Funding confirmations are tied to the saved plan hash. Wallet-response recovery
+accepts its existing hash from wallet activity; automatic event discovery and
+fee replacement are pending. Verified reverted/invalid intentions are terminal;
+the current UI does not automatically create another signing attempt. Server-side
+retry tests reuse persisted signed bytes and nonce, including after lost responses.

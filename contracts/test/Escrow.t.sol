@@ -49,6 +49,7 @@ contract EscrowTest {
     Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     bytes32 constant JOB = keccak256("job");
     bytes32 constant R = keccak256("reservation");
+    bytes32 constant REFUND = keccak256("refund-intent");
     address constant BUYER = address(0xB);
     address constant REVIEWER = address(0xA);
     address constant ALLOCATOR = address(0xC);
@@ -96,7 +97,7 @@ contract EscrowTest {
         escrow.approve(R);
         vm.expectRevert(FrameBountyEscrow.Unauthorized.selector);
         vm.prank(STRANGER);
-        escrow.refund(JOB, 1);
+        escrow.refund(JOB, REFUND, 1);
         vm.expectRevert(FrameBountyEscrow.Unauthorized.selector);
         vm.prank(STRANGER);
         escrow.close(JOB);
@@ -126,10 +127,10 @@ contract EscrowTest {
         vm.prank(BUYER);
         escrow.close(JOB);
         vm.prank(BUYER);
-        escrow.refund(JOB, 19_000_000);
+        escrow.refund(JOB, REFUND, 19_000_000);
         vm.expectRevert(FrameBountyEscrow.InsufficientFunds.selector);
         vm.prank(BUYER);
-        escrow.refund(JOB, 1);
+        escrow.refund(JOB, keccak256("second-refund"), 1);
         vm.warp(block.timestamp + 2 hours);
         vm.expectRevert(FrameBountyEscrow.InvalidState.selector);
         escrow.expire(R); // Original upload expiry no longer releases this obligation.
@@ -172,7 +173,7 @@ contract EscrowTest {
         vm.prank(BUYER);
         escrow.close(JOB);
         vm.prank(BUYER);
-        escrow.refund(JOB, 20_000_000);
+        escrow.refund(JOB, REFUND, 20_000_000);
         conservation();
     }
 
@@ -204,11 +205,14 @@ contract EscrowTest {
     }
 
     function testFeeTokenDepositRevertsWithoutCrediting() public {
+        bytes32 feeJob = keccak256("fee-token-first-deposit");
+        vm.prank(BUYER);
+        escrow.createJob(feeJob, REVIEWER, ALLOCATOR, keccak256("rubric"), 1 hours);
         token.mint(BUYER, 1_000_000);
         token.setFee(true);
         vm.expectRevert(FrameBountyEscrow.UnsupportedToken.selector);
         vm.prank(BUYER);
-        escrow.deposit(JOB, 1_000_000);
+        escrow.deposit(feeJob, 1_000_000);
         conservation();
     }
 
@@ -237,7 +241,7 @@ contract EscrowTest {
         uint256 uncommitted = escrow.available(JOB);
         if (uncommitted != 0) {
             vm.prank(BUYER);
-            escrow.refund(JOB, uncommitted);
+            escrow.refund(JOB, REFUND, uncommitted);
         }
         conservation();
     }
@@ -272,6 +276,33 @@ contract EscrowTest {
         conservation();
     }
 
+    function testFundingRetryCannotDebitTheFixedBudgetTwice() public {
+        token.mint(BUYER, 20_000_000);
+        vm.expectRevert(FrameBountyEscrow.InvalidState.selector);
+        vm.prank(BUYER);
+        escrow.deposit(JOB, 20_000_000);
+        require(token.balanceOf(BUYER) == 20_000_000, "duplicate funding debited buyer");
+        require(escrow.available(JOB) == 20_000_000, "budget changed on retry");
+        conservation();
+    }
+
+    function testRefundRetryCannotSpendNewlyReleasedFunds() public {
+        submitted(1_000_000);
+        vm.prank(BUYER);
+        escrow.close(JOB);
+        vm.prank(BUYER);
+        escrow.refund(JOB, REFUND, 19_000_000);
+        vm.prank(REVIEWER);
+        escrow.reject(R, keccak256("incomplete task"));
+        vm.expectRevert(FrameBountyEscrow.InvalidTerms.selector);
+        vm.prank(BUYER);
+        escrow.refund(JOB, REFUND, 1_000_000);
+        vm.prank(BUYER);
+        escrow.refund(JOB, keccak256("released-obligation-refund"), 1_000_000);
+        require(token.balanceOf(BUYER) == 20_000_000, "remaining funds inaccessible");
+        conservation();
+    }
+
     function testFuzzOperationSequenceConservesFunds(uint256 seed) public {
         for (uint256 step; step < 32; step++) {
             uint256 random = uint256(keccak256(abi.encode(seed, step)));
@@ -302,7 +333,7 @@ contract EscrowTest {
                 data = abi.encodeCall(escrow.close, (JOB));
             } else {
                 actor = BUYER;
-                data = abi.encodeCall(escrow.refund, (JOB, escrow.available(JOB)));
+                data = abi.encodeCall(escrow.refund, (JOB, keccak256(abi.encode("sequence-refund", step)), escrow.available(JOB)));
             }
             if (random % 3 == 0) vm.warp(block.timestamp + 2 hours);
             vm.prank(actor);

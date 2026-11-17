@@ -96,3 +96,33 @@ export function usdc(atomic: string): string {
   const amount = BigInt(atomic);
   return `${amount / 1000000n}.${(amount % 1000000n).toString().padStart(6, "0").replace(/0+$/, "") || "0"}`;
 }
+
+export async function sendFundingTransaction(transaction: {
+  from: string;
+  to: string;
+  data: string;
+  value: string;
+  chainId: string;
+}): Promise<string> {
+  const provider = (window as Window & { ethereum?: Provider }).ethereum;
+  if (!provider) throw new Error("Open your connected browser wallet.");
+  const accounts = (await provider.request({
+    method: "eth_accounts",
+  })) as string[];
+  const chain = await provider.request({ method: "eth_chainId" });
+  if (chain !== "0x4cef52" || transaction.chainId !== chain)
+    throw new Error(
+      "Switch to Arc testnet before authorizing this transaction.",
+    );
+  if (accounts[0]?.toLowerCase() !== transaction.from.toLowerCase())
+    throw new Error("Reconnect the buyer wallet that owns this saved plan.");
+  const hash = await provider.request({
+    method: "eth_sendTransaction",
+    params: [transaction],
+  });
+  if (typeof hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(hash))
+    throw new Error(
+      "Wallet returned no transaction hash. Check wallet activity before retrying.",
+    );
+  return hash;
+}

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { request } from "./api";
 import type { PlanProposal } from "./agent-pane";
+import Funding from "./funding";
 
 export default function BuyerPlan({
   token,
@@ -242,7 +243,7 @@ export default function BuyerPlan({
             Draft {saved} saved.{" "}
             {published
               ? "Two or fewer initial fixture slots are published. No blockchain transaction occurred."
-              : "This job is unfunded. Live funding is still being connected."}
+              : "This draft has not been published through fixture funding."}
           </p>
           {!published && (
             <>
@@ -263,6 +264,16 @@ export default function BuyerPlan({
               </button>
             </>
           )}
+          {!published &&
+            token &&
+            process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && (
+              <Funding
+                key={saved}
+                token={token}
+                jobId={saved}
+                planHash={planHash}
+              />
+            )}
         </div>
       )}
     </section>

@@ -21,3 +21,22 @@ def test_no_duplicate_route_can_shadow_authorization_or_response_policy():
                 key = (method, route.path)
                 assert key not in seen, f"Shadowed route: {key}"
                 seen.add(key)
+
+
+def test_real_funding_is_disabled_in_fixture_mode(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+    from framebounty.funding_routes import funding_rpc
+    monkeypatch.setenv("APP_MODE", "fixture")
+    monkeypatch.setenv("ALLOW_CHAIN_TRANSACTIONS", "true")
+    with pytest.raises(HTTPException) as denied:
+        next(funding_rpc())
+    assert denied.value.status_code == 503
+
+
+def test_funding_hash_requires_its_intention_identity():
+    import pytest
+    from pydantic import ValidationError
+    from framebounty.funding_routes import FundingRequest
+    with pytest.raises(ValidationError):
+        FundingRequest(plan_hash="a" * 64, confirmed=True, tx_hash="0x" + "b" * 64)

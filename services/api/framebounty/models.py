@@ -159,3 +159,33 @@ class AgentTurn(Base):
     state: Mapped[str] = mapped_column(String(20))
     result: Mapped[dict] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TransactionIntent(Base):
+    __tablename__ = "transaction_intents"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "kind", "resource_id", name="transaction_action_unique"),
+        UniqueConstraint("chain_id", "sender", "nonce", name="transaction_nonce_unique"),
+        CheckConstraint("state IN ('intent', 'signed', 'broadcast', 'confirmed', 'reverted', 'invalid')", name="transaction_state_bounds"),
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    chain_id: Mapped[int] = mapped_column(BigInteger)
+    kind: Mapped[str] = mapped_column(String(32))
+    resource_id: Mapped[str] = mapped_column(String(64))
+    job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id"), index=True)
+    reservation_id: Mapped[str | None] = mapped_column(ForeignKey("reservations.id"))
+    sender: Mapped[str] = mapped_column(String(42))
+    destination: Mapped[str] = mapped_column(String(42))
+    call_data: Mapped[str] = mapped_column(Text)
+    expected_event: Mapped[dict] = mapped_column(JSONB)
+    nonce: Mapped[int | None] = mapped_column(BigInteger)
+    unsigned: Mapped[dict] = mapped_column(JSONB, default=dict)
+    raw_transaction: Mapped[str | None] = mapped_column(Text)
+    tx_hash: Mapped[str | None] = mapped_column(String(66), index=True)
+    state: Mapped[str] = mapped_column(String(20), default="intent")
+    start_block: Mapped[int] = mapped_column(BigInteger)
+    confirmed_block: Mapped[int | None] = mapped_column(BigInteger)
+    verified_event: Mapped[dict | None] = mapped_column(JSONB)
+    last_error: Mapped[str | None] = mapped_column(String(300))
+    broadcast_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

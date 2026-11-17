@@ -6,6 +6,7 @@ import Contributor from "./contributor";
 import BuyerPlan from "./buyer-plan";
 import Reviews from "./reviews";
 import AgentPane, { type PlanProposal } from "./agent-pane";
+import { ResumeFunding } from "./funding";
 
 const requirements = [
   "20 accepted videos",
@@ -125,6 +126,10 @@ export default function Home() {
       </nav>
       {role === "buyer" ? (
         <>
+          {session &&
+            process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && (
+              <ResumeFunding key={session.wallet} token={session.token} />
+            )}
           <section className="hero">
             <div>
               <p className="eyebrow">PURPOSE-BUILT DATA, HUMAN-COLLECTED</p>

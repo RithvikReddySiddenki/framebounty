@@ -2,22 +2,31 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **95 passed**, no skips, one upstream Starlette/httpx deprecation warning.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-08 --junitxml=.local/agent-release-results.xml`
+- Full backend: **107 passed, 5 skipped**, one upstream Starlette/httpx deprecation warning.
+  The five local-chain cases run in the separate gate below.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-chain-02 --junitxml=.local/chain-release-results.xml`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
-- Escrow: **14 passed**, no skips, including two 256-run fuzz tests.
+- Real PostgreSQL/local-chain gate: **5 passed**, no skips. Deploys the actual
+  escrow/test token on an owned ephemeral node: restart/double payout, reverted
+  and pending payment, unrelated hashes/immutable terms, receipt-gated funding.
+  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-chain-06 --junitxml=.local/local-chain-results.xml`.
+- Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
 - Chromium: **1 passed** in the isolated browser harness, using real wallet signatures,
   PostgreSQL, API, Next.js, video decode/sampling and standalone worker. Funds/model
   observations are explicitly fixtures; video is a generated test pattern.
   Command: `python scripts/test_e2e.py` with TEST_DATABASE_URL configured.
 - Web production build passed, including TypeScript validation of the final export UI.
+- Funding UI typechecks/builds; its actual Arc wallet transaction flow has not been
+  browser-tested. The complete fixture browser regression still passes. Canonical
+  ABI/runtime freshness passes `python scripts/export_contract.py --check`.
 - Read-only Arc preflight confirmed chain ID 5042002 and ERC-20 USDC decimals 6.
   Command: `python scripts/inspect_arc.py`. No transactions were submitted.
 
 | Requirement | Current files / evidence | Remaining limit |
 | --- | --- | --- |
-| C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund and randomized sequences | Local EVM/test token; no Arc deployment or application-chain reconciliation |
+| C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund, deposit/refund replay and randomized sequences | Local EVM/test token; no Arc deployment |
+| I06/I07 chain recovery/funding | test_chain.py: durable signatures after response loss, pending/reverted payment, actual transaction/event verification and funding publication once; test_chain_rpc.py: wrong network/token and malformed provider fail closed | Funding projection only; live reservation/review projection, hashless wallet discovery and fee replacement pending |
 | B03/B06/B08/B12 | test_submission_flow.py + test_media.py: bounded raw upload, private access, hashes, actual malformed/valid decode, review expiry, durable lease fencing | Process timeouts are not a total native-worker memory ceiling |
 | B07/B14 | Exact and perceptual review flags in worker; real decode/frame tests | Similarity threshold is heuristic, no false-positive/negative evaluation |
 | B13 | Completion attestation and full-video watch required; invalid decode cannot be overridden | Synthetic orchestration tests are not a model/task-quality evaluation |

@@ -58,3 +58,26 @@ ReservationIntent is shared by ordinary UI and contributor tools. Final wider ga
 passed before the next feature-branch commit: 95 backend tests, production build,
 and Chromium's complete two-agent fixture flow. Remote CI for 07b4b15 passed all
 three jobs (API/browser, contracts, web), run 44128224384.
+
+61c945f pushed: isolated role-scoped agents and exact browser money. Current slice:
+durable signed transaction intents and verified receipts, tested against PostgreSQL
+and an isolated local Anvil. Owner: implementation lead for ABI, migration 0004 and
+chain adapters. Before wiring live actions, close wallet-retry gaps: a job has one
+fixed-budget deposit, and each refund has a job-scoped unique ID. Update contract,
+tests, canonical ABI and state-machine docs together. No Arc deployment exists yet,
+so no deployed ABI migration is needed. Live signatures/funds stay explicitly gated.
+
+Current implementation: migration 0004, canonical ABI/runtime export, durable server
+signatures/nonces, exact receipt/event checks and owner-only wallet funding/publication.
+Optional UI supports saved-job resume and existing-hash recovery; flags default off.
+Acceptance against real PostgreSQL/local EVM: lost-response restart reuses signature,
+pending/reverted payouts stay unrecognized, unrelated hashes fail, exact funding
+publishes once. Remaining: live reservation/submission/review ledger integration,
+automatic hashless event recovery, fee replacement, real Arc/phone/model validation.
+
+Milestone gates: backend 107 passed / 5 separately gated skips; isolated local-chain
+suite 5 passed (including wallet nonce reuse denial); contracts 16 passed with two
+256-run fuzz cases; Chromium fixture workflow 1 passed; typecheck/production build,
+canonical artifact check and pip dependency check passed. Previous commit 61c945f's
+push CI succeeded, run 44147385497. Current funding UI's actual Arc transaction
+path remains untested; fixtures and local EVM are not evidence of a funded Arc demo.

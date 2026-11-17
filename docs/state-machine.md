@@ -1,5 +1,9 @@
 # Escrow transition contract (design, not deployed)
 
+Wallet-retry policy: one fixed-budget deposit per job. Refunds include a unique ID
+scoped to that job and may consume that ID once. Later released obligations can
+be refunded with a new ID. There is no deployed ABI requiring migration yet.
+
 All amounts use the USDC ERC-20 interface's integer atomic units. The buyer funds a job;
 an authorized allocator may reserve only available funds. The reviewer is fixed per job.
 Reservation IDs are globally unique and cannot be reused. Recipient, reward, rubric hash,
@@ -29,6 +33,10 @@ Conservation: deposited = available + committed + paid + refunded. Token balance
 across jobs; sum(available + committed) must be backed. Reject fee-on-transfer tokens.
 Use checks-effects-interactions and a reentrancy guard; failed transfers revert the state change.
 
-Off-chain transaction states: intent -> broadcast -> confirmed or reverted. Unknown broadcast
-outcomes stay pending and reconcile by reservation events before any retry. Only a verified
-successful receipt/event can set paid. The database is a reconstructible chain projection.
+Off-chain transaction states: intent -> signed -> broadcast -> confirmed or reverted;
+an action/receipt mismatch becomes invalid. Server signatures and their hashes are
+saved before broadcast; retries reuse identical bytes. Unknown outcomes stay pending.
+Wallet-owned intents attach only a verified matching transaction hash. Browser hash
+recovery currently requires wallet activity and explicit hash entry; automatic event
+scanning is not implemented. Only verified receipts may recognize money. Funding
+projection is implemented; reservation/payment ledger projection remains pending.
