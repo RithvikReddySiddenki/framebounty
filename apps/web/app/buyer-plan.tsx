@@ -1,0 +1,44 @@
+"use client";
+import { useState } from "react";
+import { request } from "./api";
+
+export default function BuyerPlan({ token }: { token?: string }) {
+  const [total, setTotal] = useState(20);
+  const [large, setLarge] = useState(5);
+  const [dark, setDark] = useState(5);
+  const [hours, setHours] = useState(72);
+  const [largeDescription, setLargeDescription] = useState("A large bath towel matching the buyer-approved reference example.");
+  const [darkDescription, setDarkDescription] = useState("A dark tabletop matching the buyer-approved reference example.");
+  const [rights, setRights] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+  async function save() {
+    if (!token) { setError("Connect and sign in before saving your plan."); return; }
+    setBusy(true); setError("");
+    try {
+      const result = await request<{ id: string }>("/jobs", token, {
+        version: 1, title: "Towel-folding demonstrations", total, budget_atomic: total * 1000000,
+        reward_atomic: 1000000, min_seconds: 10, max_seconds: 30, review_hours: hours,
+        rights_declaration: rights, requirements: [
+          { key: "large_towel", minimum: large, description: largeDescription },
+          { key: "dark_surface", minimum: dark, description: darkDescription },
+        ],
+      });
+      setSaved(result.id);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not save. Please try again."); }
+    finally { setBusy(false); }
+  }
+  return <section className="buyer-edit"><h2>Make the terms yours</h2><p className="muted">Each accepted clip earns 1 test USDC, with a maximum reward budget of 20 test USDC. Gas and inference are separate. Category requirements may overlap.</p>
+    <form onSubmit={e => { e.preventDefault(); void save(); }} onChange={() => { setConfirmed(false); setSaved(""); }}>
+      <div className="metrics"><div><label htmlFor="clip-count">Total clips</label><input id="clip-count" type="number" min={1} max={20} required value={total} onChange={e => setTotal(Number(e.target.value))} /></div><div><label htmlFor="large-count">Large-towel minimum</label><input id="large-count" type="number" min={1} max={total} required value={large} onChange={e => setLarge(Number(e.target.value))} /></div><div><label htmlFor="dark-count">Dark-surface minimum</label><input id="dark-count" type="number" min={1} max={total} required value={dark} onChange={e => setDark(Number(e.target.value))} /></div><div><label htmlFor="review-hours">Review window (hours)</label><input id="review-hours" type="number" min={1} max={168} required value={hours} onChange={e => setHours(Number(e.target.value))} /></div></div>
+      <label htmlFor="large-description">Large-towel definition</label><textarea id="large-description" required minLength={8} maxLength={1000} rows={2} value={largeDescription} onChange={e => setLargeDescription(e.target.value)} />
+      <label htmlFor="dark-description">Dark-surface definition</label><textarea id="dark-description" required minLength={8} maxLength={1000} rows={2} value={darkDescription} onChange={e => setDarkDescription(e.target.value)} />
+      <label htmlFor="rights">Requested usage rights (contributors must acknowledge these before submitting)</label><textarea id="rights" required minLength={10} maxLength={2000} rows={3} value={rights} onChange={e => setRights(e.target.value)} placeholder="Describe the intended dataset usage and requested license." />
+      <p className="muted">Task completion must be human-reviewed. Your authenticated wallet will be the reviewer. If review is abandoned, the timeout releases funds rather than automatically paying the contributor. Reference-image attachment is still being implemented.</p>
+      <label className="check"><input type="checkbox" checked={confirmed} onChange={e => { e.stopPropagation(); setConfirmed(e.target.checked); }} />I confirm these version 1 draft terms and the {total} test USDC reward budget.</label>
+      <button className="primary" disabled={!confirmed || busy || !!saved}>{busy ? "Saving…" : saved ? "Draft saved" : "Confirm & save draft"}</button>
+    </form>{error && <p className="error" role="alert">{error}</p>}{saved && <p className="notice" role="status">Draft {saved} saved. This job is unfunded and cannot be claimed. Funding integration is still being connected.</p>}
+  </section>;
+}

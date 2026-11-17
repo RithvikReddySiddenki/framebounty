@@ -1,6 +1,6 @@
 # Architecture and implementation status
 
-The repository starts with no application code. See workboard for implemented slices.
+See workboard and test matrix for implemented slices and validation evidence.
 Target: Next.js UI -> FastAPI domain services -> PostgreSQL; durable jobs in PostgreSQL;
 private storage adapter; bounded FFmpeg worker; Gemini observations; Arc escrow adapter.
 AI proposals never authorize payments. Separate buyer/contributor tools call the same
@@ -8,14 +8,20 @@ authorized domain services as the UI. Review approval is a distinct human capabi
 
 ## External verification log (2026-11-16)
 
-Arc configuration is intentionally **not pinned** until accessible official Arc/Circle
-documentation and an RPC smoke check verify chain ID, RPC, explorer, faucet, token address,
-ERC-20 decimals and native gas semantics. Attempts to access
-https://docs.arc.network/arc/references/network-details and
-https://docs.arc.network/arc/concepts/usdc-as-native-token failed in this environment.
-Third-party search results are insufficient to authorize token transfer implementation.
-Never copy an unverified address into runtime defaults. ERC-20 and native gas units must
-be treated as separate external boundaries, even when both represent USDC.
+The old docs.arc.network pages failed. Its official documentation index redirects
+to docs.arc.io. Current official sources successfully read:
+https://docs.arc.io/arc/references/connect-to-arc.md and
+https://docs.arc.io/arc/references/evm-differences.md.
+They specify testnet chain ID 5042002, RPC https://rpc.testnet.arc.io,
+explorer https://explorer.testnet.arc.io, and faucet https://faucet.circle.com.
+USDC is one balance exposed natively with 18 decimals and by ERC-20 with 6 decimals;
+do not add the balances together. Native gas and token amounts differ by 10^12.
+The docs recommend Arc Foundry for protocol-specific simulation; ordinary local
+EVM tests do not reproduce Arc's runtime. Blocklist failures can leave uncertain
+transaction outcomes; never infer payment from a broadcast hash.
+The current contract-address page and further requests timed out. Token address,
+gas parameters, tooling installation and live RPC behavior remain unverified.
+No transfer implementation or runtime token-address default is enabled.
 
 Official Gemini model and pricing pages were read:
 https://aistudio.google.com/docs/models and https://aistudio.google.com/docs/pricing.
@@ -32,3 +38,25 @@ Atomic row locking plus unique idempotency keys prevent concurrent reservation o
 Reservation confirmation binds task/version/reward/recipient and expires quickly.
 Model outputs use closed schemas and bounded quantities; media cannot modify policies.
 Logs contain IDs rather than prompts, keys or private media.
+
+## Implemented service boundaries
+
+Wallet login signs a server-owned challenge binding URI, chain, address, random
+nonce and five-minute expiry. PostgreSQL row locks serialize nonce consumption;
+eight-hour opaque sessions are stored by SHA-256 digest, kept in browser memory.
+Only EOA signatures are supported; ERC-1271 wallets, rate limiting and session
+revocation are not yet implemented. Configure AUTH_ORIGIN before remote hosting.
+Use HTTPS for any remote deployment; current setup is loopback development only.
+
+Job reads require buyer/reviewer ownership. Public search returns task terms, not
+private records. Confirmation is bound to wallet/task/version/reward for five
+minutes. Reservation locks confirmation, job, then task, refreshing locked rows;
+unique confirmation and wallet/idempotency constraints enforce retry safety.
+Real reservations are disabled; simulated rows cannot silently become live ones.
+
+Media helpers validate private generated keys, supported container headers,
+metadata, dimensions, duration, frame rate and decode timeouts. Upload routes,
+OS decoder memory isolation, frame sampling and perceptual hashes remain pending.
+GeminiFrames uses bounded inline samples, a closed result schema and visible
+provider failures. It is not connected to an upload worker and has not been
+verified against the live API. All observations still require human review.
