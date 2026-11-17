@@ -102,8 +102,8 @@ export default function Home() {
         </button>
       </header>
       <div className="notice">
-        <strong>Development preview</strong> · Upload and human review are
-        connected. Fixture funds and rewards are simulated; no live payments.
+        <strong>Development preview</strong> · Fixture rewards are simulated.
+        Testnet transactions require wallet authorization and verified receipts.
       </div>
       {authError && (
         <p role="alert" className="error">

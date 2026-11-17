@@ -12,8 +12,8 @@ accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EV
 security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
 Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
 Durable chain intents, exact receipt verification and wallet-owned fixed-budget
-funding/publication are implemented and tested against a local chain. Live
-reservation/payment ledger integration, Arc deployment and provider evaluation
+funding/publication and receipt-gated reservation/submission/review accounting are
+implemented and tested against a local chain. Arc deployment and provider evaluation
 remain pending. No funded Arc workflow is claimed.
 See [workboard](docs/workboard.md).
 
@@ -129,12 +129,28 @@ Optional Arc funding requires a separately deployed canonical escrow,
 Use a dedicated allocator address. Set `NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true`
 when building the web app to expose saved-job funding/recovery controls. Buyer
 wallets sign creation, exact-budget allowance and deposit separately; no buyer key
-is configured on the server. Apply Alembic through migration 0004 first. Do not
-enable this for a demonstration expecting contributor payouts yet: chain-backed
-reservation/submission/review projection is the next integration step.
+is configured on the server. Apply Alembic through migration 0005 first. Keep live
+validation disabled until the canonical escrow and funded testnet wallets are ready.
+The actual Arc wallet flow has not yet been validated.
 
 Funding confirmations are tied to the saved plan hash. Wallet-response recovery
 accepts its existing hash from wallet activity; automatic event discovery and
 fee replacement are pending. Verified reverted/invalid intentions are terminal;
 the current UI does not automatically create another signing attempt. Server-side
 retry tests reuse persisted signed bytes and nonce, including after lost responses.
+
+For testnet reservation dispatch, configure only the dedicated allocator's
+`ARC_ALLOCATOR_PRIVATE_KEY` locally. Never use a buyer/reviewer key. Run the durable
+chain worker alongside the media worker:
+
+```powershell
+.\.venv\Scripts\python.exe -m framebounty.chain_worker
+```
+
+The contributor confirms a task, waits for `reserved`, uploads and confirms its
+content hash in their wallet. Human review records the decision before a separate
+reviewer-wallet transaction. Only its verified receipt changes payment/coverage.
+Expiry/timeout controls also wait for chain receipts. `projected` recovers a crash
+between receipt verification and ledger update. Testnet accepted data is included
+in exports/replanning; fixture data remains explicitly simulated. Pending unsigned
+allocations have no automatic cancellation, and close/refund UI is still pending.

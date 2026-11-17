@@ -81,3 +81,23 @@ suite 5 passed (including wallet nonce reuse denial); contracts 16 passed with t
 canonical artifact check and pip dependency check passed. Previous commit 61c945f's
 push CI succeeded, run 44147385497. Current funding UI's actual Arc transaction
 path remains untested; fixtures and local EVM are not evidence of a funded Arc demo.
+
+Active continuation: implementation lead owns live reservation/submission/review
+projection in marketplace, submissions, chain_workflow and wallet UI. Acceptance:
+reserve budget atomically before allocator dispatch; no upload before confirmed
+reservation; content hash confirmed by contributor; reviewer decision precedes
+wallet payout; only exact successful receipts update paid/released accounting.
+Unknown chain outcomes retain obligations. Validate with real PostgreSQL/local EVM
+and preserve the existing complete fixture/browser regression.
+
+Implemented locally: `reserve_pending` atomic holds, dedicated allocator dispatch,
+contributor content-hash confirmation, receipt-started review deadlines, human
+accept/reject decisions followed by reviewer-wallet settlement, idempotent ledger
+projection and expiry/timeout release. Migration 0005 records fixture provenance
+and durable projection completion. The worker recovers the receipt/projection
+crash gap. Coverage/export/replanning include settled testnet data. Local gates:
+108 backend passes with 11 separately gated skips, 11 real-chain passes, fixture
+Chromium regression and web typecheck/build pass. No Arc deployment/phone or live
+Gemini evaluation is claimed. Close/refund UI, fee replacement, hashless recovery
+and unsigned pending-allocation cancellation remain open. Additive migrations have
+been applied to the task-owned local development database through 0005.

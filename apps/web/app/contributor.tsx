@@ -3,6 +3,7 @@ import { useState } from "react";
 import { request, usdc } from "./api";
 import Upload from "./upload";
 import AgentPane from "./agent-pane";
+import WalletAction from "./wallet-action";
 
 type Task = {
   task_id: string;
@@ -31,6 +32,7 @@ type Confirmation = {
   expires_at: string;
 };
 type Reservation = {
+  fixture: boolean;
   id: string;
   task_id: string;
   state: string;
@@ -105,7 +107,7 @@ export default function Contributor({ token }: { token?: string }) {
       },
     );
     setStatus(
-      `Reservation ${result.id}: ${result.state.replaceAll("_", " ")}. Fixture rewards have no monetary value.`,
+      `Reservation ${result.id}: ${result.state.replaceAll("_", " ")}. ${result.state.startsWith("fixture_") ? "Fixture rewards have no monetary value." : "Wait for chain confirmation before collecting or uploading."}`,
     );
     const mine = await request<{ reservations: Reservation[] }>(
       "/me/reservations",
@@ -293,14 +295,46 @@ export default function Contributor({ token }: { token?: string }) {
             <article className="panel" key={r.id}>
               <p>
                 {r.task_id} · {r.state.replaceAll("_", " ")} ·{" "}
-                {usdc(r.reward_atomic)} fixture USDC
+                {usdc(r.reward_atomic)}{" "}
+                {r.fixture ? "fixture USDC" : "test USDC"}
               </p>
+              {!r.fixture && r.state === "reserve_pending" && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      await request(`/reservations/${r.id}/sync`, token, {});
+                      const mine = await request<{
+                        reservations: Reservation[];
+                      }>("/me/reservations", token);
+                      setReservations(mine.reservations);
+                    })
+                  }
+                >
+                  Check chain reservation
+                </button>
+              )}
+              {!r.fixture && ["reserved", "submitted"].includes(r.state) && (
+                <WalletAction
+                  token={token}
+                  reservationId={r.id}
+                  purpose="release"
+                  label="Release only after the upload or review deadline expires"
+                  refreshed={async () => {
+                    const mine = await request<{ reservations: Reservation[] }>(
+                      "/me/reservations",
+                      token,
+                    );
+                    setReservations(mine.reservations);
+                  }}
+                />
+              )}
               <Upload
                 reservationId={r.id}
                 token={token}
                 rights={r.rights_declaration}
                 existingId={r.submission_id}
-                canUpload={r.state === "fixture_reserved"}
+                canUpload={["fixture_reserved", "reserved"].includes(r.state)}
               />
             </article>
           ))}

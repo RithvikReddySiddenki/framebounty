@@ -1,6 +1,6 @@
 """Authorized marketplace services. Fixture commitments are explicitly simulated.
 
-Live allocation is deliberately closed until chain reservation reconciliation exists.
+Live requests hold budget while chain reservation reconciliation is pending.
 Job-before-task row locking serializes budget changes across different task records.
 """
 import hashlib
@@ -99,8 +99,10 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
         raise HTTPException(404, "Task not found")
     job = db.scalar(select(Job).where(Job.id == reference.job_id).with_for_update().execution_options(populate_existing=True))
     task = db.scalar(select(Task).where(Task.id == task_id).with_for_update().execution_options(populate_existing=True))
-    if not job.fixture or os.getenv("APP_MODE", "fixture") != "fixture":
-        raise HTTPException(503, "Live reservations require chain integration; no reward has been reserved")
+    fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
+    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    if not (fixture or live):
+        raise HTTPException(503, "Reservations are disabled for this mode")
     if task.version != version or task.reward_atomic != reward_atomic or task.state != "open" or task.deadline <= datetime.now(UTC) or task.claimed >= task.slots or job.state != "open":
         raise HTTPException(409, "Task changed or filled; refresh search")
     available = job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic
@@ -110,8 +112,8 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
     task.claimed += 1
     reservation = Reservation(id=new_id(), confirmation_id=confirmation_id, task_id=task.id, job_id=job.id,
         wallet=wallet, idempotency_key=idempotency_key, reward_atomic=reward_atomic,
-        rubric_hash=job.plan_hash, state="fixture_reserved", expires_at=task.deadline)
+        rubric_hash=job.plan_hash, state="fixture_reserved" if fixture else "reserve_pending", expires_at=task.deadline)
     db.add(reservation)
-    audit(db, wallet, "contributor", "fixture_reserve", reservation.id, {"task_id": task.id, "reward_atomic": reward_atomic})
+    audit(db, wallet, "contributor", "fixture_reserve" if fixture else "reserve_requested", reservation.id, {"task_id": task.id, "reward_atomic": reward_atomic})
     db.commit()
     return reservation

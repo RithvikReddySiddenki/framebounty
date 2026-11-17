@@ -42,6 +42,7 @@ def chain(pg):
         pytest.skip("Set TEST_CHAIN_RPC_URL for the separately gated real local-chain suite")
     dummy = ChainRPC(ChainConfig(url, 31337, "0x" + "1" * 40, "0x" + "2" * 40, allow_local=True))
     dummy.check_network()
+    snapshot = dummy.rpc("evm_snapshot", [])
     accounts = [value.lower() for value in dummy.rpc("eth_accounts", [])]
     assert len(accounts) >= 3
     dummy.rpc("evm_setAutomine", [True])
@@ -61,7 +62,7 @@ def chain(pg):
         yield rpc, accounts
     finally:
         rpc.rpc("evm_setAutomine", [True])
-        rpc.rpc("evm_mine", [])
+        rpc.rpc("evm_revert", [snapshot])
         rpc.close()
         dummy.close()
 

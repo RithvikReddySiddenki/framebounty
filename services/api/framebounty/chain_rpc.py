@@ -144,6 +144,18 @@ class ChainRPC:
         if actual != expected_runtime(self.config.token):
             raise ChainFailure("Escrow bytecode does not match the canonical compiled contract")
 
+    def read_escrow(self, name: str, arguments: list) -> tuple:
+        definitions = [item for item in artifact()["abi"] if item.get("type") == "function" and item["name"] == name
+                       and item.get("stateMutability") in {"view", "pure"}]
+        if len(definitions) != 1:
+            raise ChainFailure("Unknown escrow read operation")
+        self.check_contract()
+        raw = self.rpc("eth_call", [{"to": self.config.escrow, "data": escrow_call(name, arguments)}, "latest"])
+        try:
+            return decode([field["type"] for field in definitions[0]["outputs"]], hex_bytes(raw))
+        except (DecodingError, TypeError, ValueError):
+            raise ChainFailure("Provider returned malformed escrow state") from None
+
     def build_unsigned(self, sender: str, destination: str, data: str, nonce: int) -> dict:
         self.check_contract()
         if address(destination) not in {self.config.escrow.lower(), self.config.token.lower()}:

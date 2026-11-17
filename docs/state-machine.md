@@ -38,5 +38,9 @@ an action/receipt mismatch becomes invalid. Server signatures and their hashes a
 saved before broadcast; retries reuse identical bytes. Unknown outcomes stay pending.
 Wallet-owned intents attach only a verified matching transaction hash. Browser hash
 recovery currently requires wallet activity and explicit hash entry; automatic event
-scanning is not implemented. Only verified receipts may recognize money. Funding
-projection is implemented; reservation/payment ledger projection remains pending.
+scanning is not implemented. Only verified receipts may recognize money. Funding,
+reservation, submission and reviewer/payment projection are implemented. A durable
+`projected` flag recovers confirmed-but-unapplied receipts after worker restart.
+Application reservations progress reserve_pending -> reserved -> submitted -> paid
+or a receipt-confirmed release. Uploads remain chain_pending until contributor hash
+confirmation; human decisions remain accept_pending/reject_pending until settlement.

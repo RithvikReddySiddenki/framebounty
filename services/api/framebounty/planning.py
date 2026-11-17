@@ -1,4 +1,4 @@
-"""Deterministic small-batch fixture allocation under an approved plan.
+"""Deterministic small-batch allocation under an approved funded plan.
 
 Accepted clips, promises and advertised slots all reduce purchase deficits. This
 does not cancel existing commitments when another clip fills a category quota.
@@ -54,10 +54,14 @@ def publish_fixture(db: Session, wallet: str, job_id: str, plan_hash: str) -> li
     return ids
 
 
-def next_fixture_batch(db: Session, wallet: str, job_id: str, request_id: str) -> dict:
-    job = locked_owned_fixture(db, wallet, job_id)
-    if not job.fixture or job.state != "open":
-        raise HTTPException(409, "Job must have explicit simulated funding before replanning")
+def next_collection_batch(db: Session, wallet: str, job_id: str, request_id: str) -> dict:
+    job = db.scalar(select(Job).where(Job.id == job_id).with_for_update().execution_options(populate_existing=True))
+    if job is None or job.buyer != wallet:
+        raise HTTPException(404, "Job not found")
+    enabled = (job.fixture and os.getenv("APP_MODE", "fixture") == "fixture") or (
+        not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true")
+    if not enabled or job.state != "open" or job.deposited_atomic <= 0:
+        raise HTTPException(409, "Job must have confirmed funding before replanning")
     audit_id = hashlib.sha256(f"batch:{job_id}:{wallet}:{request_id}".encode()).hexdigest()
     old = db.get(Audit, audit_id)
     if old:
@@ -65,9 +69,9 @@ def next_fixture_batch(db: Session, wallet: str, job_id: str, request_id: str) -
     plan = Plan.model_validate(job.plan)
     tasks = db.scalars(select(Task).where(Task.job_id == job.id)).all()
     by_id = {task.id: task for task in tasks}
-    accepted = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state == "fixture_accepted")).all()
+    accepted = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state.in_(["fixture_accepted", "accepted"]))).all()
     pending = db.scalars(select(Reservation).where(Reservation.job_id == job.id,
-        Reservation.state.in_(["fixture_reserved", "fixture_submitted"]))).all()
+        Reservation.state.in_(["fixture_reserved", "fixture_submitted", "reserve_pending", "reserved", "submitted"]))).all()
     accepted_items = [CoverageItem(reservation_id=item.reservation_id, tags=item.reviewed_tags) for item in accepted]
     commitments = [CoverageItem(reservation_id=item.id, tags=by_id[item.task_id].tags) for item in pending]
     # Unclaimed published slots are not financial obligations, but another new
@@ -82,7 +86,14 @@ def next_fixture_batch(db: Session, wallet: str, job_id: str, request_id: str) -
     tags = sorted(key for key, count in remaining.items() if key != "total" and count > 0)
     ids = create_batch(db, job, slots, tags)
     result = {"task_ids": ids, "deficits_after_existing_work": remaining, "published_slots": slots,
-              "fixture": True, "explanation": "Existing accepted clips, active promises and advertised slots were counted before allocating available simulated funds."}
-    db.add(Audit(id=audit_id, wallet=wallet, role="buyer", action="fixture_next_batch", resource_id=job.id, details=result))
+              "fixture": job.fixture, "explanation": "Existing accepted clips, active promises and advertised slots were counted before allocating available " + ("simulated" if job.fixture else "confirmed testnet") + " funds."}
+    db.add(Audit(id=audit_id, wallet=wallet, role="buyer", action="fixture_next_batch" if job.fixture else "next_batch", resource_id=job.id, details=result))
     db.commit()
     return result
+
+
+def next_fixture_batch(db: Session, wallet: str, job_id: str, request_id: str) -> dict:
+    job = locked_owned_fixture(db, wallet, job_id)
+    if not job.fixture:
+        raise HTTPException(409, "This endpoint requires a fixture job")
+    return next_collection_batch(db, wallet, job_id, request_id)

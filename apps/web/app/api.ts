@@ -115,7 +115,7 @@ export async function sendFundingTransaction(transaction: {
       "Switch to Arc testnet before authorizing this transaction.",
     );
   if (accounts[0]?.toLowerCase() !== transaction.from.toLowerCase())
-    throw new Error("Reconnect the buyer wallet that owns this saved plan.");
+    throw new Error("Reconnect the wallet that owns this action.");
   const hash = await provider.request({
     method: "eth_sendTransaction",
     params: [transaction],
@@ -126,3 +126,5 @@ export async function sendFundingTransaction(transaction: {
     );
   return hash;
 }
+
+export const sendWalletTransaction = sendFundingTransaction;

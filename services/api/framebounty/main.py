@@ -1,4 +1,4 @@
-"""Authenticated marketplace API; chain funding is gated, live payouts disabled."""
+"""Authenticated marketplace API; testnet actions are explicitly gated."""
 import os
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -17,11 +17,13 @@ from .models import Job, Reservation, Submission
 from .submission_routes import router as submissions_router
 from .agent_routes import router as agents_router
 from .funding_routes import router as funding_router
+from .chain_routes import router as chain_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0")
 app.include_router(submissions_router)
 app.include_router(agents_router)
 app.include_router(funding_router)
+app.include_router(chain_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -34,7 +36,10 @@ def database_unavailable(_request, _exc):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mode": os.getenv("APP_MODE", "fixture"), "payments_enabled": False}
+    enabled = (os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+               and bool(os.getenv("ARC_RPC_URL")) and bool(os.getenv("ARC_ESCROW_ADDRESS")))
+    return {"status": "ok", "mode": os.getenv("APP_MODE", "fixture"), "payments_enabled": enabled,
+            "settlement_requires_verified_receipt": True}
 
 
 @app.post("/plans/validate", response_model=Plan)
@@ -116,6 +121,7 @@ def post_reservation(body: ReserveRequest, wallet: str = Depends(current_wallet)
 def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     items = db.scalars(select(Reservation).where(Reservation.wallet == wallet).order_by(Reservation.id).limit(100)).all()
     return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic),
+        "fixture": db.get(Job, r.job_id).fixture,
         "expires_at": r.expires_at, "rights_declaration": db.get(Job, r.job_id).plan["rights_declaration"],
         "submission_id": db.scalar(select(Submission.id).where(Submission.reservation_id == r.id))} for r in items]}
 

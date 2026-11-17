@@ -115,7 +115,7 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
                 Submission.id != submission_id, Submission.sha256 == digest)).all()
             findings["exact_duplicate_candidates"] = list(exact)
             others = db.scalars(select(Submission).where(Submission.job_id == job.id,
-                Submission.id != submission_id, Submission.state.in_(["needs_review", "fixture_accepted"])).limit(100)).all()
+                Submission.id != submission_id, Submission.state.in_(["needs_review", "fixture_accepted", "accepted"])).limit(100)).all()
             import imagehash
             hashes = [imagehash.hex_to_hash(frame["dhash"]) for frame in findings["frames"]]
             findings["perceptual_duplicate_candidates"] = [other.id for other in others

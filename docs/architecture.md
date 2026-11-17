@@ -116,4 +116,13 @@ deliberate operator/user recovery rather than automatic repeat spending.
 The isolated chain harness deploys the actual contract/test token and uses random
 ephemeral local node accounts. Local signing refuses remote/non-local networks.
 Real Arc deployment, native/token semantics, wallet transaction UX on an actual
-phone and the live reservation/submission/review ledger still need validation.
+phone still need live validation.
+
+Migration 0005 adds explicit submission provenance and a transaction projection
+marker. Live claims hold application funds/slots before allocator dispatch. The
+dedicated allocator signs reservations only. Contributor content locks and reviewer
+decisions use their own wallets. The chain worker resumes receipt-confirmed but
+unprojected work, then atomically updates states, accounting and marker under job /
+reservation locks. No worker approves quality. Pending/reverted payments retain
+obligations until a valid receipt-driven release. Accepted testnet records enter
+coverage, bounded replanning and private export. See decision 0006 for limitations.

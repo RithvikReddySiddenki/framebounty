@@ -50,7 +50,7 @@ def main():
                     raise RuntimeError("Owned local chain did not become ready")
                 time.sleep(0.1)
         env = {**os.environ, "TEST_CHAIN_RPC_URL": url}
-        result = subprocess.run([sys.executable, "-m", "pytest", "services/api/tests/test_chain.py", "-q", *sys.argv[1:]],
+        result = subprocess.run([sys.executable, "-m", "pytest", "services/api/tests/test_chain.py", "services/api/tests/test_chain_workflow.py", "-q", *sys.argv[1:]],
             cwd=root, env=env)
         return result.returncode
     finally:

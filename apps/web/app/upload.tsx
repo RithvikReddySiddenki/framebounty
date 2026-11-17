@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { apiBase, request } from "./api";
 import MediaView from "./media-view";
+import WalletAction from "./wallet-action";
 
 export type Submission = {
   id: string;
@@ -10,6 +11,7 @@ export type Submission = {
   job_id: string;
   state: string;
   payment_confirmed: boolean;
+  fixture: boolean;
   rights_declaration: string;
   review_deadline: string;
   reviewed_tags: string[];
@@ -199,6 +201,15 @@ export default function Upload({
       )}
       {submission && (
         <div role="status">
+          {!submission.fixture && submission.state === "chain_pending" && (
+            <WalletAction
+              token={token}
+              reservationId={reservationId}
+              purpose="submit"
+              label="Confirm this uploaded content hash on chain"
+              refreshed={refresh}
+            />
+          )}
           <p>
             <strong>{submission.state.replaceAll("_", " ")}</strong> ·{" "}
             {submission.payment_confirmed

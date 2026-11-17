@@ -4,12 +4,11 @@ The server supplies calldata from the saved plan. Wallets retain their keys and
 must separately authorize creation, allowance and deposit. This service cannot
 reserve work or authorize quality/payment.
 """
-from eth_abi import decode
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .chain_rpc import ChainFailure, ChainRPC, address, call_data, escrow_call, hex_bytes, resource_id
+from .chain_rpc import ChainFailure, ChainRPC, address, call_data, escrow_call, resource_id
 from .domain import Plan
 from .marketplace import audit
 from .models import Job, Task, TransactionIntent
@@ -29,6 +28,8 @@ def owned_job(db: Session, wallet: str, job_id: str, plan_hash: str) -> Job:
 
 
 def actions(rpc: ChainRPC, job: Job, allocator: str) -> list[Action]:
+    if address(allocator) in {job.buyer, job.reviewer}:
+        raise ChainFailure("Use a dedicated non-reviewer allocator wallet")
     plan = Plan.model_validate(job.plan)
     jid = resource_id(job.id)
     fields = {"jobId": "0x" + jid.hex()}
@@ -56,8 +57,7 @@ def project_funding(db: Session, rpc: ChainRPC, job_id: str, wallet: str, plan_h
     rpc.check_contract()
     # Do not publish from an old deposit event after an external close/refund or
     # allocation. The allocator must be dedicated to this application's ledger.
-    raw = rpc.rpc("eth_call", [{"to": rpc.config.escrow, "data": escrow_call("jobs", [resource_id(job.id)])}, "latest"])
-    values = decode(["address", "address", "address", "bytes32", "uint64", "bool", "uint256", "uint256", "uint256", "uint256"], hex_bytes(raw))
+    values = rpc.read_escrow("jobs", [resource_id(job.id)])
     plan = Plan.model_validate(job.plan)
     if values[:5] != (job.buyer, job.reviewer, address(allocator), bytes.fromhex(plan_hash), plan.review_hours * 3600) or values[5]:
         raise ChainFailure("Current escrow terms no longer match this open job")

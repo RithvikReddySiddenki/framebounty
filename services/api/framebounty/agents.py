@@ -21,7 +21,7 @@ from .demo import example_plan
 from .domain import ClosedModel, Plan, ReservationIntent
 from .marketplace import audit, new_id, prepare_confirmation, reserve, search_tasks
 from .models import AgentSession, AgentTurn, Job, Reservation
-from .planning import next_fixture_batch
+from .planning import next_collection_batch
 from .submissions import coverage
 from .verification import GeminiFrames, ProviderFailure
 
@@ -116,8 +116,8 @@ def dispatch(db: Session, scope: AgentSession, tool: str, args: dict, turn_id: s
         if job is None or job.buyer != wallet:
             raise HTTPException(404, "Choose an owned job when creating this buyer conversation")
         if tool == "next_batch":
-            data = next_fixture_batch(db, wallet, job.id, turn_id)
-            return f"Published {data['published_slots']} explicitly simulated slots after counting current coverage and promises.", data
+            data = next_collection_batch(db, wallet, job.id, turn_id)
+            return f"Published {data['published_slots']} {'explicitly simulated' if data['fixture'] else 'testnet-funded'} slots after counting current coverage and promises.", data
         return "Coverage and spending come from the owned job's database records.", {
             "job_id": job.id, "state": job.state, "fixture": job.fixture, "coverage": coverage(db, job),
             "deposited_atomic": str(job.deposited_atomic), "committed_atomic": str(job.committed_atomic),
@@ -147,7 +147,8 @@ def dispatch(db: Session, scope: AgentSession, tool: str, args: dict, turn_id: s
         if not previous and not any(row["task_id"] == args["task_id"] for row in tasks):
             raise HTTPException(409, "Task changed or no longer fits your confirmed profile; search again")
         item = reserve(db, wallet, args["confirmation_id"], args["task_id"], args["version"], int(args["reward_atomic"]), turn_id)
-        return "Reservation recorded for your wallet. Fixture rewards are simulated and have no monetary value.", {
+        return ("Reservation recorded. Fixture rewards are simulated and have no monetary value." if item.state.startswith("fixture_") else
+                "Reservation requested. Wait for confirmed chain allocation before collecting or uploading."), {
             "id": item.id, "task_id": item.task_id, "state": item.state, "reward_atomic": str(item.reward_atomic), "expires_at": item.expires_at}
     raise HTTPException(403, "Tool is unavailable")
 

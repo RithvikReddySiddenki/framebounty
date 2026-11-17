@@ -44,6 +44,7 @@ type ToolResult = {
   reply: string;
   provider_mode: string;
   data: {
+    fixture?: boolean;
     tasks?: Task[];
     plan?: PlanProposal;
     reservations?: {
@@ -388,8 +389,9 @@ export default function AgentPane({
                 )}
                 {entry.result.data.published_slots !== undefined && (
                   <p>
-                    {entry.result.data.published_slots} fixture slots published.{" "}
-                    {entry.result.data.explanation}
+                    {entry.result.data.published_slots}{" "}
+                    {entry.result.data.fixture ? "fixture" : "testnet"} slots
+                    published. {entry.result.data.explanation}
                   </p>
                 )}
                 {entry.result.data.tasks?.length === 0 && (

@@ -16,7 +16,7 @@ from .db import session
 from .marketplace import new_id
 from .media import MAX_UPLOAD, InvalidMedia, LocalStorage, validate_container_header
 from .models import Job, Submission
-from .planning import next_fixture_batch, publish_fixture
+from .planning import next_collection_batch, next_fixture_batch, publish_fixture
 from .submissions import coverage, finalize_upload, owned_reservation, private_submission, release_expired, review, submission_view
 
 router = APIRouter()
@@ -30,7 +30,7 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
         raise HTTPException(422, "Explicit acknowledgment of this task's usage rights is required")
     # Existing uploads may be retried by content hash after the original deadline.
     previous = db.scalar(select(Submission.id).where(Submission.reservation_id == reservation_id))
-    if not previous and (reservation.state != "fixture_reserved" or reservation.expires_at <= datetime.now(UTC)):
+    if not previous and (reservation.state not in {"fixture_reserved", "reserved"} or reservation.expires_at <= datetime.now(UTC)):
         raise HTTPException(409, "Reservation no longer accepts uploads")
     mime = request.headers.get("content-type", "").split(";")[0].lower()
     if mime not in {"video/mp4", "video/quicktime"}:
@@ -144,7 +144,7 @@ def get_coverage(job_id: str, wallet: str = Depends(current_wallet), db: Session
 @router.get("/jobs/{job_id}/export")
 def export(job_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     job = owned_job(db, job_id, wallet)
-    items = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state == "fixture_accepted").order_by(Submission.id)).all()
+    items = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state.in_(["fixture_accepted", "accepted"])).order_by(Submission.id)).all()
     return {"job_id": job.id, "fixture": job.fixture, "plan": job.plan, "items": [
         {"submission_id": item.id, "sha256": item.sha256, "reviewed_tags": item.reviewed_tags,
          "rubric_hash": item.rubric_hash, "rights_declaration": item.rights_declaration,
@@ -161,7 +161,7 @@ def expire(reservation_id: str, wallet: str = Depends(current_wallet), db: Sessi
 def export_dataset(job_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     import zipstream
     job = owned_job(db, job_id, wallet)
-    items = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state == "fixture_accepted").order_by(Submission.id)).all()
+    items = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state.in_(["fixture_accepted", "accepted"])).order_by(Submission.id)).all()
     if len(items) > job.plan["total"]:
         raise HTTPException(409, "Accepted data exceeds the approved plan; export requires reconciliation")
     archive = zipstream.ZipStream(compress_type=zipstream.ZIP_STORED)
@@ -207,3 +207,8 @@ class BatchRequest(BaseModel):
 @router.post("/jobs/{job_id}/next-fixture-batch")
 def next_batch(job_id: str, body: BatchRequest, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     return next_fixture_batch(db, wallet, job_id, body.request_id)
+
+
+@router.post("/jobs/{job_id}/next-batch")
+def next_live_batch(job_id: str, body: BatchRequest, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    return next_collection_batch(db, wallet, job_id, body.request_id)

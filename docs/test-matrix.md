@@ -2,14 +2,16 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **107 passed, 5 skipped**, one upstream Starlette/httpx deprecation warning.
-  The five local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-full-chain-02 --junitxml=.local/chain-release-results.xml`
+- Full backend: **108 passed, 11 skipped**, one upstream Starlette/httpx deprecation warning.
+  The eleven local-chain cases run in the separate gate below.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-workflow-full-02 --junitxml=.local/workflow-backend-results.xml`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
-- Real PostgreSQL/local-chain gate: **5 passed**, no skips. Deploys the actual
-  escrow/test token on an owned ephemeral node: restart/double payout, reverted
-  and pending payment, unrelated hashes/immutable terms, receipt-gated funding.
-  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-chain-06 --junitxml=.local/local-chain-results.xml`.
+- Real PostgreSQL/local-chain gate: **11 passed**, no skips. Deploys the actual
+  escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
+  double payout, reverted/pending payment, receipt-gated funding, full synthetic
+  upload/review/payment, confirmed-but-unprojected recovery, rejection, deadlines,
+  concurrent pending claims and late-worker fencing.
+  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-workflow-05 --junitxml=.local/workflow-chain-results.xml`.
 - Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
 - Chromium: **1 passed** in the isolated browser harness, using real wallet signatures,
@@ -23,14 +25,21 @@
 - Read-only Arc preflight confirmed chain ID 5042002 and ERC-20 USDC decimals 6.
   Command: `python scripts/inspect_arc.py`. No transactions were submitted.
 
+The final synthetic workflow additionally passed its targeted accepted-record
+duplicate regression (1 passed, 10 deselected) using
+`scripts/test_chain.py -k real_reserve_upload -p no:cacheprovider --basetemp=.local/pytest-workflow-duplicates-01`.
+One intermediate chain run encountered a migration teardown error while migration
+0005 was being edited during the run. Stable fresh-schema runs subsequently passed;
+no assertions were removed or weakened.
+
 | Requirement | Current files / evidence | Remaining limit |
 | --- | --- | --- |
 | C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund, deposit/refund replay and randomized sequences | Local EVM/test token; no Arc deployment |
-| I06/I07 chain recovery/funding | test_chain.py: durable signatures after response loss, pending/reverted payment, actual transaction/event verification and funding publication once; test_chain_rpc.py: wrong network/token and malformed provider fail closed | Funding projection only; live reservation/review projection, hashless wallet discovery and fee replacement pending |
+| I06/I07 chain recovery/funding | test_chain.py + test_chain_workflow.py: durable signature and projection restart, pending/reverted payment, transaction/event verification, funded publication, real media and human-reviewed payout; test_chain_rpc.py: wrong network/token and malformed providers | Arc-native semantics, hashless recovery and fee replacement pending |
 | B03/B06/B08/B12 | test_submission_flow.py + test_media.py: bounded raw upload, private access, hashes, actual malformed/valid decode, review expiry, durable lease fencing | Process timeouts are not a total native-worker memory ceiling |
 | B07/B14 | Exact and perceptual review flags in worker; real decode/frame tests | Similarity threshold is heuristic, no false-positive/negative evaluation |
 | B13 | Completion attestation and full-video watch required; invalid decode cannot be overridden | Synthetic orchestration tests are not a model/task-quality evaluation |
-| B02/I08/I12 (fixture portion) | test_planning.py + test_submission_flow.py: overlap, accepted/pending distinction, commitments preserved, published slots counted, fixed budget | No live chain projection |
+| B02/I08/I12 | test_planning.py + test_submission_flow.py + test_chain_workflow.py: overlap, accepted/pending distinction, commitments preserved, advertised slots counted, fixed budget | Real Arc deployment/evaluation pending |
 | I06/I07 (media portion) | Real DB job leases, stale completion fencing, cross-wallet video/frame/export denial | Live provider retries/reconciliation not exercised |
 | E01/E02/E03/E05 (fixture portion) | e2e/collection.spec.ts: buyer draft/simulated funding, phone viewport upload, authenticated playback, human review, next batch, manifest download | No physical phone, live model or blockchain payment |
 | Export | Authorized manifest and streaming ZIP; ZIP contents match accepted media bytes in regression test | Downloaded data is outside subsequent access control |

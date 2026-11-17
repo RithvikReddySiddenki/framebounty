@@ -31,20 +31,23 @@ def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, dig
         if old.sha256 != digest:
             raise HTTPException(409, "A different video was already submitted for this reservation")
         return old
-    if not job.fixture or os.getenv("APP_MODE", "fixture") != "fixture":
-        raise HTTPException(503, "Live submission locking is not connected; no submission was recorded")
-    if reservation.state != "fixture_reserved" or reservation.expires_at <= datetime.now(UTC):
+    fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
+    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    if not (fixture or live):
+        raise HTTPException(503, "Uploads are disabled for this mode")
+    if reservation.state != ("fixture_reserved" if fixture else "reserved") or reservation.expires_at <= datetime.now(UTC):
         raise HTTPException(409, "Reservation is expired or no longer accepts uploads")
-    item = Submission(id=new_id(), reservation_id=reservation.id, job_id=job.id, wallet=wallet,
+    item = Submission(id=new_id(), reservation_id=reservation.id, job_id=job.id, wallet=wallet, fixture=fixture,
         object_key=key, sha256=digest, size_bytes=size, content_type=mime,
         rights_declaration=job.plan["rights_declaration"], rubric_hash=reservation.rubric_hash,
-        state="queued", findings={}, reviewed_tags=[],
+        state="queued" if fixture else "chain_pending", findings={}, reviewed_tags=[],
         review_deadline=datetime.now(UTC) + timedelta(hours=job.plan["review_hours"]))
     db.add(item)
     db.flush()  # The durable job FK is written in the same transaction as submission.
-    db.add(VerificationJob(id=new_id(), submission_id=item.id, state="queued", attempts=0))
-    reservation.state = "fixture_submitted"
-    audit(db, wallet, "contributor", "fixture_submit", item.id, {"reservation_id": reservation.id, "sha256": digest})
+    if fixture:
+        db.add(VerificationJob(id=new_id(), submission_id=item.id, state="queued", attempts=0))
+        reservation.state = "fixture_submitted"
+    audit(db, wallet, "contributor", "fixture_submit" if fixture else "upload_awaiting_chain", item.id, {"reservation_id": reservation.id, "sha256": digest})
     db.commit()
     return item
 
@@ -69,7 +72,7 @@ def submission_view(item: Submission, include_private_pairs: bool = False) -> di
         "state": item.state, "findings": findings, "reviewed_tags": item.reviewed_tags,
         "review_reason": item.review_reason, "review_deadline": item.review_deadline,
         "rights_declaration": item.rights_declaration, "rubric_hash": item.rubric_hash,
-        "fixture": True, "payment_confirmed": False}
+        "fixture": item.fixture, "payment_confirmed": not item.fixture and item.state == "accepted"}
 
 
 def review(db: Session, wallet: str, submission_id: str, decision: str, task_completed: bool,
@@ -86,22 +89,31 @@ def review(db: Session, wallet: str, submission_id: str, decision: str, task_com
         raise HTTPException(422, "Review tags must match this immutable plan")
     if decision not in ("accept", "reject") or not reason.strip():
         raise HTTPException(422, "A decision and reason are required")
-    target = "fixture_accepted" if decision == "accept" else "rejected"
+    target = ("fixture_accepted" if decision == "accept" else "rejected") if job.fixture else ("accept_pending" if decision == "accept" else "reject_pending")
     if decision == "accept" and (not task_completed or not watched_full_video):
         raise HTTPException(422, "Acceptance requires explicit full-video/task-completion review")
-    if item.state == target and item.review_reason == reason and item.reviewed_tags == normalized_tags:
+    replay_states = {target} | ({"accepted" if decision == "accept" else "rejected"} if not job.fixture else set())
+    if item.state in replay_states and item.review_reason == reason and item.reviewed_tags == normalized_tags:
         return item
-    if item.state not in ("needs_review", "invalid") or reservation.state != "fixture_submitted":
+    if item.state not in ("needs_review", "invalid") or reservation.state != ("fixture_submitted" if job.fixture else "submitted"):
         raise HTTPException(409, "Submission is not awaiting review")
     if item.review_deadline <= datetime.now(UTC):
         raise HTTPException(409, "Review window expired; use the timeout release path")
-    if not job.fixture or os.getenv("APP_MODE", "fixture") != "fixture":
-        raise HTTPException(503, "Live review/payment orchestration is not connected")
+    fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
+    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    if not (fixture or live):
+        raise HTTPException(503, "Review is disabled for this mode")
     if decision == "accept" and (not task_completed or not watched_full_video or not item.findings.get("decoded") or item.state == "invalid"):
         raise HTTPException(422, "Acceptance requires a decoded video and explicit full-video/task-completion review")
     task = db.scalar(select(Task).where(Task.id == reservation.task_id).with_for_update())
     if decision == "accept" and not set(task.tags) <= set(tags):
         raise HTTPException(422, "Accepted work must satisfy this reserved task's required categories")
+    if live:
+        item.state, item.review_reason, item.reviewed_tags = target, reason, normalized_tags
+        audit(db, wallet, "reviewer", "human_" + decision + "_awaiting_chain", item.id,
+              {"task_completed": task_completed, "watched_full_video": watched_full_video, "tags": normalized_tags, "reason": reason})
+        db.commit()
+        return item
     job.committed_atomic -= reservation.reward_atomic
     if decision == "accept":
         # Simulation only. This ledger can never recognize a live chain payment.
@@ -118,9 +130,9 @@ def review(db: Session, wallet: str, submission_id: str, decision: str, task_com
 
 
 def coverage(db: Session, job: Job) -> dict:
-    accepted = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state == "fixture_accepted")).all()
+    accepted = db.scalars(select(Submission).where(Submission.job_id == job.id, Submission.state.in_(["fixture_accepted", "accepted"]))).all()
     pending = db.scalars(select(Reservation).where(Reservation.job_id == job.id,
-        Reservation.state.in_(["fixture_reserved", "fixture_submitted"]))).all()
+        Reservation.state.in_(["fixture_reserved", "fixture_submitted", "reserve_pending", "reserved", "submitted"]))).all()
     return {"accepted_total": len(accepted), "pending_total": len(pending),
         "accepted_categories": {r["key"]: sum(r["key"] in s.reviewed_tags for s in accepted) for r in job.plan["requirements"]},
         "fixture": job.fixture}

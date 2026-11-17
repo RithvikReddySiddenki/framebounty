@@ -5,6 +5,7 @@ import { apiBase, request } from "./api";
 import MediaView from "./media-view";
 import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
+import WalletAction from "./wallet-action";
 
 type Job = { id: string; title: string; state: string; fixture: boolean };
 type Coverage = {
@@ -61,12 +62,41 @@ function ReviewCard({
   return (
     <article className="panel review-card">
       <p className="eyebrow">
-        FIXTURE SUBMISSION · {item.state.replaceAll("_", " ")}
+        {item.fixture ? "FIXTURE SUBMISSION" : "TESTNET SUBMISSION"} ·{" "}
+        {item.state.replaceAll("_", " ")}
       </p>
       <h3>Submission {item.id.slice(0, 8)}</h3>
+      {!item.fixture &&
+        !["accepted", "rejected", "expired", "timed_out"].includes(
+          item.state,
+        ) && (
+          <WalletAction
+            token={token}
+            reservationId={item.reservation_id}
+            purpose="release"
+            label="Release only after the applicable deadline expires"
+            refreshed={refreshed}
+          />
+        )}
+      {!item.fixture &&
+        ["accept_pending", "reject_pending"].includes(item.state) && (
+          <WalletAction
+            token={token}
+            reservationId={item.reservation_id}
+            purpose="review"
+            label={
+              item.state === "accept_pending"
+                ? "Pay the fixed recipient for this human-reviewed submission"
+                : "Confirm this human review rejection on chain"
+            }
+            refreshed={refreshed}
+          />
+        )}
       <p className="muted">
-        Review before {new Date(item.review_deadline).toLocaleString()}. No
-        chain payment has been confirmed.
+        Review before {new Date(item.review_deadline).toLocaleString()}.{" "}
+        {item.payment_confirmed
+          ? "Chain payment confirmed."
+          : "No chain payment confirmed."}
       </p>
       <button onClick={() => setMediaVisible(!mediaVisible)}>
         {mediaVisible
@@ -193,7 +223,9 @@ function ReviewCard({
             }
             onClick={() => void decide("accept")}
           >
-            Accept fixture work
+            {item.fixture
+              ? "Accept fixture work"
+              : "Accept quality; prepare wallet payout"}
           </button>
           <button
             disabled={busy || reason.trim().length < 3}
@@ -300,11 +332,15 @@ export default function Reviews({ token }: { token?: string }) {
       const result = await request<{
         published_slots: number;
         explanation: string;
-      }>(`/jobs/${selected}/next-fixture-batch`, token, {
-        request_id: requestId,
-      });
+      }>(
+        `/jobs/${selected}/${jobs.find((job) => job.id === selected)?.fixture ? "next-fixture-batch" : "next-batch"}`,
+        token,
+        {
+          request_id: requestId,
+        },
+      );
       setBatchMessage(
-        `${result.published_slots} fixture slots published. ${result.explanation}`,
+        `${result.published_slots} slots published. ${result.explanation}`,
       );
       setBatchRequestId("");
       await load();
@@ -403,7 +439,9 @@ export default function Reviews({ token }: { token?: string }) {
                 Download dataset ZIP
               </button>
               <button disabled={busy} onClick={() => void nextBatch()}>
-                Commission next fixture batch
+                {jobs.find((job) => job.id === selected)?.fixture
+                  ? "Commission next fixture batch"
+                  : "Commission next testnet batch"}
               </button>
             </>
           )}

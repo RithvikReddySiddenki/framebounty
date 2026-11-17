@@ -89,8 +89,9 @@ export default function Funding({
       <p>
         Wallet approval is required for each step: create escrow job, allow the
         exact test-USDC budget, then deposit. Native gas is separate. Listings
-        appear only after verified funding. Contributor reservations and payouts
-        are still being connected.
+        appear only after verified funding. Contributors wait for confirmed
+        reservations; payouts require human review and a separate wallet
+        transaction.
       </p>
       <label className="check">
         <input
