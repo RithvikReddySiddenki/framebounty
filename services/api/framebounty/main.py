@@ -20,6 +20,7 @@ from .submission_routes import router as submissions_router
 from .agent_routes import router as agents_router
 from .funding_routes import router as funding_router
 from .chain_routes import router as chain_router
+from .chat import router as chat_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -27,6 +28,7 @@ app.include_router(submissions_router)
 app.include_router(agents_router)
 app.include_router(funding_router)
 app.include_router(chain_router)
+app.include_router(chat_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
