@@ -26,12 +26,19 @@
 - Read-only Arc preflight confirmed chain ID 5042002 and ERC-20 USDC decimals 6.
   Command: `python scripts/inspect_arc.py`. No transactions were submitted.
 - Live setup only: configured Gemini key authenticates for model listing/metadata;
-  no generation performed. Allocator has 20 test USDC, with successful canonical
+  no generation was performed at that metadata stage. Allocator has 20 test USDC, with successful canonical
   faucet receipt verified against both native and ERC-20 logs without double count.
   Deployment preparation signs and persists one bounded transaction but broadcast
-  awaits explicit permission. No live deployment/inference success is claimed.
+  awaits explicit permission. See the separately gated synthetic inference below;
+  no Arc deployment is claimed.
 - New real-filesystem tests cover OS deployment locking, secret/flag preservation,
   existing configuration and recovery-file protection, and key-alone inference denial.
+- After the user confirmed Free tier with billing disabled, one live synthetic-card
+  Gemini smoke passed: gemini-3.5-flash-lite, schema valid, 2.954 seconds, task
+  completion not passed. Command: `scripts/smoke_gemini.py` with both explicit smoke
+  gates set for that process only. No private media or application model flag was
+  enabled. This is not a physical-task accuracy evaluation. Arc broadcast is still
+  awaiting its separate approval.
 
 The final synthetic workflow additionally passed its targeted accepted-record
 duplicate regression (1 passed, 10 deselected) using

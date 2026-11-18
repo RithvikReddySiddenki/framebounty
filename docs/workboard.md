@@ -129,3 +129,10 @@ Duplicate blank/populated Gemini entries in local .env were safely consolidated
 without exposing or replacing populated secrets. New deployment locks, signature
 checks and configuration-preservation tests pass. No deployed escrow or inference
 success is claimed while these gates are pending.
+
+User supplied an AI Studio screenshot confirming Free tier with billing not set up.
+The explicit synthetic-only Gemini smoke then passed with gemini-3.5-flash-lite:
+closed schema valid, synthetic task completion not passed, latency 2.954 seconds.
+No private media or application inference was enabled. This is one negative smoke,
+not a task-quality evaluation. Arc deployment remains unbroadcast pending separate
+explicit approval; the screenshot did not authorize spending testnet funds.

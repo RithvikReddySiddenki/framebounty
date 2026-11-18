@@ -29,7 +29,10 @@ runtime verification or risk unauthorized paid inference.
 Validation: real local EVM tests cover deployment response-loss/rebroadcast and
 signed-term tampering. Native file-lock tests exclude parallel state owners and
 allow reopening; filesystem tests preserve secrets and prior recovery files.
-Arc broadcast and Gemini inference remain gated pending the user's answers.
+Arc broadcast remains gated pending the user's separate approval. After the user
+confirmed Free tier with billing disabled, the synthetic negative inference smoke
+passed (2.954 seconds, schema valid, task completion fail). Application inference
+flags remain off; physical-task evaluation and private-media consent remain pending.
 
 Current official references: https://docs.arc.io/arc/references/evm-differences.md
 (native/token units and 20 Gwei floor),
