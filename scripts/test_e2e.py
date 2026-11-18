@@ -79,7 +79,7 @@ def main():
                     if time.monotonic() > deadline:
                         raise RuntimeError(f"Test server readiness timed out; inspect {run_root}")
                     time.sleep(0.5)
-        result = subprocess.run(["node", str(root / "apps/web/node_modules/@playwright/test/cli.js"), "test"], cwd=root / "apps/web", env=env, creationflags=flags, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        result = subprocess.run(["node", str(root / "apps/web/node_modules/@playwright/test/cli.js"), "test", *sys.argv[1:]], cwd=root / "apps/web", env=env, creationflags=flags, capture_output=True, text=True, encoding="utf-8", errors="replace")
         print(result.stdout, flush=True)
         print(result.stderr, file=sys.stderr, flush=True)
         raise SystemExit(result.returncode)

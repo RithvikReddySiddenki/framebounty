@@ -188,3 +188,6 @@ buyer flow and contributor-agent discovery. Validation: full backend 129 passed 
 build passed. Live Gemini synthetic plan/schema smoke passed. Decision 0009 records
 interfaces, compatibility and remaining real-world validation. No migration or ABI
 change. Real consented-task model evaluation and user-funded Arc payout remain pending.
+
+Draft post rendering fix (implementation lead): namespace funding/review sibling keys by panel and post ID. Acceptance: opening an unfunded post emits no duplicate-key warning and selecting another post resets funding approval. Added a separate real-API browser gate with chain funding UI enabled; no wallet transactions.
+Validated: targeted draft-post browser gate 1 passed; production build passed. CI now runs this gate with funding UI enabled alongside the standard fixture flow. No database or contract changes.

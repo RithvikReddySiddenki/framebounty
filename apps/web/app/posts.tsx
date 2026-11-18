@@ -41,8 +41,8 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       <p>Funded: {usdc(post.deposited_atomic)} · Paid: {usdc(post.paid_atomic)} test USDC</p>
       {post.state === "draft" && <p>This post is saved privately. Complete funding to make tasks visible to contributors.</p>}
       {post.publication_status === "no_available_tasks" && <p>The collection is funded, but tasks are claimed, expired or no longer covered by available funds. Review submissions or ask the collection agent to commission the next batch.</p>}
-      {post.state === "draft" && process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && <Funding key={post.id} token={token} jobId={post.id} planHash={post.plan_hash} onPublished={changed} />}
-      <Reviews key={post.id} token={token} jobId={post.id} onChanged={changed} />
+      {post.state === "draft" && process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && <Funding key={`funding-${post.id}`} token={token} jobId={post.id} planHash={post.plan_hash} onPublished={changed} />}
+      <Reviews key={`reviews-${post.id}`} token={token} jobId={post.id} onChanged={changed} />
     </section>}
     {error && <p className="error" role="alert">{error}</p>}
   </>;

@@ -58,6 +58,9 @@ jobs:
       - run: npm ci --prefix apps/web
       - run: npm exec --prefix apps/web -- playwright install --with-deps chromium
       - run: python scripts/test_e2e.py
+      - run: python scripts/test_e2e.py --grep 'draft funding and review panels'
+        env:
+          NEXT_PUBLIC_ENABLE_CHAIN_FUNDING: "true"
   web:
     runs-on: ubuntu-latest
     defaults:

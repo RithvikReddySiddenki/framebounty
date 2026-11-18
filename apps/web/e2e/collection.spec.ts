@@ -3,6 +3,34 @@ import { Wallet, getBytes } from "ethers";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+test("draft funding and review panels have distinct identities across post selection", async ({ page }) => {
+  test.skip(process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING !== "true", "Separate funding-UI regression gate; no wallet transactions");
+  const errors: string[] = [];
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  const authenticated = page.waitForRequest(req => req.url().endsWith("/me/overview"));
+  await connect(page);
+  const authorization = (await authenticated).headers()["authorization"];
+  for (const title of ["First draft image post", "Second draft image post"]) {
+    const response = await page.request.post("http://127.0.0.1:8002/jobs", {
+      headers: { Authorization: authorization }, data: {
+        media_type: "image", version: 1, title, total: 1, budget_atomic: 1000000,
+        reward_atomic: 1000000, min_seconds: 10, max_seconds: 10, review_hours: 72,
+        rights_declaration: "Synthetic UI test data only; no actual collection.", requirements: [],
+      },
+    });
+    expect(response.ok()).toBe(true);
+  }
+  await page.getByRole("button", { name: "Collections & review", exact: true }).click();
+  await page.locator(".post-card").filter({ hasText: "First draft image post" }).click();
+  const confirmation = page.getByLabel("I confirm the saved plan and its fixed test-USDC budget.");
+  await confirmation.check();
+  await expect(page.getByRole("button", { name: "Refresh queue & coverage" })).toBeVisible();
+  await page.locator(".post-card").filter({ hasText: "Second draft image post" }).click();
+  await expect(confirmation).not.toBeChecked();
+  await expect(page.locator(".post-detail").getByRole("heading", { name: "Second draft image post", exact: true })).toBeVisible();
+  expect(errors.filter(error => /same key|unique.*key/i.test(error))).toEqual([]);
+});
+
 test("image request becomes a labeled post, private image submission, AI findings and human review", async ({ browser }) => {
   const buyerContext = await browser.newContext();
   const actorContext = await browser.newContext({ viewport: { width: 390, height: 844 } });

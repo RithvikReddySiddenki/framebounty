@@ -118,3 +118,5 @@ failed while fetching remote CI; local success is not a remote-CI claim.
 
 The planned IDs are taken from PROJECT_BRIEF.md. Partial coverage never marks an
 entire requirement complete. No local or mocked result proves Arc or Gemini behavior.
+
+Draft-post identity regression: 1 Chromium test passed with NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true using python scripts/test_e2e.py --grep 'draft funding and review panels'. Both funding/review panels render without duplicate-key errors, and selecting another draft resets its funding approval. This separate CI gate performs no wallet transactions. Production build passed.
