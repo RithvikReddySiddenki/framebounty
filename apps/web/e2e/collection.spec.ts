@@ -62,12 +62,16 @@ test("image request becomes a labeled post, private image submission, AI finding
   await card.click();
   await connect(actor);
   await actor.getByRole("button", { name: "Contributor workspace" }).click();
-  await actor.getByLabel("Message your work agent").fill("I have a phone");
+  await actor.getByLabel("Message your work agent").fill("I have a cat. What kinds of tasks are available for me.");
   await actor.getByRole("button", { name: "Send", exact: true }).click();
   await expect(actor.getByText(/How much time do you have/)).toBeVisible();
   await expect(actor.getByLabel("Equipment (comma-separated)")).toHaveCount(0);
-  await actor.getByLabel("Message your work agent").fill("20 minutes");
+  await actor.getByLabel("Message your work agent").fill("I have a phone to record and take pictures");
   await actor.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(actor.getByText(/Using: cat, phone/)).toBeVisible();
+  await actor.getByLabel("Message your work agent").fill("I have infinite amount of time.");
+  await actor.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(actor.getByText(/no time filter/).first()).toBeVisible();
   const match = actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i });
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });

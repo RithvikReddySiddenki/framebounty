@@ -5,7 +5,7 @@ import { request, usdc } from "./api";
 type Task = { task_id: string; title: string; media_type: string; version: number; reward_atomic: string;
   minutes: number; deadline: string; fixture: boolean; requirements: { key: string; description: string }[];
   rights_declaration: string; review_hours: number; reviewer: string; explanation: string };
-type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[]; minutes?: number }; tasks?: Task[] } };
+type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[]; minutes?: number; no_time_limit?: boolean }; tasks?: Task[] } };
 type Entry = { id: string; message: string; result: Reply };
 
 /** Chat collects explicit capabilities; only a displayed task click reserves work. */
@@ -71,7 +71,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
       <p><strong>You:</strong> {entry.message}</p><p><strong>Agent:</strong> {entry.result.reply}</p>
       {entry.result.provider_mode === "fixture" && <small>Fixture conversation · Listings come from the database; no live AI interpretation.</small>}
     </article>)}</div>
-    {latest?.data.facts.equipment && <p className="muted">Using: {latest.data.facts.equipment.join(", ") || "no equipment"}{latest.data.facts.minutes ? ` · ${latest.data.facts.minutes} minutes` : ""}. Tell me if this changes.</p>}
+    {latest?.data.facts.equipment && <p className="muted">Using: {latest.data.facts.equipment.join(", ") || "no equipment"}{latest.data.facts.no_time_limit ? " · no time filter" : latest.data.facts.minutes ? ` · ${latest.data.facts.minutes} minutes` : ""}. Tell me if this changes.</p>}
     {latest?.data.tasks?.map(task => <article className="panel agent-task" key={task.task_id}>
       <span className="tag">{task.media_type === "image" ? "Image post" : "Video post"}</span>
       <h3>{task.title}</h3><p><strong>{usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</strong> per accepted item · about {task.minutes} minutes</p>
@@ -82,7 +82,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
     </article>)}
     <form onSubmit={e => { e.preventDefault(); void send(); }}>
       <label htmlFor="work-message">Message your work agent</label>
-      <textarea id="work-message" value={message} rows={3} maxLength={4000} placeholder="I have a phone, a towel and a dark table. I have 20 minutes. What can I do?" onChange={e => setMessage(e.target.value)} disabled={busy || loading} />
+      <textarea id="work-message" value={message} rows={3} maxLength={4000} placeholder="I have a phone and a cat. What tasks can I do?" onChange={e => setMessage(e.target.value)} disabled={busy || loading} />
       <button className="primary" disabled={busy || loading || !message.trim()}>{loading ? "Restoring chat…" : busy ? "Working…" : "Send"}</button>
     </form>
     <details><summary>Conversation options</summary><button disabled={busy || loading} onClick={() => { setSid(undefined); setEntries([]); setMessage(""); setError(""); attempt.current = undefined; reservation.current = undefined; }}>Start a new work search</button></details>

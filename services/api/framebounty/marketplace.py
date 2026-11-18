@@ -36,13 +36,13 @@ def create_job(db: Session, wallet: str, plan: Plan) -> Job:
     return job
 
 
-def search_tasks(db: Session, equipment: set[str], minutes: int) -> list[dict]:
+def search_tasks(db: Session, equipment: set[str], minutes: int | None) -> list[dict]:
     now = datetime.now(UTC)
     rows = db.execute(select(Task, Job).join(Job, Task.job_id == Job.id).where(
         Job.state == "open", Task.state == "open", Task.deadline > now,
         Job.fixture == (os.getenv("APP_MODE", "fixture") == "fixture"),
         Task.equipment.contained_by(sorted(equipment)),
-        Task.claimed < Task.slots, Task.minutes <= minutes,
+        Task.claimed < Task.slots, *([] if minutes is None else [Task.minutes <= minutes]),
         Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic >= Task.reward_atomic,
     ).order_by(Task.deadline, Task.id).limit(100)).all()
     # Equipment filtering stays deterministic. Do not infer undeclared tools from prose.
@@ -52,7 +52,7 @@ def search_tasks(db: Session, equipment: set[str], minutes: int) -> list[dict]:
                  requirements=j.plan["requirements"], min_seconds=j.plan["min_seconds"], max_seconds=j.plan["max_seconds"],
                  rubric_hash=j.plan_hash, rights_declaration=j.plan["rights_declaration"],
                  review_hours=j.plan["review_hours"], reviewer=j.reviewer,
-                 explanation=f"Requires {', '.join(t.equipment)}; estimated {t.minutes} minutes, within your declared availability.")
+                 explanation=f"Requires {', '.join(t.equipment)}; estimated {t.minutes} minutes" + ("; no time filter requested." if minutes is None else ", within your declared availability."))
             for t, j in rows if set(t.equipment) <= equipment]
 
 

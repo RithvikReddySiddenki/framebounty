@@ -203,3 +203,11 @@ separate funding-panel gate 1 passed; 6 publishing-coordinator tests passed;
 production build passed; mobile/desktop chat screenshots inspected. Live Gemini
 clarification smoke passed after transient provider 503s. Existing data and Arc
 funding preserved. Decisions/interfaces: 0010. No migration or ABI change.
+
+2026-11-18 contributor clarification fix (implementation lead): support explicit unlimited time as no time filter rather than requiring a numeric minute count; retain stated resources such as pets across messages. Acceptance: the reported cat -> phone -> infinite-time sequence searches real funded listings, and later numeric limits/resource corrections still apply. Affects chat intake, search's optional time filter and contributor summary; no financial-state or database migration changes.
+
+Validated unlimited-time fix: 150 backend passed / 14 separate-chain skips,
+7 Chromium passed / 1 separate funding-UI skip, production build passed. Live
+Gemini confirmed explicit no-time-limit with cat and phone retained. Existing
+stored chats recover these preferences on the next message. No wallet action,
+funding change, migration or private media upload was performed.

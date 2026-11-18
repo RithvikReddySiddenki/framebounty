@@ -9,8 +9,8 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from framebounty.chat import ChatMessage, chat_turn, grounded_number
-from framebounty.models import AgentSession, AgentTurn, Job, Reservation
+from framebounty.chat import ChatMessage, chat_turn, grounded_number, unlimited_time, stated_resources
+from framebounty.models import AgentSession, AgentTurn, Job, Reservation, Task
 from framebounty.verification import GeminiFrames
 from test_postgres import pg
 from test_submission_flow import flow
@@ -124,3 +124,55 @@ def test_concurrent_chat_turns_do_not_overwrite_each_others_facts(pg, monkeypatc
 ])
 def test_numeric_facts_are_grounded_in_the_correct_user_statement(field, value, quote, awaiting, valid):
     assert grounded_number(field, value, quote, awaiting) is valid
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("I have infinite amount of time.", True), ("I have unlimited time", True),
+    ("No time limit", True), ("As long as it takes", True),
+    ("I do not have unlimited time", False), ("I have 20 minutes", False),
+])
+def test_explicit_unlimited_time_is_not_an_invented_minute_count(text, expected):
+    assert unlimited_time(text) is expected
+
+
+def test_stated_resources_preserve_pets_and_respect_later_corrections():
+    messages = ["I have a cat. What tasks are available?", "I have a phone to record and take pictures"]
+    assert stated_resources(messages, ["phone"]) == ["cat", "phone"]
+    assert stated_resources(messages + ["I have only 10 minutes"], ["phone"]) == ["cat", "phone"]
+    assert stated_resources(messages + ["I only have a phone"], ["cat", "phone"]) == ["phone"]
+    assert stated_resources(messages + ["I no longer have a cat"], ["cat", "phone"]) == ["phone"]
+
+
+def test_cat_phone_and_infinite_time_search_without_arbitrary_time_cap(pg, flow):
+    client, buyer, actor, _, job_id, _ = flow
+    plan = client.get(f"/jobs/{job_id}", headers=buyer).json()["plan"]
+    created = client.post("/jobs", headers=buyer, json=plan).json()
+    assert client.post(f"/jobs/{created['id']}/fixture-publish", headers=buyer,
+        json={"plan_hash": created["plan_hash"], "confirmed": True}).status_code == 200
+    with Session(pg) as db:
+        task = db.scalar(select(Task).where(Task.job_id == created["id"]))
+        task.equipment, task.minutes = ["phone"], 2000  # Prove there is no fake 1440-minute cap.
+        db.commit()
+    sid = start(client, actor, "contributor")
+    first = send(client, actor, sid, "I have a cat. What kinds of tasks are available for me.", "cat-search-first").json()
+    assert first["data"]["facts"]["equipment"] == ["cat"]
+    assert first["data"]["missing"] == ["minutes"]
+    send(client, actor, sid, "I have a phone to record and take pictures", "cat-search-phone")
+    result = send(client, actor, sid, "I have infinite amount of time.", "cat-search-unlimited").json()
+    assert result["tool"] == "search_tasks", result
+    assert result["data"]["facts"]["equipment"] == ["cat", "phone"]
+    assert result["data"]["facts"]["no_time_limit"] is True
+    assert "minutes" not in result["data"]["facts"] and not result["data"]["missing"]
+    assert result["data"]["tasks"][0]["minutes"] == 2000
+    # Simulate the already-saved buggy conversation shown in the report. The next
+    # request must recover its stated cat and unlimited time from history.
+    with Session(pg) as db:
+        scope = db.get(AgentSession, sid)
+        scope.profile = {**scope.profile, "facts": {"equipment": ["phone"]}, "awaiting": "minutes"}
+        db.commit()
+    again = send(client, actor, sid, "Find tasks", "cat-search-again").json()
+    assert again["tool"] == "search_tasks" and again["data"]["tasks"]
+    assert again["data"]["facts"]["equipment"] == ["cat", "phone"] and again["data"]["facts"]["no_time_limit"]
+    limited = send(client, actor, sid, "I have only 10 minutes", "cat-search-limited").json()
+    assert limited["data"]["facts"]["equipment"] == ["cat", "phone"]
+    assert not limited["data"]["facts"].get("no_time_limit") and limited["data"]["tasks"] == []

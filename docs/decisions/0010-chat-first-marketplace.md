@@ -41,3 +41,10 @@ coordinator is tested with external wallet/RPC boundaries for all three steps,
 lost responses, decline, navigation, timeout and revert. Browser gates cover both
 image/video flows and the testnet draft panels. Live AI connections and real Arc
 wallet flows remain separate from deterministic test evidence.
+
+Unlimited time is an explicit no_time_limit flag, not a made-up minute count.
+Search omits only the duration predicate; funding, equipment, slots and deadlines
+remain mandatory. Stated resources include pets and subjects, and direct possession
+statements supplement semantic extraction when a resource was dropped. Corrections
+are replayed in order so removed resources do not reappear. Existing conversations
+can recover the stated preference from their saved messages on the next request.

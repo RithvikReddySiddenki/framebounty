@@ -9,9 +9,9 @@ Live Gemini generated a 20-image cat/tree plan and failed a synthetic color card
 That smoke is not a labeled accuracy evaluation or a live Arc funded-job test.
 
 
-- Full backend: **142 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
+- Full backend: **150 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
   The fourteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-chat-full-final`
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-unlimited-full-01`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
   Includes testnet agent coverage inspection with explicit text consent, denied
   calls without consent, and visible provider failures without fixture fallback.
@@ -140,3 +140,12 @@ short count answer -> asks budget; budget answer -> exact 20-image / 20-USDC pla
 contributor phone statement -> time remains missing. No job or transaction was
 created. Initial provider 503s were followed by successful simple/schema probes
 and this complete intake smoke. This is not evidence of real task accuracy.
+
+Unlimited-time regression (2026-11-18): 150 backend tests passed / 14 separate-chain
+skips; 7 Chromium cases passed / 1 separate funding-UI skip; production build
+passed. The reported cat -> phone -> infinite-time conversation now retains the
+cat and searches without a duration cap. A PostgreSQL test uses a 2000-minute
+listing to distinguish no filter from a fabricated 1440-minute limit, recovers an
+already-saved buggy profile from history, and verifies later numeric limits and
+resource corrections. Live Gemini returned no_time_limit=true, minutes=null and
+both cat/phone resources for the reported synthetic conversation.
