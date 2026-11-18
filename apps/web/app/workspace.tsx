@@ -2,11 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { authenticate, request, watchWalletChange } from "./api";
-import AgentPane, { type PlanProposal } from "./agent-pane";
-import BuyerPlan from "./buyer-plan";
 import Contributor from "./contributor";
-import { ResumeFunding } from "./funding";
-import Reviews from "./reviews";
+import Posts from "./posts";
+import PostComposer from "./post-composer";
 
 type Session = { wallet: string; token: string; expiresAt: number };
 type Overview = {
@@ -96,10 +94,6 @@ export default function Workspace() {
   >("tasks");
   const [overview, setOverview] = useState<Overview>();
   const [overviewError, setOverviewError] = useState("");
-  const [proposal, setProposal] = useState<PlanProposal>();
-  const [proposalRevision, setProposalRevision] = useState(0);
-  const [proposalError, setProposalError] = useState("");
-  const [showPlan, setShowPlan] = useState(false);
 
   function signOut() {
     const previous = sessionRef.current;
@@ -108,9 +102,6 @@ export default function Workspace() {
     setSession(undefined);
     setConnecting(false);
     setOverview(undefined);
-    setProposal(undefined);
-    setShowPlan(false);
-    setProposalError("");
     setView("overview");
     setRole("buyer");
     setContributorSection("tasks");
@@ -174,32 +165,7 @@ export default function Workspace() {
   useEffect(() => {
     if (session) void refreshOverview();
   }, [session?.token, role, view]);
-  function reviewProposal(plan: PlanProposal) {
-    if (
-      plan.version !== 1 ||
-      plan.requirements.length !== 2 ||
-      plan.reward_atomic !== "1000000" ||
-      plan.budget_atomic !== String(plan.total * 1000000) ||
-      plan.min_seconds !== 10 ||
-      plan.max_seconds !== 30 ||
-      !plan.requirements.some((r) => r.key === "large_towel") ||
-      !plan.requirements.some((r) => r.key === "dark_surface")
-    ) {
-      setProposalError(
-        "The current video editor supports fixed 1 USDC rewards, 10–30 second towel videos and both category definitions. This different proposal was not applied.",
-      );
-      return;
-    }
-    setProposalError("");
-    setProposal(plan);
-    setProposalRevision((value) => value + 1);
-    setShowPlan(true);
-    setView("create");
-  }
-  function newCollection() {
-    setView("create");
-    setShowPlan(true);
-  }
+  function newCollection() { setView("create"); }
 
   // No marketplace, agent, listing or review component exists before proof of
   // wallet ownership. The API independently rejects every unauthenticated service.
@@ -483,66 +449,7 @@ export default function Workspace() {
                     {overviewError}
                   </p>
                 )}
-                <div className="buyer-grid">
-                  <section className="getting-started panel">
-                    <span className="section-icon">
-                      <Icon name="folder" />
-                    </span>
-                    <p className="eyebrow">FROM REQUEST TO DATASET</p>
-                    <h2>Start with a well-defined collection.</h2>
-                    <p>
-                      Describe the examples you need. Your buyer agent helps
-                      shape a proposal; you confirm the terms and funding.
-                    </p>
-                    <ol className="workflow-list">
-                      <li>
-                        <span>01</span>
-                        <div>
-                          <strong>Define the work</strong>
-                          <p>
-                            Clear requirements, usage rights and fixed rewards.
-                          </p>
-                        </div>
-                      </li>
-                      <li>
-                        <span>02</span>
-                        <div>
-                          <strong>Fund and collect</strong>
-                          <p>
-                            Publish funded tasks for contributors with the right
-                            equipment.
-                          </p>
-                        </div>
-                      </li>
-                      <li>
-                        <span>03</span>
-                        <div>
-                          <strong>Review and build</strong>
-                          <p>
-                            Approve useful contributions and commission what’s
-                            missing.
-                          </p>
-                        </div>
-                      </li>
-                    </ol>
-                    <button onClick={newCollection} className="secondary">
-                      Create a collection
-                      <Icon name="arrow" />
-                    </button>
-                  </section>
-                  <div className="assistant-panel">
-                    <div className="assistant-label">
-                      <Icon name="spark" />
-                      <span>Plan with your buyer agent</span>
-                    </div>
-                    <AgentPane
-                      key={session.wallet}
-                      role="buyer"
-                      token={session.token}
-                      onPlan={reviewProposal}
-                    />
-                  </div>
-                </div>
+                <PostComposer token={session.token} onChanged={refreshOverview} onView={() => setView("collections")} />
               </section>
               <section hidden={view !== "create"}>
                 <div className="page-heading">
@@ -554,44 +461,19 @@ export default function Workspace() {
                     </p>
                   </div>
                 </div>
-                {proposalError && (
-                  <p role="alert" className="error">
-                    {proposalError}
-                  </p>
-                )}
-                {process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && (
-                  <ResumeFunding token={session.token} />
-                )}
-                {showPlan && (
-                  <section className="panel plan">
-                    <div className="collection-context">
-                      <span className="tag">Robotics video</span>
-                      <span>First supported workflow · Towel folding</span>
-                    </div>
-                    <BuyerPlan
-                      key={`${session.wallet}-${proposalRevision}`}
-                      token={session.token}
-                      initialPlan={proposal}
-                    />
-                  </section>
-                )}
+                <PostComposer token={session.token} onChanged={refreshOverview} onView={() => setView("collections")} />
               </section>
               <section hidden={view !== "collections"}>
                 <div className="page-heading">
                   <div>
                     <p className="eyebrow">COLLECTIONS & REVIEW</p>
-                    <h1>Keep useful work moving.</h1>
+                    <h1>Your posts. Their status.</h1>
                     <p>
-                      Review complete demonstrations, track coverage and export
-                      accepted data.
+                      See which posts are open, finish publishing drafts and review submissions.
                     </p>
                   </div>
                 </div>
-                <Reviews
-                  key={session.wallet}
-                  token={session.token}
-                  onChanged={refreshOverview}
-                />
+                <Posts key={session.wallet} token={session.token} active={view === "collections"} onChanged={refreshOverview} />
               </section>
             </>
           ) : (

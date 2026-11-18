@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
 
 export type Submission = {
   id: string;
+  media_type: "image" | "video";
   reservation_id: string;
   job_id: string;
   state: string;
@@ -43,7 +44,9 @@ export default function Upload({
   existingId,
   canUpload,
   onChanged,
+  mediaType = "video",
 }: {
+  mediaType?: "image" | "video";
   reservationId: string;
   token: string;
   rights: string;
@@ -51,6 +54,7 @@ export default function Upload({
   canUpload: boolean;
   onChanged?: () => Promise<void>;
 }) {
+  const image = mediaType === "image";
   const [file, setFile] = useState<File>();
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -72,10 +76,16 @@ export default function Upload({
       );
     }
   }
+  useEffect(() => { if (existingId) void refresh(); }, [existingId]);
+  useEffect(() => {
+    if (!submission || !["queued", "verifying"].includes(submission.state)) return;
+    const timer = window.setInterval(() => void refresh(), 3000);
+    return () => window.clearInterval(timer);
+  }, [submission?.id, submission?.state]);
   async function upload() {
     if (!file || !acknowledged) return;
-    if (file.size > 100 * 1024 * 1024) {
-      setError("Choose a video smaller than 100 MiB.");
+    if (file.size > (image ? 20 : 100) * 1024 * 1024) {
+      setError(image ? "Choose an image smaller than 20 MiB." : "Choose a video smaller than 100 MiB.");
       return;
     }
     setBusy(true);
@@ -86,14 +96,14 @@ export default function Upload({
         const xhr = new XMLHttpRequest();
         xhr.open(
           "POST",
-          `${apiBase}/reservations/${reservationId}/video?rights_ack=true`,
+          `${apiBase}/reservations/${reservationId}/media?rights_ack=true&model_ack=true`,
         );
         xhr.timeout = 125000;
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         xhr.setRequestHeader(
           "Content-Type",
           file.type ||
-            (file.name.toLowerCase().endsWith(".mov")
+            (image ? (file.name.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg") : file.name.toLowerCase().endsWith(".mov")
               ? "video/quicktime"
               : "video/mp4"),
         );
@@ -146,8 +156,7 @@ export default function Upload({
   return (
     <div className="upload-box">
       <p className="muted">
-        Fixed phone support, both hands and towel visible. Record a complete
-        fold in 10–30 seconds. MP4/MOV, at most 100 MiB.
+        {image ? "Submit one JPEG/PNG image, at most 20 MiB and 16 megapixels. Follow the post requirements." : "Submit a complete 10-30 second MP4/MOV video, at most 100 MiB. Follow the post requirements."}
       </p>
       <details>
         <summary>Requested usage rights</summary>
@@ -155,11 +164,11 @@ export default function Upload({
       </details>
       {canUpload && !submission && !existingId && (
         <>
-          <label htmlFor={`video-${reservationId}`}>Choose a phone video</label>
+          <label htmlFor={`video-${reservationId}`}>{image ? "Choose an image" : "Choose a phone video"}</label>
           <input
             id={`video-${reservationId}`}
             type="file"
-            accept="video/mp4,video/quicktime,.mp4,.mov"
+            accept={image ? "image/jpeg,image/png,.jpg,.jpeg,.png" : "video/mp4,video/quicktime,.mp4,.mov"}
             disabled={busy}
             onChange={(event) => {
               setFile(event.target.files?.[0]);
@@ -174,14 +183,14 @@ export default function Upload({
               disabled={busy}
             />
             I have read and acknowledge these requested usage rights and have
-            permission to submit this video.
+            permission to submit this media. I consent to sending a reduced image or sampled video frames to Gemini for AI verification.
           </label>
           <button
             className="primary"
             disabled={!file || !acknowledged || busy}
             onClick={() => void upload()}
           >
-            {busy ? `Uploading ${percent}%…` : "Upload video"}
+            {busy ? `Uploading ${percent}%…` : image ? "Upload image" : "Upload video"}
           </button>
           {busy && (
             <progress
@@ -200,7 +209,7 @@ export default function Upload({
             Refresh submission status
           </button>
           <button onClick={() => setPreview(!preview)}>
-            {preview ? "Hide video" : "Play submitted video"}
+            {preview ? "Hide media" : image ? "View submitted image" : "Play submitted video"}
           </button>
         </>
       )}
@@ -228,6 +237,8 @@ export default function Upload({
             Review deadline:{" "}
             {new Date(submission.review_deadline).toLocaleString()}
           </p>
+          {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check]) => <p key={key}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
+          {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Human review is still required.</p>}
           {submission.findings.processing_error && (
             <p className="error">{submission.findings.processing_error}</p>
           )}
@@ -235,8 +246,10 @@ export default function Upload({
       )}
       {preview && (submission?.id || existingId) && (
         <MediaView
-          path={`/submissions/${submission?.id || existingId}/video`}
+          path={`/submissions/${submission?.id || existingId}/media`}
           token={token}
+          image={image}
+          alt="Submitted image"
         />
       )}
       {error && (

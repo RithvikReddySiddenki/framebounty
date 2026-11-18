@@ -6,6 +6,15 @@ private storage adapter; bounded FFmpeg worker; Gemini observations; Arc escrow 
 AI proposals never authorize payments. Separate buyer/contributor tools call the same
 authorized domain services as the UI. Review approval is a distinct human capability.
 
+## Image/video posts and verification
+
+See decision 0009. `Plan.media_type` defaults to video for legacy records and is
+part of new immutable plan hashes. Typed upload paths share ownership, reservation,
+content-hash, review and settlement rules. Still-image decoding and generic
+post-specific AI criteria complement the existing bounded video pipeline. Both
+operator enablement and per-submission consent gate external media verification.
+AI observations never grant acceptance or payment. No migration/ABI change.
+
 ## External verification log (2026-11-16)
 
 The old docs.arc.network pages failed. Its official documentation index redirects

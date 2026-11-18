@@ -3,6 +3,58 @@ import { Wallet, getBytes } from "ethers";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+test("image request becomes a labeled post, private image submission, AI findings and human review", async ({ browser }) => {
+  const buyerContext = await browser.newContext();
+  const actorContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const buyer = await buyerContext.newPage();
+  const actor = await actorContext.newPage();
+  await connect(buyer);
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 20 images of a cat climbing a tree under 20 USDC");
+  await buyer.getByRole("button", { name: "Create my post", exact: true }).click();
+  const preview = buyer.getByRole("region", { name: "Generated post preview" });
+  await expect(preview.getByText("Image post", { exact: true })).toBeVisible();
+  await buyer.getByLabel(/I approve this post/).check();
+  await buyer.getByRole("button", { name: "Approve & save post" }).click();
+  await buyer.getByRole("button", { name: "View my posts & status" }).click();
+  const card = buyer.locator(".post-card").filter({ hasText: "Cat climbing a tree" });
+  await expect(card).toContainText("Draft");
+  await buyer.getByRole("button", { name: "Overview", exact: true }).click();
+  await buyer.getByLabel(/Simulate funding for local testing/).check();
+  await buyer.getByRole("button", { name: "Simulate funding & publish post" }).click();
+  await buyer.getByRole("button", { name: "View my posts & status" }).click();
+  await expect(card).toContainText("Open for contributors");
+  await card.click();
+  await connect(actor);
+  await actor.getByRole("button", { name: "Contributor workspace" }).click();
+  await actor.getByRole("button", { name: "Send contributor message" }).click();
+  const match = actor.locator(".agent-task").filter({ hasText: "Cat climbing a tree" });
+  await expect(match.getByText("Image post", { exact: true })).toBeVisible();
+  await match.getByRole("button", { name: "Review agent reservation terms" }).click();
+  await actor.getByRole("button", { name: "Confirm agent task & reward", exact: true }).click();
+  const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
+  await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  await actor.getByLabel(/I have read and acknowledge/).check();
+  await actor.getByRole("button", { name: "Upload image", exact: true }).click();
+  await expect(actor.getByText("queued", { exact: true })).toBeVisible();
+  const root = path.resolve(__dirname, "../../..");
+  const worker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL }, encoding: "utf-8", timeout: 60000 });
+  expect(worker.status, worker.stderr).toBe(0);
+  await actor.getByRole("button", { name: "Refresh submission status" }).click();
+  await expect(actor.getByLabel("AI verification results")).toContainText("uncertain");
+  await buyer.getByRole("button", { name: "Refresh queue & coverage" }).click();
+  await buyer.getByRole("button", { name: "View submitted image & AI checks" }).click();
+  await expect(buyer.getByAltText("Submitted image")).toBeVisible();
+  await buyer.getByLabel("I inspected the full image.").check();
+  await buyer.getByLabel("The submission meets the task described in this post.").check();
+  await buyer.getByLabel("A cat visibly climbing a tree", { exact: true }).check();
+  await buyer.getByLabel("Decision reason").fill("Synthetic UI workflow only; this image does not demonstrate a cat.");
+  await buyer.getByRole("button", { name: "Accept fixture work" }).click();
+  await expect(buyer.getByText(/FIXTURE SUBMISSION.*fixture accepted/)).toBeVisible();
+  await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-submission-mobile.png"), fullPage: true });
+  await buyer.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-post-desktop.png"), fullPage: true });
+  await buyerContext.close(); await actorContext.close();
+});
+
 async function installWallet(page: Page, rejectSignature = false) {
   const wallet = Wallet.createRandom();
   await page.exposeFunction(
@@ -214,26 +266,14 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     ),
     fullPage: true,
   });
-  await buyer.getByRole("button", { name: "Send buyer message" }).click();
-  await buyer
-    .getByRole("button", { name: "Review proposed plan in editor" })
-    .click();
-  await buyer
-    .getByLabel(
-      "Requested usage rights (contributors must acknowledge these before submitting)",
-    )
-    .fill(
-      "Synthetic browser-test fixture only. No human footage and no model quality claim.",
-    );
-  await buyer.getByLabel(/I confirm these version 1 draft terms/).check();
-  await buyer.getByRole("button", { name: "Confirm & save draft" }).click();
-  await buyer.getByLabel(/For local testing, simulate this budget/).check();
-  await buyer
-    .getByRole("button", { name: "Simulate funding & publish fixture tasks" })
-    .click();
-  await expect(
-    buyer.getByText(/No blockchain transaction occurred/),
-  ).toBeVisible();
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("Plan 20 towel-folding videos with large towels and dark surfaces under 20 USDC");
+  await buyer.getByRole("button", { name: "Create my post", exact: true }).click();
+  await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByLabel(/I approve this post/).check();
+  await buyer.getByRole("button", { name: "Approve & save post" }).click();
+  await buyer.getByLabel(/Simulate funding for local testing/).check();
+  await buyer.getByRole("button", { name: "Simulate funding & publish post" }).click();
+  await expect(buyer.getByText(/Open.*Simulated funding/)).toBeVisible();
   await connect(contributor);
   await contributor
     .getByRole("button", { name: "Contributor workspace" })
@@ -241,7 +281,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await contributor
     .getByRole("button", { name: "Send contributor message" })
     .click();
-  await contributor
+  await contributor.locator(".agent-task").filter({ hasText: "Towel-folding demonstrations" })
     .getByRole("button", { name: "Review agent reservation terms" })
     .click();
   await contributor
@@ -273,10 +313,8 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await buyer
     .getByRole("button", { name: "Collections & review", exact: true })
     .click();
-  await buyer.getByRole("button", { name: "Load my collections" }).click();
-  const collection = buyer.getByLabel("Collection", { exact: true });
-  await expect(collection.locator("option")).toHaveCount(2);
-  await collection.selectOption({ index: 1 });
+  await expect(buyer.getByText("Open for contributors", { exact: true })).toBeVisible();
+  await buyer.locator(".post-card").click();
   await buyer
     .getByRole("button", { name: "Watch full video & inspect frames" })
     .click();
@@ -299,13 +337,13 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     buyer.getByRole("button", { name: "Accept fixture work" }),
   ).toBeDisabled();
   await buyer
-    .getByLabel("The video shows a complete towel-folding demonstration.")
+    .getByLabel("The submission meets the task described in this post.")
     .check();
   await buyer
-    .getByLabel("Meets the buyer-approved large-towel definition.")
+    .getByLabel(/large bath towel/i)
     .check();
   await buyer
-    .getByLabel("Meets the buyer-approved dark-surface definition.")
+    .getByLabel(/dark tabletop/i)
     .check();
   await buyer
     .getByLabel("Decision reason")
@@ -318,8 +356,9 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     buyer.getByText("FIXTURE SUBMISSION · fixture accepted"),
   ).toBeVisible();
   await expect(
-    buyer.getByText("accepted clips", { exact: true }).locator(".."),
+    buyer.getByText("accepted items", { exact: true }).locator(".."),
   ).toContainText("1");
+  await buyer.getByText("Ask the agent about this post", { exact: true }).click();
   await buyer
     .getByRole("textbox", { name: "Buyer message", exact: true })
     .last()
@@ -358,7 +397,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     ),
   ).toBe(true);
   await buyer
-    .getByRole("button", { name: "Hide private video & frames" })
+    .getByRole("button", { name: "Hide submitted media" })
     .click();
   expireToken(buyerAuthorization);
   await buyer

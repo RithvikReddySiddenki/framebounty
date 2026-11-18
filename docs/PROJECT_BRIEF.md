@@ -175,3 +175,10 @@ Demo acceptance script
 Create one real funded robotics request and several clearly labeled seeded task listings for search testing. The contributor agent must search database records, not return hardcoded task prose. Show a phone video upload, an unsuitable submission routed to review, a valid clip approved and paid, and the buyer agent commissioning an unmet category. Demonstrate that existing commitments survive replanning and a repeated payout cannot pay twice. Use a fixed phone support so both hands and the towel remain visible; do not require a head/chest mount or call an ordinary tabletop recording egocentric footage. Confirm decoding on the actual demo phone/browser.
 
 Keep the product name FrameBounty. Do not rename it Groundtruth or copy the teammate proposal's automatic payout, mandatory liveness, embedded-wallet, x402, or provenance-proof claims. The current agreed scope is two agent roles, custom data work, a robotics-video demo, human quality approval, Arc, and USDC.
+Implemented extension (2026-11-17): the marketplace now supports image and video
+post types. The buyer agent generates the actual requested subject and observable
+criteria; contributors can submit still JPEG/PNG images or bounded MP4/MOV videos.
+Automatic post-specific AI observations require explicit contributor consent and
+operator enablement. The human reviewer remains the payment authority. Decision
+0009 and the test matrix record evidence and limits; the original robotics example
+is no longer the only supported post subject.

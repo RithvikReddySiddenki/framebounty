@@ -6,6 +6,7 @@ import AgentPane from "./agent-pane";
 import WalletAction from "./wallet-action";
 
 type Task = {
+  media_type: "image" | "video";
   task_id: string;
   title: string;
   version: number;
@@ -32,6 +33,7 @@ type Confirmation = {
   expires_at: string;
 };
 type Reservation = {
+  media_type: "image" | "video";
   fixture: boolean;
   id: string;
   task_id: string;
@@ -215,7 +217,7 @@ export default function Contributor({
                     ? "SIMULATED FUNDS · FIXTURE"
                     : "FUNDED LISTING"}
                 </p>
-                <h2>{task.title}</h2>
+                <span className="tag">{task.media_type === "image" ? "Image post" : "Video post"}</span><h2>{task.title}</h2>
                 <div className="task-terms">
                   <div className="task-reward">
                     {usdc(task.reward_atomic)}
@@ -241,7 +243,7 @@ export default function Contributor({
                   Review window: {task.review_hours} hours
                 </p>
                 <p className="muted">
-                  Requires a complete towel-folding demonstration. A reviewer
+                  Follow the post?s image or video requirements. A reviewer
                   must approve payment. Rejection or abandoned review can
                   release the reward after timeout.
                 </p>
@@ -254,8 +256,7 @@ export default function Contributor({
                 <details>
                   <summary>Immutable rubric & usage rights</summary>
                   <p>
-                    {task.min_seconds}–{task.max_seconds} seconds. Complete
-                    towel fold required.
+                    {task.media_type === "image" ? "JPEG/PNG image required." : `${task.min_seconds}-${task.max_seconds} second video required.`}
                   </p>
                   {task.requirements
                     .filter((r) => task.tags.includes(r.key))
@@ -393,6 +394,7 @@ export default function Contributor({
                 />
               )}
               <Upload
+                mediaType={r.media_type}
                 reservationId={r.id}
                 token={token}
                 rights={r.rights_declaration}

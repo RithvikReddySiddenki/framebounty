@@ -19,15 +19,16 @@ function ReviewCard({
   item,
   token,
   refreshed,
+  requirements,
 }: {
   item: Submission;
   token: string;
   refreshed: () => Promise<void>;
+  requirements: { key: string; description: string }[];
 }) {
   const [watched, setWatched] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const [large, setLarge] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -41,13 +42,7 @@ function ReviewCard({
         decision,
         task_completed: completed,
         watched_full_video: watched,
-        tags:
-          decision === "accept"
-            ? [
-                ...(large ? ["large_towel"] : []),
-                ...(dark ? ["dark_surface"] : []),
-              ]
-            : [],
+        tags: decision === "accept" ? tags : [],
         reason,
       });
       await refreshed();
@@ -100,14 +95,14 @@ function ReviewCard({
       </p>
       <button onClick={() => setMediaVisible(!mediaVisible)}>
         {mediaVisible
-          ? "Hide private video & frames"
-          : "Watch full video & inspect frames"}
+          ? "Hide submitted media"
+          : item.media_type === "image" ? "View submitted image & AI checks" : "Watch full video & inspect frames"}
       </button>
       {mediaVisible && (
         <>
-          <MediaView path={`/submissions/${item.id}/video`} token={token} />
+          <MediaView path={`/submissions/${item.id}/media`} token={token} image={item.media_type === "image"} alt="Submitted image" />
           <div className="frame-grid">
-            {item.findings.frames?.map((frame, index) => (
+            {item.media_type !== "image" && item.findings.frames?.map((frame, index) => (
               <figure key={index}>
                 <MediaView
                   path={`/submissions/${item.id}/frames/${index}`}
@@ -177,7 +172,7 @@ function ReviewCard({
               checked={watched}
               onChange={(e) => setWatched(e.target.checked)}
             />
-            I watched the full video.
+            {item.media_type === "image" ? "I inspected the full image." : "I watched the full video."}
           </label>
           <label className="check">
             <input
@@ -185,24 +180,9 @@ function ReviewCard({
               checked={completed}
               onChange={(e) => setCompleted(e.target.checked)}
             />
-            The video shows a complete towel-folding demonstration.
+            The submission meets the task described in this post.
           </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={large}
-              onChange={(e) => setLarge(e.target.checked)}
-            />
-            Meets the buyer-approved large-towel definition.
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={dark}
-              onChange={(e) => setDark(e.target.checked)}
-            />
-            Meets the buyer-approved dark-surface definition.
-          </label>
+          {requirements.map(rule => <label className="check" key={rule.key}><input type="checkbox" checked={tags.includes(rule.key)} onChange={e => setTags(e.target.checked ? [...tags, rule.key] : tags.filter(t => t !== rule.key))} />{rule.description}</label>)}
           <label htmlFor={`reason-${item.id}`}>Decision reason</label>
           <textarea
             id={`reason-${item.id}`}
@@ -248,9 +228,11 @@ function ReviewCard({
 export default function Reviews({
   token,
   onChanged,
+  jobId,
 }: {
   token?: string;
   onChanged?: () => Promise<void>;
+  jobId?: string;
 }) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState("");
@@ -305,6 +287,9 @@ export default function Reviews({
       setBusy(false);
     }
   }
+  useEffect(() => {
+    if (token && jobId) { setSelected(jobId); void load(jobId); }
+  }, [token, jobId]);
   useEffect(() => {
     if (!token) {
       setJobs([]);
@@ -414,6 +399,7 @@ export default function Reviews({
         </p>
       ) : (
         <>
+          {!jobId && <>
           <button disabled={busy} onClick={() => void loadJobs()}>
             Load my collections
           </button>
@@ -434,7 +420,7 @@ export default function Reviews({
                 {job.title} · {job.fixture ? "fixture" : job.state}
               </option>
             ))}
-          </select>
+          </select></>}
           {selected && (
             <>
               <button disabled={busy} onClick={() => void load()}>
@@ -460,7 +446,7 @@ export default function Reviews({
           )}
           {rubric && selected && (
             <details>
-              <summary>Agreed video rubric</summary>
+              <summary>Post requirements</summary>
               <p>
                 {rubric.min_seconds}–{rubric.max_seconds} seconds, complete
                 towel fold required.
@@ -471,18 +457,20 @@ export default function Reviews({
             </details>
           )}
           {selected && (
+            <details><summary>Ask the agent about this post</summary>
             <AgentPane
               key={selected}
               role="buyer"
               token={token}
               jobId={selected}
             />
+            </details>
           )}
           {coverage && (
             <div className="metrics">
               <div>
                 <strong>{coverage.accepted_total}</strong>
-                <span>accepted clips</span>
+                <span>accepted items</span>
               </div>
               <div>
                 <strong>{coverage.pending_total}</strong>
@@ -509,6 +497,7 @@ export default function Reviews({
               key={item.id}
               item={item}
               token={token}
+              requirements={rubric?.requirements || []}
               refreshed={() => load()}
             />
           ))}

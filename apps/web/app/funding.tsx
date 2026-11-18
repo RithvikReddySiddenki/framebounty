@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { request, sendFundingTransaction, usdc } from "./api";
 
 type Step = {
@@ -23,12 +23,16 @@ export default function Funding({
   token,
   jobId,
   planHash,
+  onPublished,
+  termsApproved = false,
 }: {
   token: string;
   jobId: string;
   planHash: string;
+  onPublished?: () => Promise<void>;
+  termsApproved?: boolean;
 }) {
-  const [confirmed, setConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState(termsApproved);
   const [step, setStep] = useState<Step>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +73,7 @@ export default function Funding({
         ...pending,
       });
       setStep(next);
+      if (next.funded) await onPublished?.();
       if (pending && (next.funded || next.intent_id !== pending.intent_id)) {
         sessionStorage.removeItem(storageKey);
         setRecoveryHash("");
@@ -83,9 +88,19 @@ export default function Funding({
       setBusy(false);
     }
   }
+  // Reconcile only an already-broadcast transaction. Never request wallet
+  // signatures automatically or send a replacement while a receipt is pending.
+  useEffect(() => {
+    if (!confirmed || !step?.tx_hash || step.funded || ["reverted", "invalid"].includes(step.state)) return;
+    const timer = window.setInterval(() => void update(false), 4000);
+    return () => window.clearInterval(timer);
+  }, [confirmed, step, busy]);
+  const stepLabel = step?.step === "create_job" ? "Create collection in wallet"
+    : step?.step === "token_approve" ? "Approve exact budget in wallet"
+    : step?.step === "deposit" ? "Deposit budget & publish" : "Prepare publishing";
   return (
     <section aria-label="Arc testnet funding">
-      <h3>Fund this saved plan on Arc testnet</h3>
+      <h3>{step?.funded ? "Published" : "Publish your post"}</h3>
       <p>
         Wallet approval is required for each step: create escrow job, allow the
         exact test-USDC budget, then deposit. Native gas is separate. Listings
@@ -103,31 +118,24 @@ export default function Funding({
       </label>
       {step?.funded ? (
         <p role="status">
-          Funding verified. A small initial batch is published.
+          Open for contributors. Funding verified and initial tasks published.
         </p>
       ) : (
         <>
           {step && (
             <p role="status">
-              Step: {step.step}. State: {step.state}. Budget:{" "}
+              {step.state === "intent" ? stepLabel : "Waiting for confirmed funding"}. Budget:{" "}
               {usdc(step.amount_atomic || "0")} test USDC.{" "}
               {step.tx_hash && `Transaction: ${step.tx_hash}`}
             </p>
           )}
           <button
             disabled={!confirmed || busy}
-            onClick={() => void update(false)}
+            className="primary"
+            onClick={() => void update(step?.state === "intent")}
           >
-            Check funding / reconcile transaction
+            {busy ? "Checking…" : step?.state === "intent" ? stepLabel : step?.tx_hash ? "Check transaction status" : "Continue to publish"}
           </button>
-          {step?.state === "intent" && (
-            <button
-              disabled={!confirmed || busy}
-              onClick={() => void update(true)}
-            >
-              Authorize {step.step} in wallet
-            </button>
-          )}
           <details>
             <summary>Recover a wallet transaction</summary>
             <p>

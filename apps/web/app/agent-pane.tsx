@@ -4,6 +4,7 @@ import { useState } from "react";
 import { request, usdc } from "./api";
 
 export type PlanProposal = {
+  media_type?: "image" | "video";
   version: number;
   title: string;
   total: number;
@@ -16,6 +17,7 @@ export type PlanProposal = {
   requirements: { key: string; description: string; minimum: number }[];
 };
 type Task = {
+  media_type: "image" | "video";
   task_id: string;
   title: string;
   version: number;
@@ -83,6 +85,7 @@ export default function AgentPane({
   minutes = 20,
   onPlan,
   onReserved,
+  autoPlan = false,
 }: {
   role: "buyer" | "contributor";
   token?: string;
@@ -91,6 +94,7 @@ export default function AgentPane({
   minutes?: number;
   onPlan?: (plan: PlanProposal) => void;
   onReserved?: () => Promise<void>;
+  autoPlan?: boolean;
 }) {
   const [scope, setScope] = useState<Session>();
   const [previous, setPrevious] = useState<Session[]>([]);
@@ -147,13 +151,14 @@ export default function AgentPane({
     setRetry(attempt);
     try {
       const current = await ensureSession();
-      await request<ToolResult>(
+      const result = await request<ToolResult>(
         `/agent-sessions/${current.id}/messages`,
         token,
         { message, request_id: attempt.id },
       );
       await loadHistory(current.id);
       setRetry(undefined);
+      if (autoPlan && result.data.plan) onPlan?.(result.data.plan);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Agent request failed");
     } finally {
@@ -287,7 +292,8 @@ export default function AgentPane({
         </p>
       )}
       {token && (
-        <>
+        <details className="conversation-options">
+          <summary>Saved conversations & options</summary>
           <button disabled={busy} onClick={() => void loadPrevious()}>
             Load saved {role} conversations
           </button>
@@ -303,7 +309,7 @@ export default function AgentPane({
           >
             Start new {role} conversation
           </button>
-        </>
+        </details>
       )}
       {previous.map((item, index) => (
         <button
@@ -401,7 +407,7 @@ export default function AgentPane({
                 )}
                 {entry.result.data.tasks?.map((task) => (
                   <div key={task.task_id} className="agent-task">
-                    <h3>{task.title}</h3>
+                    <span className="tag">{task.media_type === "image" ? "Image post" : "Video post"}</span><h3>{task.title}</h3>
                     <p>
                       {usdc(task.reward_atomic)}{" "}
                       {task.fixture ? "fixture" : "test"} USDC · task version{" "}

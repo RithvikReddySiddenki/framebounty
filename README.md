@@ -19,11 +19,25 @@ funded browser/physical-task workflow and model evaluation remain pending. See
 [live validation evidence](docs/live-validation.md); deployment is not job funding.
 See [workboard](docs/workboard.md).
 
-In the buyer conversation, request the towel example and review its proposal in
-the editor before confirming the plan. The fixture planner is a fixed example,
-not a general prompt interpreter. In the contributor workspace, edit equipment/time,
-then send a message to search actual listings. Review and explicitly confirm the
-agent's specific task before uploading. In an owned collection's buyer conversation,
+Describe your task in the buyer workspace, for example: "I want 20 images of a
+cat climbing a tree under 20 test USDC." The configured buyer AI generates an
+image or video post with its own requirements. Review the preview, approve the
+terms and complete the guided MetaMask funding steps. **Collections & review**
+automatically shows your posts, their media type and whether they are actually
+open. Drafts are private until funding is verified. Contributors use their agent
+to search real funded listings, confirm a task and upload the required type.
+Images: still JPEG/PNG up to 20 MiB / 16 megapixels. Videos: MP4/MOV, 10-30 seconds,
+up to 100 MiB. The fixture planner offers fixed examples, not general inference.
+
+Automatic AI verification uses each post's actual criteria. Run the media worker
+with `ALLOW_MODEL_MEDIA=true`; only submissions whose contributor explicitly
+consents are sent as reduced JPEG samples to Gemini. Older uploads without that
+consent are not sent. AI findings are visible to contributors and reviewers;
+uncertainty/provider failures never become automatic acceptance or payment.
+Human inspection and a reviewer wallet signature remain required for payout.
+See [image/video posting decisions](docs/decisions/0009-image-video-agent-posts.md).
+
+In an owned collection's buyer conversation,
 `Inspect my coverage` observes records; `Commission next batch` publishes within the
 approved simulated policy. Saved conversations and pending intentions can be resumed.
 Neither agent can approve quality. Live Gemini text additionally requires

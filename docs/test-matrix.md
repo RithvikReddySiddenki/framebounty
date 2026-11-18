@@ -2,22 +2,29 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **119 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
-  The thirteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-agent-testnet-full`
+Image/video posts: JPEG/PNG private upload/decode, type/size/animation rejection,
+post-specific verification, consent enforcement, generic non-towel video criteria,
+claimable post status, image ZIP bytes and an image local-chain payout are covered.
+Live Gemini generated a 20-image cat/tree plan and failed a synthetic color card.
+That smoke is not a labeled accuracy evaluation or a live Arc funded-job test.
+
+
+- Full backend: **129 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
+  The fourteen local-chain cases run in the separate gate below.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-media-posts-release-02`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
   Includes testnet agent coverage inspection with explicit text consent, denied
   calls without consent, and visible provider failures without fixture fallback.
-- Real PostgreSQL/local-chain gate: **13 passed**, no skips. Deploys the actual
+- Real PostgreSQL/local-chain gate: **14 passed**, no skips. Deploys the actual
   escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
   double payout, reverted/pending payment, receipt-gated funding, full synthetic
   upload/review/payment, confirmed-but-unprojected recovery, rejection, deadlines,
   concurrent pending claims, late-worker fencing, canonical deployment restart
   and signed-term tamper rejection.
-  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-deployment-full-01 --junitxml=.local/deployment-chain-results.xml`.
+  Command: `python scripts/test_chain.py` with `PYTEST_ADDOPTS="-p no:cacheprovider --basetemp=.local/pytest-media-chain-03 --tb=short"`.
 - Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
-- Chromium: **6 passed** in the isolated browser harness, using real wallet signatures,
+- Chromium: **7 passed** in the isolated browser harness, using real wallet signatures,
   PostgreSQL, API, Next.js, video decode/sampling and standalone worker. Funds/model
   observations are explicitly fixtures; video is a generated test pattern.
   Command: `python scripts/test_e2e.py` with TEST_DATABASE_URL configured.

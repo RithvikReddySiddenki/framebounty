@@ -177,3 +177,14 @@ and live anonymous route checks. Source of design patterns and limits: decision
 0008. The preview is updated; existing collections and on-chain state preserved.
 
 Testnet agent text fix: allow real text proposals in testnet as well as live mode, retaining explicit ALLOW_MODEL_TEXT consent and independent media gating. Regression: 19 agent tests and full backend 119 passed / 13 separate-chain skips. No migration or financial interface changes.
+
+Agent-led posting simplification (implementation lead): prompt -> generated post preview -> explicit approval/funding; auto-loaded post cards with server-derived publication status and a public task preview. Advanced terms/conversation controls move behind disclosures. Preserve human financial approval and video-only fulfillment until image scope is confirmed. Acceptance: a generated plan reaches a saved post without retyping fields; draft/open/unavailable states are distinct; ownership and receipt checks remain enforced.
+
+Completed image/video agent-post slice: typed plans, image uploads/private access,
+bounded decoding, post-specific Gemini checks with durable consent, image exports,
+generic-video requirements, automatic post cards/status, one request/preview/approval
+buyer flow and contributor-agent discovery. Validation: full backend 129 passed /
+14 separately gated chain skips; chain 14 passed including image payout; production
+build passed. Live Gemini synthetic plan/schema smoke passed. Decision 0009 records
+interfaces, compatibility and remaining real-world validation. No migration or ABI
+change. Real consented-task model evaluation and user-funded Arc payout remain pending.
