@@ -175,3 +175,5 @@ backend passes (13 separately gated chain skips), 6 Chromium passes including th
 complete collection workflow, typecheck/production build, desktop/phone screenshots
 and live anonymous route checks. Source of design patterns and limits: decision
 0008. The preview is updated; existing collections and on-chain state preserved.
+
+Testnet agent text fix: allow real text proposals in testnet as well as live mode, retaining explicit ALLOW_MODEL_TEXT consent and independent media gating. Regression: 19 agent tests and full backend 119 passed / 13 separate-chain skips. No migration or financial interface changes.

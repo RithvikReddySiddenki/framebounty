@@ -102,8 +102,9 @@ def test_untrusted_live_model_cannot_escalate_roles(pg, monkeypatch, payload):
         assert db.scalars(select(Reservation)).all() == []
 
 
-def test_provider_outage_does_not_silently_use_fixture_data(pg, monkeypatch):
-    monkeypatch.setenv("APP_MODE", "live")
+@pytest.mark.parametrize("mode", ["live", "testnet"])
+def test_provider_outage_does_not_silently_use_fixture_data(pg, monkeypatch, mode):
+    monkeypatch.setenv("APP_MODE", mode)
     monkeypatch.setenv("ALLOW_MODEL_TEXT", "true")
     adapter = GeminiFrames("test-only", "verified-test-model", httpx.MockTransport(lambda _: httpx.Response(429)))
     with Session(pg) as db:
@@ -112,6 +113,34 @@ def test_provider_outage_does_not_silently_use_fixture_data(pg, monkeypatch):
             message_turn(db, scope.wallet, scope.id, "Find tasks", "outage-request", adapter)
         assert err.value.status_code == 503
         assert "unavailable" in str(err.value.detail).lower()
+
+
+@pytest.mark.parametrize("consent", ["true", "false", ""])
+def test_testnet_agent_text_requires_consent_and_inspects_owned_collection(pg, monkeypatch, consent):
+    monkeypatch.setenv("APP_MODE", "testnet")
+    monkeypatch.setenv("ALLOW_MODEL_TEXT", consent)
+    calls = []
+
+    def respond(request):
+        calls.append(request)
+        return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {
+            "parts": [{"text": json.dumps({"tool": "inspect_job"})}]}}]})
+
+    adapter = GeminiFrames("test-only", "verified-test-model", httpx.MockTransport(respond))
+    with Session(pg) as db:
+        job, _ = seeded(db)
+        scope = create_session(db, job.buyer, SessionIntent(role="buyer", job_id=job.id))
+        if consent == "true":
+            result = message_turn(db, scope.wallet, scope.id, "Inspect my coverage", "testnet-coverage", adapter)
+            assert result["tool"] == "inspect_job"
+            assert len(calls) == 1
+        else:
+            with pytest.raises(HTTPException) as err:
+                message_turn(db, scope.wallet, scope.id, "Inspect my coverage", "testnet-coverage", adapter)
+            assert err.value.status_code == 503
+            assert "consent" in str(err.value.detail)
+            assert calls == []
+        assert db.scalars(select(Reservation)).all() == []
 
 
 def test_http_agent_sessions_and_tools_are_private(flow):

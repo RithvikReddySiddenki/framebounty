@@ -215,8 +215,10 @@ def propose(db: Session, scope: AgentSession, message: str, adapter: GeminiFrame
         if "towel" not in message.lower():
             raise HTTPException(422, "Fixture planning supports the towel-folding example only; live Gemini planning is not configured")
         return "draft_plan", example_plan().model_dump(mode="json")
-    if os.getenv("APP_MODE") != "live" or os.getenv("ALLOW_MODEL_TEXT") != "true":
-        raise ProviderFailure("Live agent text requires APP_MODE=live and explicit ALLOW_MODEL_TEXT=true consent")
+    # Real model text is independent of testnet settlement. Keep explicit consent
+    # mandatory; fixture mode above never reaches the external model adapter.
+    if os.getenv("APP_MODE") not in {"live", "testnet"} or os.getenv("ALLOW_MODEL_TEXT") != "true":
+        raise ProviderFailure("AI text requires live or testnet mode and explicit ALLOW_MODEL_TEXT=true consent")
     adapter = adapter or GeminiFrames(os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", ""))
     history = db.scalars(select(AgentTurn).where(AgentTurn.session_id == scope.id, AgentTurn.state == "completed").order_by(AgentTurn.created_at.desc()).limit(4)).all()
     prompt = json.dumps({"message": message, "role": scope.role, "confirmed_profile": scope.profile,

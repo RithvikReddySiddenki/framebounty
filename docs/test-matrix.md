@@ -2,10 +2,12 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **115 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
+- Full backend: **119 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
   The thirteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-auth-dashboard-full-01 --junitxml=.local/auth-dashboard-backend.xml`
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-agent-testnet-full`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
+  Includes testnet agent coverage inspection with explicit text consent, denied
+  calls without consent, and visible provider failures without fixture fallback.
 - Real PostgreSQL/local-chain gate: **13 passed**, no skips. Deploys the actual
   escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
   double payout, reverted/pending payment, receipt-gated funding, full synthetic
