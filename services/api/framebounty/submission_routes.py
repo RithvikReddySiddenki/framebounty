@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .auth import current_wallet
 from .db import session
 from .marketplace import new_id
-from .media import MAX_UPLOAD, InvalidMedia, LocalStorage, validate_container_header
+from .media import MAX_UPLOAD, InvalidMedia, LocalStorage, validate_container_header, validate_image_header
 from .models import Job, Submission
 from .planning import next_collection_batch, next_fixture_batch, publish_fixture
 from .submissions import coverage, finalize_upload, owned_reservation, private_submission, release_expired, review, submission_view
@@ -22,10 +22,20 @@ from .submissions import coverage, finalize_upload, owned_reservation, private_s
 router = APIRouter()
 
 
+@router.post("/reservations/{reservation_id}/media")
+@router.post("/reservations/{reservation_id}/image")
 @router.post("/reservations/{reservation_id}/video")
-async def upload(reservation_id: str, request: Request, rights_ack: bool = False,
+async def upload(reservation_id: str, request: Request, rights_ack: bool = False, model_ack: bool = False,
                  wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     reservation = owned_reservation(db, reservation_id, wallet)
+    job = db.get(Job, reservation.job_id)
+    kind = job.plan.get("media_type", "video")
+    endpoint = request.url.path.rsplit("/", 1)[-1]
+    if endpoint != "media" and endpoint != kind:
+        raise HTTPException(415, "This post requires " + kind + " submissions")
+    validate_header = validate_image_header if kind == "image" else validate_container_header
+    allowed_mimes = {"image/jpeg", "image/png"} if kind == "image" else {"video/mp4", "video/quicktime"}
+    limit = 20 * 1024 * 1024 if kind == "image" else MAX_UPLOAD
     if not rights_ack:
         raise HTTPException(422, "Explicit acknowledgment of this task's usage rights is required")
     # Existing uploads may be retried by content hash after the original deadline.
@@ -33,37 +43,37 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
     if not previous and (reservation.state not in {"fixture_reserved", "reserved"} or reservation.expires_at <= datetime.now(UTC)):
         raise HTTPException(409, "Reservation no longer accepts uploads")
     mime = request.headers.get("content-type", "").split(";")[0].lower()
-    if mime not in {"video/mp4", "video/quicktime"}:
-        raise HTTPException(415, "Use MP4 or MOV video")
+    if mime not in allowed_mimes:
+        raise HTTPException(415, "Use JPEG/PNG for image posts or MP4/MOV for video posts")
     try:
         declared = int(request.headers.get("content-length", "0"))
     except ValueError as exc:
         raise HTTPException(400, "Invalid upload size") from exc
-    if declared < 0 or declared > MAX_UPLOAD:
-        raise HTTPException(413, "Video exceeds the 100 MiB limit")
+    if declared < 0 or declared > limit:
+        raise HTTPException(413, "Media exceeds this post type upload limit")
     db.rollback()  # No budget locks or database transaction during network streaming.
     storage = LocalStorage()
     name = new_id()
-    temporary, final = storage.path(name + ".upload"), storage.path(name + ".video")
+    temporary, final = storage.path(name + ".upload"), storage.path(name + "." + kind)
     digest, count, header, retained = hashlib.sha256(), 0, b"", False
     try:
         async with asyncio.timeout(120):
             with temporary.open("xb") as target:
                 async for chunk in request.stream():
                     count += len(chunk)
-                    if count > MAX_UPLOAD:
-                        raise HTTPException(413, "Video exceeds the 100 MiB limit")
+                    if count > limit:
+                        raise HTTPException(413, "Media exceeds this post type upload limit")
                     header = (header + chunk[:12])[:12]
                     if len(header) >= 12:
-                        validate_container_header(header)
+                        validate_header(header)
                     digest.update(chunk)
                     target.write(chunk)
-        validate_container_header(header)
+        validate_header(header)
         if declared and declared != count:
             raise HTTPException(400, "Upload was truncated")
         temporary.replace(final)
-        item = finalize_upload(db, wallet, reservation_id, name + ".video", digest.hexdigest(), count, mime)
-        retained = item.object_key == name + ".video"
+        item = finalize_upload(db, wallet, reservation_id, name + "." + kind, digest.hexdigest(), count, mime, model_ack)
+        retained = item.object_key == name + "." + kind
         return submission_view(item)
     except InvalidMedia as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -87,6 +97,7 @@ def get_submission(submission_id: str, wallet: str = Depends(current_wallet), db
     return submission_view(item, include_private_pairs=wallet in (job.buyer, job.reviewer))
 
 
+@router.get("/submissions/{submission_id}/media")
 @router.get("/submissions/{submission_id}/video")
 def video(submission_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     item = private_submission(db, submission_id, wallet)
@@ -148,7 +159,9 @@ def export(job_id: str, wallet: str = Depends(current_wallet), db: Session = Dep
     return {"job_id": job.id, "fixture": job.fixture, "plan": job.plan, "items": [
         {"submission_id": item.id, "sha256": item.sha256, "reviewed_tags": item.reviewed_tags,
          "rubric_hash": item.rubric_hash, "rights_declaration": item.rights_declaration,
-         "authenticated_video_path": f"/submissions/{item.id}/video"} for item in items]}
+         "media_type": job.plan.get("media_type", "video"),
+         "authenticated_media_path": f"/submissions/{item.id}/media",
+         "authenticated_video_path": f"/submissions/{item.id}/video" if item.content_type.startswith("video/") else None} for item in items]}
 
 
 @router.post("/reservations/{reservation_id}/release-expired")
@@ -174,7 +187,9 @@ def export_dataset(job_id: str, wallet: str = Depends(current_wallet), db: Sessi
             raise HTTPException(409, "An accepted media object is missing; export requires storage repair")
         # Archive paths contain only server-generated identifiers, never filenames
         # from contributors. Stored ZIP streams avoid compression CPU and temp copies.
-        name = f"videos/{item.id}.mp4" if item.content_type == "video/mp4" else f"videos/{item.id}.mov"
+        extension = {"image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov"}[item.content_type]
+        folder = "images" if item.content_type.startswith("image/") else "videos"
+        name = f"{folder}/{item.id}.{extension}"
         archive.add_path(str(source), name)
         total_bytes += source.stat().st_size
         records.append({"submission_id": item.id, "path": name, "sha256": item.sha256,

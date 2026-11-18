@@ -28,7 +28,9 @@ def locked_owned_fixture(db: Session, wallet: str, job_id: str) -> Job:
 def create_batch(db: Session, job: Job, count: int, tags: list[str]) -> list[str]:
     if count == 0:
         return []
-    equipment = ["phone", "towel"] + (["dark_table"] if "dark_surface" in tags else [])
+    equipment = ["phone"]
+    if "large_towel" in {r["key"] for r in job.plan["requirements"]}:
+        equipment += ["towel"] + (["dark_table"] if "dark_surface" in tags else [])
     task = Task(id=new_id(), job_id=job.id, version=job.plan["version"],
         reward_atomic=job.plan["reward_atomic"], slots=count, claimed=0, tags=tags, equipment=equipment,
         minutes=15, deadline=datetime.now(UTC) + timedelta(hours=24), state="open")

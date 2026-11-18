@@ -47,7 +47,7 @@ def search_tasks(db: Session, equipment: set[str], minutes: int) -> list[dict]:
     ).order_by(Task.deadline, Task.id).limit(100)).all()
     # Equipment filtering stays deterministic. Do not infer undeclared tools from prose.
     return [dict(task_id=t.id, job_id=j.id, title=j.plan["title"], version=t.version,
-                 reward_atomic=str(t.reward_atomic), tags=t.tags, equipment=t.equipment,
+                 media_type=j.plan.get("media_type", "video"), reward_atomic=str(t.reward_atomic), tags=t.tags, equipment=t.equipment,
                  minutes=t.minutes, deadline=t.deadline, fixture=j.fixture,
                  requirements=j.plan["requirements"], min_seconds=j.plan["min_seconds"], max_seconds=j.plan["max_seconds"],
                  rubric_hash=j.plan_hash, rights_declaration=j.plan["rights_declaration"],

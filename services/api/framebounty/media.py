@@ -31,7 +31,7 @@ class LocalStorage:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def path(self, key: str) -> Path:
-        if not re.fullmatch(r"[0-9a-f]{32}\.(?:video|upload|jpg)", key):
+        if not re.fullmatch(r"[0-9a-f]{32}\.(?:video|image|upload|jpg)", key):
             raise InvalidMedia("Invalid storage key")
         result = (self.root / key).resolve()
         if result.parent != self.root:
@@ -51,6 +51,48 @@ def validate_container_header(header: bytes):
     # early rejection heuristic; ffprobe and full decode remain mandatory.
     if len(header) < 12 or header[4:8] != b"ftyp":
         raise InvalidMedia("Upload an MP4 or MOV video; file content did not match")
+
+
+def validate_image_header(header: bytes):
+    if not (header.startswith(b"\xff\xd8\xff") or header.startswith(b"\x89PNG\r\n\x1a\n")):
+        raise InvalidMedia("Upload a JPEG or PNG image; file content did not match")
+
+
+def inspect_image(path: Path, storage: LocalStorage, expected_mime: str | None = None) -> tuple[dict, list[dict]]:
+    """Fully decode a bounded still image and create one metadata-free model sample.
+
+    Original bytes stay private for export. Reject animated files and oversized
+    dimensions before decoding; model input is always a small re-encoded JPEG.
+    """
+    import secrets
+    import warnings
+    import imagehash
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    key = secrets.token_hex(16) + ".jpg"
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(path) as source:
+                if source.format not in {"JPEG", "PNG"} or getattr(source, "n_frames", 1) != 1:
+                    raise InvalidMedia("Only still JPEG or PNG images are supported")
+                mime = "image/jpeg" if source.format == "JPEG" else "image/png"
+                if expected_mime and mime != expected_mime:
+                    raise InvalidMedia("Image content does not match its declared type")
+                width, height = source.size
+                if min(width, height) < 240 or max(width, height) > 8192 or width * height > 16_000_000:
+                    raise InvalidMedia("Image must be at least 240px per side and at most 16 megapixels / 8192px per side")
+                source.load()
+                image = ImageOps.exif_transpose(source).convert("RGB")
+                image.thumbnail((640, 640))
+                image.save(storage.path(key), "JPEG", quality=85)
+                frame = {"key": key, "timestamp_ms": 0, "dhash": str(imagehash.dhash(image))}
+                return {"width": width, "height": height, "format": source.format, "media_type": "image"}, [frame]
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
+        storage.path(key).unlink(missing_ok=True)
+        if isinstance(exc, InvalidMedia):
+            raise
+        raise InvalidMedia("Image is corrupt or cannot be decoded safely") from exc
 
 
 @dataclass(frozen=True)

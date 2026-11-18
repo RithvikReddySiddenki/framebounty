@@ -14,9 +14,9 @@ from sqlalchemy.orm import Session
 
 from .db import engine
 from .marketplace import new_id
-from .media import InvalidMedia, LocalStorage, MediaUnavailable, decode_video, inspect_video, sample_frames
+from .media import InvalidMedia, LocalStorage, MediaUnavailable, decode_video, inspect_video, inspect_image, sample_frames
 from .models import Job, Submission, VerificationJob
-from .verification import GeminiFrames, ProviderFailure, fixture_assessment
+from .verification import GeminiFrames, ProviderFailure, fixture_assessment, generic_fixture_assessment
 
 
 def claim(db: Session) -> tuple[str, str] | None:
@@ -48,23 +48,31 @@ def claim(db: Session) -> tuple[str, str] | None:
     return item.id, item.lease_token
 
 
-def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool) -> dict:
+def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool, content_type: str | None = None, model_consent: bool = False) -> dict:
     path = storage.path(key)
-    metadata = inspect_video(path)
-    decode_video(path)
-    frames = sample_frames(path, storage, metadata.duration_ms)
-    findings = {"decoded": True, "metadata": asdict(metadata), "frames": frames,
-                "limitations": "Samples may miss actions. Brightness/edge metrics are heuristics. Human full-video review is mandatory."}
+    kind = rubric.get("media_type", "video")
+    if kind == "image":
+        metadata_dict, frames = inspect_image(path, storage, content_type)
+        duration_ms = 0
+    else:
+        metadata = inspect_video(path)
+        if not rubric["min_seconds"] * 1000 <= metadata.duration_ms <= rubric["max_seconds"] * 1000:
+            raise InvalidMedia("Video duration does not match this post's requirements")
+        decode_video(path)
+        frames = sample_frames(path, storage, metadata.duration_ms)
+        metadata_dict, duration_ms = asdict(metadata), metadata.duration_ms
+    findings = {"decoded": True, "media_type": kind, "metadata": metadata_dict, "frames": frames,
+                "limitations": "AI checks can be uncertain and do not prove consent or authenticity. Samples cannot establish every action. Human review authorizes payment."}
     try:
         if fixture:
-            assessment = fixture_assessment()
+            assessment = fixture_assessment() if "media_type" not in rubric else generic_fixture_assessment(rubric)
         else:
-            if os.getenv("ALLOW_MODEL_MEDIA") != "true":
+            if os.getenv("ALLOW_MODEL_MEDIA") != "true" or not model_consent:
                 raise ProviderFailure("Sending private media to Gemini requires explicit ALLOW_MODEL_MEDIA=true consent")
             adapter = GeminiFrames(os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", ""))
             samples = [(frame["timestamp_ms"], storage.path(frame["key"]).read_bytes()) for frame in frames]
-            assessment = adapter.assess(samples, str(rubric), metadata.duration_ms)
-        findings["assessment"] = assessment.model_dump()
+            assessment = adapter.assess(samples, str(rubric), duration_ms) if "media_type" not in rubric else adapter.assess_post(samples, rubric, duration_ms)
+        findings["assessment"] = assessment.model_dump().get("checks", assessment.model_dump())
     except ProviderFailure as exc:
         findings["provider_error"] = str(exc)
         findings["assessment"] = None
@@ -80,14 +88,15 @@ def finish(db: Session, job_id: str, lease_token: str, findings: dict | None, er
         item.state, item.lease_token, item.lease_until = "cancelled", None, None
         db.commit()
         return False
+    consent = submission.findings.get("model_consent", False)
     if error and not invalid and item.attempts < 3:
         item.state = "queued"
         submission.state = "queued"
-        submission.findings = {"processing_error": error, "retry_attempt": item.attempts}
+        submission.findings = {"processing_error": error, "retry_attempt": item.attempts, "model_consent": consent}
     else:
         item.state = "failed" if error else "done"
         submission.state = "invalid" if invalid else "needs_review"
-        submission.findings = findings or {"processing_error": error, "decoded": False}
+        submission.findings = {**(findings or {"processing_error": error, "decoded": False}), "model_consent": consent}
     item.lease_until = datetime.now(UTC) + timedelta(seconds=2 ** item.attempts) if item.state == "queued" else None
     item.lease_token = None
     db.commit()
@@ -105,10 +114,11 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
         submission = db.get(Submission, work.submission_id)
         job = db.get(Job, submission.job_id)
         key, rubric, fixture, digest = submission.object_key, job.plan, job.fixture, submission.sha256
-        submission_id = submission.id
+        submission_id, content_type = submission.id, submission.content_type
+        model_consent = submission.findings.get("model_consent", False)
     findings, error, invalid = None, None, False
     try:
-        findings = analyze(storage, key, rubric, fixture)
+        findings = analyze(storage, key, rubric, fixture, content_type, model_consent)
         with Session(db_engine) as db:
             # Only disclose duplicate candidates within the same private job.
             exact = db.scalars(select(Submission.id).where(Submission.job_id == job.id,
@@ -120,7 +130,7 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
             hashes = [imagehash.hex_to_hash(frame["dhash"]) for frame in findings["frames"]]
             findings["perceptual_duplicate_candidates"] = [other.id for other in others
                 if sum(any(imagehash.hex_to_hash(frame["dhash"]) - current <= 4
-                           for frame in other.findings.get("frames", [])) for current in hashes) >= 3]
+                           for frame in other.findings.get("frames", [])) for current in hashes) >= min(3, len(hashes))]
             findings["duplicate_notice"] = "Similarity is a review flag; separate recordings of repeated tasks may look alike. It never rejects work automatically."
     except InvalidMedia as exc:
         error, invalid = str(exc), True

@@ -1,5 +1,6 @@
 """Authenticated marketplace API; testnet actions are explicitly gated."""
 import os
+from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -14,7 +15,7 @@ from .auth import bearer, current_wallet, issue_challenge, require_service_auth,
 from .db import session
 from .domain import Plan, ReservationIntent as ReserveRequest
 from .marketplace import create_job, prepare_confirmation, reserve, search_tasks
-from .models import Job, Reservation, Submission
+from .models import Job, Reservation, Submission, Task, TransactionIntent
 from .submission_routes import router as submissions_router
 from .agent_routes import router as agents_router
 from .funding_routes import router as funding_router
@@ -94,7 +95,9 @@ def overview(wallet: str = Depends(current_wallet), db: Session = Depends(sessio
     count = lambda condition: db.scalar(select(func.count()).select_from(Job).where(condition))
     reviews = db.scalar(select(func.count()).select_from(Submission).join(Job, Submission.job_id == Job.id).where(
         Job.reviewer == wallet, Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid"])))
-    return {"collections": count(owned), "open_collections": count(owned & (Job.state == "open")),
+    claimable = select(Task.id).where(Task.job_id == Job.id, Task.state == "open", Task.deadline > datetime.now(UTC),
+        Task.claimed < Task.slots, Task.reward_atomic <= Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic).exists()
+    return {"collections": count(owned), "open_collections": count(owned & (Job.state == "open") & claimable),
             "awaiting_review": reviews, "fixture": fixture}
 
 
@@ -145,7 +148,7 @@ def post_reservation(body: ReserveRequest, wallet: str = Depends(current_wallet)
 def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     items = db.scalars(select(Reservation).where(Reservation.wallet == wallet).order_by(Reservation.id).limit(100)).all()
     return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic),
-        "fixture": db.get(Job, r.job_id).fixture,
+        "fixture": db.get(Job, r.job_id).fixture, "media_type": db.get(Job, r.job_id).plan.get("media_type", "video"),
         "expires_at": r.expires_at, "rights_declaration": db.get(Job, r.job_id).plan["rights_declaration"],
         "submission_id": db.scalar(select(Submission.id).where(Submission.reservation_id == r.id))} for r in items]}
 
@@ -153,4 +156,18 @@ def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends
 @app.get("/me/jobs")
 def my_jobs(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     items = db.scalars(select(Job).where((Job.buyer == wallet) | (Job.reviewer == wallet)).order_by(Job.created_at.desc()).limit(100)).all()
-    return {"jobs": [{"id": item.id, "title": item.plan["title"], "state": item.state, "fixture": item.fixture} for item in items]}
+    rows = []
+    for item in items:
+        available = item.deposited_atomic - item.committed_atomic - item.paid_atomic - item.refunded_atomic
+        slots = sum(max(0, task.slots - task.claimed) for task in db.scalars(select(Task).where(
+            Task.job_id == item.id, Task.state == "open", Task.deadline > datetime.now(UTC), Task.reward_atomic <= available)))
+        pending = db.scalar(select(TransactionIntent.id).where(TransactionIntent.job_id == item.id,
+            TransactionIntent.kind.in_(["create_job", "token_approve", "deposit"]),
+            TransactionIntent.state.in_(["intent", "signed", "broadcast"])).limit(1))
+        status = ("awaiting_funding" if pending else "draft") if item.state == "draft" else (
+            "open" if item.state == "open" and slots else "no_available_tasks" if item.state == "open" else item.state)
+        rows.append({"id": item.id, "title": item.plan["title"], "state": item.state, "fixture": item.fixture,
+            "publication_status": status, "open_slots": slots, "media_type": item.plan.get("media_type", "video"),
+            "plan": item.plan, "plan_hash": item.plan_hash, "available_atomic": str(available),
+            "deposited_atomic": str(item.deposited_atomic), "paid_atomic": str(item.paid_atomic)})
+    return {"jobs": rows}

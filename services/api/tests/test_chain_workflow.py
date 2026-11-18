@@ -66,6 +66,47 @@ def uploaded(db, rpc, accounts, rid, video):
     return item.id
 
 
+def test_image_post_receipt_gated_funding_hash_lock_and_single_payout(pg, chain, live_mode):
+    from framebounty.domain import Plan
+    from framebounty.funding import actions
+    from framebounty.marketplace import create_job
+    from test_chain import send
+    from test_image_posts import image_plan, image_bytes
+
+    rpc, accounts = chain
+    data = image_bytes()
+    with Session(pg) as db:
+        job = create_job(db, accounts[1], Plan.model_validate(image_plan()))
+        jid = job.id
+        for action in actions(rpc, job, accounts[0]):
+            send(db, rpc, action)
+        assert funding_step(db, rpc, accounts[1], jid, job.plan_hash, accounts[0])["funded"]
+        task = db.scalar(select(Task).where(Task.job_id == jid))
+        assert task.equipment == ["phone"] and task.tags == ["cat_climbing_tree"]
+        confirmation = prepare_confirmation(db, accounts[2], task.id)
+        reservation = reserve(db, accounts[2], confirmation.id, task.id, task.version, task.reward_atomic, "image-chain-reserve")
+        rid = reservation.id
+        assert sync_allocation(db, rpc, rid, LocalUnlockedSigner(rpc, accounts[0])).state == "reserved"
+        key = secrets.token_hex(16) + ".image"
+        LocalStorage().path(key).write_bytes(data)
+        item = finalize_upload(db, accounts[2], rid, key, hashlib.sha256(data).hexdigest(), len(data), "image/png")
+        sid = item.id
+        assert item.state == "chain_pending"
+        assert transact(db, rpc, accounts[2], rid, "submit")["confirmed"]
+    assert run_once(pg)
+    with Session(pg) as db:
+        assert db.get(Submission, sid).findings["metadata"]["media_type"] == "image"
+        assert db.get(Submission, sid).state == "needs_review"
+        review(db, accounts[1], sid, "accept", True, True, ["cat_climbing_tree"], "Synthetic image settlement test only")
+        assert token_balance(rpc, accounts[2]) == 0
+        assert transact(db, rpc, accounts[1], rid, "review")["confirmed"]
+        assert transact(db, rpc, accounts[1], rid, "review")["confirmed"]
+        assert token_balance(rpc, accounts[2]) == 1_000_000
+        assert db.get(Job, jid).paid_atomic == 1_000_000
+        assert submission_view(db.get(Submission, sid))["payment_confirmed"]
+        assert export(jid, accounts[1], db)["items"][0]["media_type"] == "image"
+
+
 def test_real_reserve_upload_review_pending_receipt_and_restart_payment(pg, chain, live_mode, video):
     rpc, accounts = chain
     with Session(pg) as db:

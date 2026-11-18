@@ -4,7 +4,7 @@ These pure functions do not assert funding, ownership or model accuracy. Those r
 authenticated services and verified chain evidence before any task becomes claimable.
 """
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -45,6 +45,7 @@ class Requirement(ClosedModel):
 
 
 class Plan(ClosedModel):
+    media_type: Literal["image", "video"] = "video"
     version: int = Field(strict=True, ge=1)
     title: str = Field(min_length=3, max_length=160)
     total: int = Field(strict=True, ge=1, le=20)

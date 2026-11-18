@@ -22,14 +22,14 @@ def owned_reservation(db: Session, reservation_id: str, wallet: str) -> Reservat
     return item
 
 
-def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, digest: str, size: int, mime: str) -> Submission:
+def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, digest: str, size: int, mime: str, model_ack: bool = False) -> Submission:
     reference = owned_reservation(db, reservation_id, wallet)
     job = db.scalar(select(Job).where(Job.id == reference.job_id).with_for_update().execution_options(populate_existing=True))
     reservation = db.scalar(select(Reservation).where(Reservation.id == reservation_id).with_for_update().execution_options(populate_existing=True))
     old = db.scalar(select(Submission).where(Submission.reservation_id == reservation_id))
     if old:
         if old.sha256 != digest:
-            raise HTTPException(409, "A different video was already submitted for this reservation")
+            raise HTTPException(409, "Different media was already submitted for this reservation")
         return old
     fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
     live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
@@ -40,7 +40,7 @@ def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, dig
     item = Submission(id=new_id(), reservation_id=reservation.id, job_id=job.id, wallet=wallet, fixture=fixture,
         object_key=key, sha256=digest, size_bytes=size, content_type=mime,
         rights_declaration=job.plan["rights_declaration"], rubric_hash=reservation.rubric_hash,
-        state="queued" if fixture else "chain_pending", findings={}, reviewed_tags=[],
+        state="queued" if fixture else "chain_pending", findings={"model_consent": model_ack}, reviewed_tags=[],
         review_deadline=datetime.now(UTC) + timedelta(hours=job.plan["review_hours"]))
     db.add(item)
     db.flush()  # The durable job FK is written in the same transaction as submission.
@@ -68,7 +68,7 @@ def submission_view(item: Submission, include_private_pairs: bool = False) -> di
     findings = {key: value for key, value in item.findings.items() if key != "frames" and (include_private_pairs or key not in pairs)}
     findings["possible_duplicate_flagged"] = any(item.findings.get(key) for key in pairs)
     findings["frames"] = [{k: v for k, v in frame.items() if k != "key"} for frame in item.findings.get("frames", [])]
-    return {"id": item.id, "reservation_id": item.reservation_id, "job_id": item.job_id,
+    return {"id": item.id, "media_type": "image" if (item.content_type or "").startswith("image/") else "video", "reservation_id": item.reservation_id, "job_id": item.job_id,
         "state": item.state, "findings": findings, "reviewed_tags": item.reviewed_tags,
         "review_reason": item.review_reason, "review_deadline": item.review_deadline,
         "rights_declaration": item.rights_declaration, "rubric_hash": item.rubric_hash,
@@ -104,7 +104,7 @@ def review(db: Session, wallet: str, submission_id: str, decision: str, task_com
     if not (fixture or live):
         raise HTTPException(503, "Review is disabled for this mode")
     if decision == "accept" and (not task_completed or not watched_full_video or not item.findings.get("decoded") or item.state == "invalid"):
-        raise HTTPException(422, "Acceptance requires a decoded video and explicit full-video/task-completion review")
+        raise HTTPException(422, "Acceptance requires decoded media and explicit full-media/task-completion review")
     task = db.scalar(select(Task).where(Task.id == reservation.task_id).with_for_update())
     if decision == "accept" and not set(task.tags) <= set(tags):
         raise HTTPException(422, "Accepted work must satisfy this reserved task's required categories")

@@ -108,7 +108,7 @@ def normalize(role: str, tool: str, arguments: dict, turn_id: str) -> dict:
 def dispatch(db: Session, scope: AgentSession, tool: str, args: dict, turn_id: str) -> tuple[str, dict]:
     wallet = scope.wallet
     if tool == "draft_plan":
-        prefix = "Fixed towel-folding fixture example; arbitrary request counts were not interpreted. " if os.getenv("APP_MODE", "fixture") == "fixture" else ""
+        prefix = "Fixed fixture example; arbitrary request counts were not interpreted. " if os.getenv("APP_MODE", "fixture") == "fixture" else ""
         return prefix + "Draft proposal only. Review and edit the terms before saving and funding anything.", {
             "plan": {**args, "budget_atomic": str(args["budget_atomic"]), "reward_atomic": str(args["reward_atomic"])}}
     if tool in {"inspect_job", "next_batch"}:
@@ -212,6 +212,12 @@ def propose(db: Session, scope: AgentSession, message: str, adapter: GeminiFrame
             return ("my_work" if any(word in message.lower() for word in ("my work", "my reservation", "status", "payment")) else "search_tasks"), {}
         if scope.job_id:
             return ("next_batch" if message.lower().strip().startswith(("commission next batch", "publish next batch", "next batch")) else "inspect_job"), {}
+        if "cat" in message.lower() and any(word in message.lower() for word in ("image", "photo")):
+            # Deliberately fixed synthetic fixture, never presented as model inference.
+            return "draft_plan", Plan(media_type="image", version=1, title="Cat climbing a tree (fixture example)",
+                total=20, budget_atomic=20_000_000, reward_atomic=1_000_000, min_seconds=10, max_seconds=10,
+                review_hours=72, rights_declaration="Synthetic fixture only. Submit only media you have rights to share for this dataset.",
+                requirements=[{"key": "cat_climbing_tree", "description": "A cat visibly climbing a tree", "minimum": 20}]).model_dump(mode="json")
         if "towel" not in message.lower():
             raise HTTPException(422, "Fixture planning supports the towel-folding example only; live Gemini planning is not configured")
         return "draft_plan", example_plan().model_dump(mode="json")
@@ -228,7 +234,7 @@ def propose(db: Session, scope: AgentSession, message: str, adapter: GeminiFrame
         "Contributor equipment/time comes only from the saved profile. Never invent listings or earnings.")
     try:
         if scope.role == "buyer" and scope.job_id is None:
-            payload = adapter.structured_text(prompt, Plan.model_json_schema(), instruction + " Propose a video collection plan with at most 20 clips. Rewards are strict integer six-decimal USDC atoms. Human review is mandatory.")
+            payload = adapter.structured_text(prompt, Plan.model_json_schema(), instruction + " Propose an image or video collection plan with at most 20 items, matching the requested subject and media_type. Use image for photos/images and video for clips/videos. Never substitute towel folding or add unrelated quotas. Describe observable acceptance requirements in requirements; for image posts min_seconds=max_seconds=10 are unused compatibility fields. For video use 10-30 seconds. Use a fixed reward of 1000000 atoms per accepted item and budget_atomic=total*1000000. Propose clear dataset usage rights for buyer review. Rewards are strict integer six-decimal USDC atoms. Human review is mandatory.")
             return "draft_plan", Plan.model_validate_json(payload).model_dump(mode="json")
         schema = ContributorSelection if scope.role == "contributor" else BuyerSelection
         payload = adapter.structured_text(prompt, schema.model_json_schema(), instruction)
