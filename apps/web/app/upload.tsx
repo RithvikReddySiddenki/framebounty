@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { apiBase, request } from "./api";
+import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
 
@@ -42,12 +42,14 @@ export default function Upload({
   rights,
   existingId,
   canUpload,
+  onChanged,
 }: {
   reservationId: string;
   token: string;
   rights: string;
   existingId?: string | null;
   canUpload: boolean;
+  onChanged?: () => Promise<void>;
 }) {
   const [file, setFile] = useState<File>();
   const [acknowledged, setAcknowledged] = useState(false);
@@ -63,6 +65,7 @@ export default function Upload({
     setError("");
     try {
       setSubmission(await request<Submission>(`/submissions/${id}`, token));
+      await onChanged?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not refresh submission",
@@ -109,6 +112,7 @@ export default function Upload({
             ),
           );
         xhr.onload = () => {
+          if (xhr.status === 401) notifySessionExpired(token);
           let data;
           try {
             data = JSON.parse(xhr.responseText);
@@ -132,6 +136,7 @@ export default function Upload({
         xhr.send(file);
       });
       setSubmission(result);
+      await onChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

@@ -2,9 +2,9 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **113 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
+- Full backend: **115 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
   The thirteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-live-setup-full-02 --junitxml=.local/live-setup-results.xml`
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-auth-dashboard-full-01 --junitxml=.local/auth-dashboard-backend.xml`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
 - Real PostgreSQL/local-chain gate: **13 passed**, no skips. Deploys the actual
   escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
@@ -15,11 +15,15 @@
   Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-deployment-full-01 --junitxml=.local/deployment-chain-results.xml`.
 - Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
-- Chromium: **1 passed** in the isolated browser harness, using real wallet signatures,
+- Chromium: **6 passed** in the isolated browser harness, using real wallet signatures,
   PostgreSQL, API, Next.js, video decode/sampling and standalone worker. Funds/model
   observations are explicitly fixtures; video is a generated test pattern.
   Command: `python scripts/test_e2e.py` with TEST_DATABASE_URL configured.
+  Covers anonymous gate, signature refusal, actual server logout/revocation,
+  session expiry, wallet change/reload, and full buyer/contributor/reviewer flow.
+  Phone layout has no horizontal overflow and the sign-in action is above the fold.
 - Web production build passed, including TypeScript validation of the final export UI.
+  Authenticated dashboard and separate contributor submissions views also build.
 - Funding UI typechecks/builds; its actual Arc wallet transaction flow has not been
   browser-tested. The complete fixture browser regression still passes. Canonical
   ABI/runtime freshness passes `python scripts/export_contract.py --check`.

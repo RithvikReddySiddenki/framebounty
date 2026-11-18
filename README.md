@@ -48,14 +48,17 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000 and API docs at http://localhost:8000/docs.
+Open http://localhost:3000 and sign in with your wallet. Minimal public liveness is
+at http://localhost:8000/health. Every product route, including search and plan
+validation, requires a signed session; public API docs/schema are disabled.
 The API does not automatically load `.env`. Run `./scripts/load-env.ps1` in each
 terminal before starting the API or workers; it loads documented settings without
 displaying values or evaluating shell expressions. The explicit shell exports
 above are an alternative for fixture mode. Do not put any
 Gemini or signing secret in a `NEXT_PUBLIC_` variable. No Gemini key is needed for
-draft editing or deterministic search. Saving or reserving requires a browser
-wallet on Arc testnet and a signed login challenge (no payment authority).
+sign-in or deterministic fixture mode. Workspace access requires a browser wallet
+on Arc testnet and a signed challenge (no payment authority). Sign-out revokes the
+server session; account/network changes and expiry return to sign-in.
 
 To seed clearly labeled **simulated** listings, explicitly set `APP_MODE=fixture`
 and run:

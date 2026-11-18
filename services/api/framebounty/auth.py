@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 from eth_account import Account
 from eth_account.messages import encode_defunct
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -77,3 +77,22 @@ def current_wallet(credentials: HTTPAuthorizationCredentials | None = Depends(be
     if item is None or item.expires_at <= datetime.now(UTC):
         raise HTTPException(401, "Session expired")
     return item.wallet
+
+
+def require_service_auth(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+                         db: Session = Depends(session)):
+    """Default-deny every product route, including future routes without a wallet arg.
+
+    Only the exact sign-in endpoints and minimal liveness are public. Ownership
+    remains enforced by each service; authentication alone grants no buyer powers.
+    """
+    public = {("POST", "/auth/challenge"), ("POST", "/auth/login"), ("GET", "/health")}
+    if (request.method, request.url.path) not in public:
+        return current_wallet(credentials, db)
+
+
+def revoke_session(credentials: HTTPAuthorizationCredentials, db: Session):
+    item = db.get(AuthSession, hashlib.sha256(credentials.credentials.encode()).hexdigest())
+    if item is not None:
+        db.delete(item)
+        db.commit()

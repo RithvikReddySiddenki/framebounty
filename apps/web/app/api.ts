@@ -3,6 +3,12 @@
 export const apiBase =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export function notifySessionExpired(token: string) {
+  window.dispatchEvent(
+    new CustomEvent("framebounty:session-expired", { detail: { token } }),
+  );
+}
+
 export async function request<T>(
   path: string,
   token?: string,
@@ -25,6 +31,7 @@ export async function request<T>(
     );
   }
   if (!response.ok) {
+    if (response.status === 401 && token) notifySessionExpired(token);
     const data = await response.json().catch(() => ({}));
     throw new Error(
       typeof data.detail === "string"
@@ -41,19 +48,31 @@ type Provider = {
   removeListener?: (event: string, listener: () => void) => void;
 };
 
-export function watchWalletChange(disconnect: () => void): () => void {
+export function watchWalletChange(
+  disconnect: () => void,
+  sessionExpired: (token: string) => void = disconnect,
+): () => void {
   const provider = (window as Window & { ethereum?: Provider }).ethereum;
   provider?.on?.("accountsChanged", disconnect);
   provider?.on?.("chainChanged", disconnect);
+  provider?.on?.("disconnect", disconnect);
+  const expired = (event: Event) => {
+    const token = (event as CustomEvent<{ token: string }>).detail?.token;
+    if (token) sessionExpired(token);
+  };
+  window.addEventListener("framebounty:session-expired", expired);
   return () => {
     provider?.removeListener?.("accountsChanged", disconnect);
     provider?.removeListener?.("chainChanged", disconnect);
+    provider?.removeListener?.("disconnect", disconnect);
+    window.removeEventListener("framebounty:session-expired", expired);
   };
 }
 
 export async function authenticate(): Promise<{
   wallet: string;
   token: string;
+  expiresAt: number;
 }> {
   const provider = (window as Window & { ethereum?: Provider }).ethereum;
   if (!provider)
@@ -84,12 +103,20 @@ export async function authenticate(): Promise<{
     method: "personal_sign",
     params: [hex, wallet],
   });
-  const result = await request<{ token: string }>("/auth/login", undefined, {
-    nonce: challenge.nonce,
-    signature,
-  });
+  const result = await request<{ token: string; expires_in_seconds: number }>(
+    "/auth/login",
+    undefined,
+    {
+      nonce: challenge.nonce,
+      signature,
+    },
+  );
   // Session stays in memory; reloading requires another signature. Never persist a signing key.
-  return { wallet, token: result.token };
+  return {
+    wallet,
+    token: result.token,
+    expiresAt: Date.now() + result.expires_in_seconds * 1000,
+  };
 }
 
 export function usdc(atomic: string): string {

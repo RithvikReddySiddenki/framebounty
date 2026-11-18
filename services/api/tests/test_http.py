@@ -5,7 +5,7 @@ from framebounty.main import app
 def test_health_does_not_claim_payments():
     response = TestClient(app).get("/health")
     assert response.status_code == 200
-    assert response.json()["payments_enabled"] is False
+    assert response.json() == {"status": "ok"}
 
 
 def test_health_only_enables_explicit_configured_testnet_handlers(monkeypatch):
@@ -14,12 +14,12 @@ def test_health_only_enables_explicit_configured_testnet_handlers(monkeypatch):
     monkeypatch.setenv("ARC_RPC_URL", "https://rpc.example.invalid")
     monkeypatch.setenv("ARC_ESCROW_ADDRESS", "0x" + "1" * 40)
     response = TestClient(app).get("/health").json()
-    assert response["payments_enabled"] and response["settlement_requires_verified_receipt"]
-    assert "paid_atomic" not in response
+    assert response == {"status": "ok"}
+    assert TestClient(app).get("/me/status").status_code == 401
 
 
-def test_invalid_plan_is_rejected_at_boundary():
-    assert TestClient(app).post("/plans/validate", json={"budget_atomic": -1}).status_code == 422
+def test_anonymous_plan_validation_is_not_a_public_service():
+    assert TestClient(app).post("/plans/validate", json={"budget_atomic": -1}).status_code == 401
 
 
 def test_no_duplicate_route_can_shadow_authorization_or_response_policy():

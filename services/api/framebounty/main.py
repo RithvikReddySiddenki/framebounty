@@ -2,14 +2,15 @@
 import os
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
-from .auth import current_wallet, issue_challenge, sign_in, wallet_address
+from .auth import bearer, current_wallet, issue_challenge, require_service_auth, revoke_session, sign_in, wallet_address
 from .db import session
 from .domain import Plan, ReservationIntent as ReserveRequest
 from .marketplace import create_job, prepare_confirmation, reserve, search_tasks
@@ -19,7 +20,8 @@ from .agent_routes import router as agents_router
 from .funding_routes import router as funding_router
 from .chain_routes import router as chain_router
 
-app = FastAPI(title="FrameBounty", version="0.1.0")
+app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
+              docs_url=None, redoc_url=None, openapi_url=None)
 app.include_router(submissions_router)
 app.include_router(agents_router)
 app.include_router(funding_router)
@@ -36,6 +38,11 @@ def database_unavailable(_request, _exc):
 
 @app.get("/health")
 def health():
+    return {"status": "ok"}
+
+
+@app.get("/me/status")
+def service_status():
     enabled = (os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
                and bool(os.getenv("ARC_RPC_URL")) and bool(os.getenv("ARC_ESCROW_ADDRESS")))
     return {"status": "ok", "mode": os.getenv("APP_MODE", "fixture"), "payments_enabled": enabled,
@@ -72,6 +79,23 @@ def challenge(body: ChallengeRequest, db: Session = Depends(session)):
 @app.post("/auth/login")
 def login(body: LoginRequest, db: Session = Depends(session)):
     return {"token": sign_in(db, body.nonce, body.signature), "expires_in_seconds": 28800}
+
+
+@app.post("/auth/logout")
+def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(session)):
+    revoke_session(credentials, db)
+    return {"signed_out": True}
+
+
+@app.get("/me/overview")
+def overview(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    fixture = os.getenv("APP_MODE", "fixture") == "fixture"
+    owned = (Job.buyer == wallet) & ((Job.fixture == fixture) | (Job.state == "draft"))
+    count = lambda condition: db.scalar(select(func.count()).select_from(Job).where(condition))
+    reviews = db.scalar(select(func.count()).select_from(Submission).join(Job, Submission.job_id == Job.id).where(
+        Job.reviewer == wallet, Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid"])))
+    return {"collections": count(owned), "open_collections": count(owned & (Job.state == "open")),
+            "awaiting_review": reviews, "fixture": fixture}
 
 
 @app.post("/jobs")

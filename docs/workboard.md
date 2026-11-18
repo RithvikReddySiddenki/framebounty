@@ -155,3 +155,23 @@ and deposit in MetaMask. Fixture-only publish controls hidden in live mode;
 typecheck, production build and full Chromium fixture regression passed. Owned
 preview processes remain running for the active wallet walkthrough and must be
 stopped at final task teardown. Unrelated .vscode files are preserved.
+
+Active user-requested slice: mandatory sign-in for all product services, plus an
+authenticated marketplace dashboard guided by Prolific's clear task terms,
+Upwork's role-specific AI help and Linear's quiet hierarchy/navigation. Lead owns
+default-deny API guard, logout/session expiry, dashboard API, web shell and E2E.
+Public exceptions are sign-in challenge/login and minimal operational health;
+API docs/schema are disabled. Acceptance: anonymous/expired/revoked sessions cannot
+search, validate plans or use any product route; no workspace mounts pre-sign-in;
+buyer/contributor/reviewer flows remain functional at phone and desktop widths.
+
+Implemented: default-deny guard across all product routes, minimal public health,
+disabled docs/schema, real token revocation, expiry/wallet/provider invalidation,
+and a client sign-in gate that mounts no services before verified login. New calm
+sidebar dashboard uses genuine DB counts; task cards emphasize reward/time and
+contributors have a separate submissions view. Review/submission refreshes update
+counts/status. No external font request occurs before sign-in. Validation: 115
+backend passes (13 separately gated chain skips), 6 Chromium passes including the
+complete collection workflow, typecheck/production build, desktop/phone screenshots
+and live anonymous route checks. Source of design patterns and limits: decision
+0008. The preview is updated; existing collections and on-chain state preserved.

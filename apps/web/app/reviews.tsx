@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiBase, request } from "./api";
+import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
@@ -245,7 +245,13 @@ function ReviewCard({
   );
 }
 
-export default function Reviews({ token }: { token?: string }) {
+export default function Reviews({
+  token,
+  onChanged,
+}: {
+  token?: string;
+  onChanged?: () => Promise<void>;
+}) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState("");
   const [items, setItems] = useState<Submission[]>([]);
@@ -290,6 +296,7 @@ export default function Reviews({ token }: { token?: string }) {
       setItems(queue.submissions);
       setCoverage(counts);
       setRubric(job.plan);
+      await onChanged?.();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not load review queue",
@@ -371,6 +378,7 @@ export default function Reviews({ token }: { token?: string }) {
       const response = await fetch(`${apiBase}/jobs/${selected}/dataset.zip`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (response.status === 401) notifySessionExpired(token);
       if (!response.ok)
         throw new Error(
           "Dataset export failed. Refresh the collection and retry.",

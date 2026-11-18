@@ -57,7 +57,7 @@ Only EOA signatures are supported; ERC-1271 wallets, rate limiting and session
 revocation are not yet implemented. Configure AUTH_ORIGIN before remote hosting.
 Use HTTPS for any remote deployment; current setup is loopback development only.
 
-Job reads require buyer/reviewer ownership. Public search returns task terms, not
+Job reads require buyer/reviewer ownership. Authenticated search returns task terms, not
 private records. Confirmation is bound to wallet/task/version/reward for five
 minutes. Reservation locks confirmation, job, then task, refreshing locked rows;
 unique confirmation and wallet/idempotency constraints enforce retry safety.
@@ -82,6 +82,14 @@ All observations still require human review. Native process timeouts are not a t
 decoder memory cap; the opt-in resource-limited worker container is not yet tested.
 
 ## Logical agents
+
+Product services now have default-deny authentication at the FastAPI application
+boundary, including task discovery, plan validation, status and overview. Only
+sign-in challenge/login and minimal liveness are public; docs/schema routes are
+disabled. Logout revokes the current opaque session. The web app renders only the
+sign-in screen before verification and clears all workspace state on expiry,
+wallet/network/provider changes or a matching-token 401. See decision 0008 for
+race handling, visual organization and remaining authentication limits.
 
 Migration 0003 adds wallet-owned, immutable-role agent sessions and durable turn intents.
 Buyer sessions may optionally bind one owned job; contributor sessions bind an explicit,

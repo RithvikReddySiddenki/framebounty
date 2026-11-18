@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiBase } from "./api";
+import { apiBase, notifySessionExpired } from "./api";
 
 /** Fetch private media with the session header; never put bearer tokens in URLs. */
 export default function MediaView({
@@ -27,6 +27,7 @@ export default function MediaView({
       signal: controller.signal,
     })
       .then(async (response) => {
+        if (response.status === 401) notifySessionExpired(token);
         if (!response.ok)
           throw new Error(
             "Private media could not be loaded. Refresh your session and retry.",

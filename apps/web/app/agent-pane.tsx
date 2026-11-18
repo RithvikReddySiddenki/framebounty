@@ -274,9 +274,8 @@ export default function AgentPane({
         {role.toUpperCase()} AGENT · PRIVATE CONVERSATION
       </p>
       <p className="muted">
-        Fixture mode uses deterministic responses and actual database records.
-        Live mode requires configured Gemini access; it never silently falls
-        back. Neither agent can approve quality or move arbitrary funds.
+        Get help with planning and tracking work. You confirm the terms before
+        committing; a human reviewer decides quality and authorizes rewards.
       </p>
       {role === "contributor" && (
         <p className="notice">
@@ -353,8 +352,8 @@ export default function AgentPane({
                 </p>
                 <p className="muted">
                   {entry.result.provider_mode === "fixture"
-                    ? "Deterministic fixture response"
-                    : "Validated Gemini proposal"}{" "}
+                    ? "Simulated agent response"
+                    : "AI-assisted response"}{" "}
                   · Action: {entry.tool.replaceAll("_", " ")}
                 </p>
                 {entry.result.data.plan && (
