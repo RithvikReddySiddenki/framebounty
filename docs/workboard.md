@@ -144,3 +144,14 @@ the approved 0.0820663 cap. Local escrow address saved; application live flags
 remain false. Escrow balance zero: no job is funded yet. Requested the user's
 separate buyer/reviewer public wallet and browser-wallet app for the interactive
 funding check. Full public evidence and remaining steps are in live-validation.md.
+
+Buyer uses MetaMask and their public address validates; read-only Arc balance now
+exceeds the 20-USDC budget plus gas. Local interactive preview launched on 3000,
+API on 8000, with allocator and media workers. Process-only testnet/chain/text
+flags are enabled; media-provider flag stays false, and web process receives no
+Gemini/allocator secret. API/page health HTTP 200 and no live listings before
+funding verified. User must now sign in and authorize plan creation, allowance
+and deposit in MetaMask. Fixture-only publish controls hidden in live mode;
+typecheck, production build and full Chromium fixture regression passed. Owned
+preview processes remain running for the active wallet walkthrough and must be
+stopped at final task teardown. Unrelated .vscode files are preserved.

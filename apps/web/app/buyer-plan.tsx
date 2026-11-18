@@ -11,6 +11,7 @@ export default function BuyerPlan({
   token?: string;
   initialPlan?: PlanProposal;
 }) {
+  const chainMode = process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true";
   const [total, setTotal] = useState(initialPlan?.total || 20);
   const [large, setLarge] = useState(
     initialPlan?.requirements.find((r) => r.key === "large_towel")?.minimum ||
@@ -243,9 +244,11 @@ export default function BuyerPlan({
             Draft {saved} saved.{" "}
             {published
               ? "Two or fewer initial fixture slots are published. No blockchain transaction occurred."
-              : "This draft has not been published through fixture funding."}
+              : chainMode
+                ? "Follow the Arc testnet funding steps below. Listings wait for verified funding."
+                : "This draft has not been published through fixture funding."}
           </p>
-          {!published && (
+          {!published && !chainMode && (
             <>
               <label className="check">
                 <input
@@ -264,16 +267,14 @@ export default function BuyerPlan({
               </button>
             </>
           )}
-          {!published &&
-            token &&
-            process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && (
-              <Funding
-                key={saved}
-                token={token}
-                jobId={saved}
-                planHash={planHash}
-              />
-            )}
+          {!published && token && chainMode && (
+            <Funding
+              key={saved}
+              token={token}
+              jobId={saved}
+              planHash={planHash}
+            />
+          )}
         </div>
       )}
     </section>

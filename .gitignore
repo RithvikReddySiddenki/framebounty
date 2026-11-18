@@ -232,5 +232,6 @@ out/
 !.env.example
 contracts/cache/
 .next-e2e/
+.next-live/
 test-results/
 playwright-report/

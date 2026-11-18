@@ -19,6 +19,16 @@ ignored `.local`. Escrow balance was zero at verification. **No collection is
 funded and no contributor payment is claimed by this deployment.** Application
 transaction and model flags remain disabled pending the interactive demo setup.
 
+The buyer wallet was subsequently verified funded above the 20-USDC budget plus
+gas. An interactive local preview now runs at http://localhost:3000 with process-only
+testnet funding and free-tier text-agent flags enabled. Private-video Gemini uploads
+remain disabled. Persisted `.env` defaults stay conservative. The API health check
+and page return HTTP 200; live task search is empty before any buyer deposit.
+Owned process metadata/logs are private under `.local`. Preview output uses the
+ignored `.next-live` directory independently of browser-test caches. Fixture funding
+controls are hidden in the live funding interface. This is readiness evidence, not
+a claim that the buyer has signed or deposited funds.
+
 ## Gemini synthetic smoke
 
 The user supplied an AI Studio screenshot showing Free tier and billing not set
