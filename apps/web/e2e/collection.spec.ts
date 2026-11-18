@@ -22,11 +22,13 @@ test("draft funding and review panels have distinct identities across post selec
   }
   await page.getByRole("button", { name: "Collections & review", exact: true }).click();
   await page.locator(".post-card").filter({ hasText: "First draft image post" }).click();
-  const confirmation = page.getByLabel("I confirm the saved plan and its fixed test-USDC budget.");
-  await confirmation.check();
+  await page.getByText("Recover a wallet transaction", { exact: true }).click();
+  const recovery = page.getByLabel("Existing transaction hash");
+  await recovery.fill("0x1234");
   await expect(page.getByRole("button", { name: "Refresh queue & coverage" })).toBeVisible();
   await page.locator(".post-card").filter({ hasText: "Second draft image post" }).click();
-  await expect(confirmation).not.toBeChecked();
+  await page.getByText("Recover a wallet transaction", { exact: true }).click();
+  await expect(recovery).toHaveValue("");
   await expect(page.locator(".post-detail").getByRole("heading", { name: "Second draft image post", exact: true })).toBeVisible();
   expect(errors.filter(error => /same key|unique.*key/i.test(error))).toEqual([]);
 });
@@ -37,28 +39,39 @@ test("image request becomes a labeled post, private image submission, AI finding
   const buyer = await buyerContext.newPage();
   const actor = await actorContext.newPage();
   await connect(buyer);
-  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 20 images of a cat climbing a tree under 20 USDC");
-  await buyer.getByRole("button", { name: "Create my post", exact: true }).click();
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want images of a cat climbing a tree");
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(buyer.getByText(/How many would you like/)).toBeVisible();
+  await expect(buyer.getByRole("region", { name: "Generated post preview" })).toHaveCount(0);
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("20");
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(buyer.getByText(/maximum reward budget/)).toBeVisible();
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("20 USDC");
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
   const preview = buyer.getByRole("region", { name: "Generated post preview" });
   await expect(preview.getByText("Image post", { exact: true })).toBeVisible();
-  await buyer.getByLabel(/I approve this post/).check();
-  await buyer.getByRole("button", { name: "Approve & save post" }).click();
+  await buyer.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "buyer-chat-preview.png"), fullPage: true });
+  await buyer.getByRole("button", { name: "Save draft instead" }).click();
   await buyer.getByRole("button", { name: "View my posts & status" }).click();
-  const card = buyer.locator(".post-card").filter({ hasText: "Cat climbing a tree" });
+  const card = buyer.locator(".post-card").filter({ hasText: /cat climbing a tree/i });
   await expect(card).toContainText("Draft");
   await buyer.getByRole("button", { name: "Overview", exact: true }).click();
-  await buyer.getByLabel(/Simulate funding for local testing/).check();
-  await buyer.getByRole("button", { name: "Simulate funding & publish post" }).click();
+  await buyer.getByRole("button", { name: "Publish simulated post" }).click();
   await buyer.getByRole("button", { name: "View my posts & status" }).click();
   await expect(card).toContainText("Open for contributors");
   await card.click();
   await connect(actor);
   await actor.getByRole("button", { name: "Contributor workspace" }).click();
-  await actor.getByRole("button", { name: "Send contributor message" }).click();
-  const match = actor.locator(".agent-task").filter({ hasText: "Cat climbing a tree" });
+  await actor.getByLabel("Message your work agent").fill("I have a phone");
+  await actor.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(actor.getByText(/How much time do you have/)).toBeVisible();
+  await expect(actor.getByLabel("Equipment (comma-separated)")).toHaveCount(0);
+  await actor.getByLabel("Message your work agent").fill("20 minutes");
+  await actor.getByRole("button", { name: "Send", exact: true }).click();
+  const match = actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i });
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
-  await match.getByRole("button", { name: "Review agent reservation terms" }).click();
-  await actor.getByRole("button", { name: "Confirm agent task & reward", exact: true }).click();
+  await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });
+  await match.getByRole("button", { name: /Reserve for/ }).click();
   const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   await actor.getByLabel(/I have read and acknowledge/).check();
@@ -74,7 +87,7 @@ test("image request becomes a labeled post, private image submission, AI finding
   await expect(buyer.getByAltText("Submitted image")).toBeVisible();
   await buyer.getByLabel("I inspected the full image.").check();
   await buyer.getByLabel("The submission meets the task described in this post.").check();
-  await buyer.getByLabel("A cat visibly climbing a tree", { exact: true }).check();
+  await buyer.getByLabel("Clearly show a cat climbing a tree", { exact: true }).check();
   await buyer.getByLabel("Decision reason").fill("Synthetic UI workflow only; this image does not demonstrate a cat.");
   await buyer.getByRole("button", { name: "Accept fixture work" }).click();
   await expect(buyer.getByText(/FIXTURE SUBMISSION.*fixture accepted/)).toBeVisible();
@@ -295,26 +308,18 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     fullPage: true,
   });
   await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("Plan 20 towel-folding videos with large towels and dark surfaces under 20 USDC");
-  await buyer.getByRole("button", { name: "Create my post", exact: true }).click();
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
-  await buyer.getByLabel(/I approve this post/).check();
-  await buyer.getByRole("button", { name: "Approve & save post" }).click();
-  await buyer.getByLabel(/Simulate funding for local testing/).check();
-  await buyer.getByRole("button", { name: "Simulate funding & publish post" }).click();
+  await buyer.getByRole("button", { name: "Save draft instead" }).click();
+  await buyer.getByRole("button", { name: "Publish simulated post" }).click();
   await expect(buyer.getByText(/Open.*Simulated funding/)).toBeVisible();
   await connect(contributor);
   await contributor
     .getByRole("button", { name: "Contributor workspace" })
     .click();
-  await contributor
-    .getByRole("button", { name: "Send contributor message" })
-    .click();
-  await contributor.locator(".agent-task").filter({ hasText: "Towel-folding demonstrations" })
-    .getByRole("button", { name: "Review agent reservation terms" })
-    .click();
-  await contributor
-    .getByRole("button", { name: "Confirm agent task & reward", exact: true })
-    .click();
+  await contributor.getByLabel("Message your work agent").fill("I have a phone, a towel and a dark table. I have 20 minutes.");
+  await contributor.getByRole("button", { name: "Send", exact: true }).click();
+  await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Reserve for/ }).click();
   await contributor
     .getByLabel("Choose a phone video")
     .setInputFiles(process.env.E2E_VIDEO!);

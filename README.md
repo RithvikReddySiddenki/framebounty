@@ -22,7 +22,7 @@ See [workboard](docs/workboard.md).
 Describe your task in the buyer workspace, for example: "I want 20 images of a
 cat climbing a tree under 20 test USDC." The configured buyer AI generates an
 image or video post with its own requirements. Review the preview, approve the
-terms and complete the guided MetaMask funding steps. **Collections & review**
+terms with one publishing action; the app guides the required MetaMask signatures automatically. Missing count, budget or media type prompts a question rather than a guess. **Collections & review**
 automatically shows your posts, their media type and whether they are actually
 open. Drafts are private until funding is verified. Contributors use their agent
 to search real funded listings, confirm a task and upload the required type.
@@ -81,13 +81,14 @@ and run:
 .\.venv\Scripts\python.exe -m framebounty.demo --buyer 0xYOUR_PUBLIC_DEMO_WALLET
 ```
 
-Use the contributor workspace to filter equipment (e.g. `phone,towel,dark_table`),
-review the displayed task terms, and confirm a reservation. Seed rewards are not
+In the contributor workspace, tell the chat agent what you have and how much time
+you have. The agent asks for missing details and searches real funded tasks.
+Review a displayed task and reserve its fixed reward with one explicit click. Seed rewards are not
 redeemable. Re-running seed creates another
 fixture job; it never resets or deletes other users' data.
 
-Alternatively, save a plan in the buyer UI, explicitly confirm simulated funding,
-and publish the first two fixture slots. The contributor can reserve, acknowledge
+Alternatively, describe the task in buyer chat and choose the clearly labeled
+Publish simulated post action to publish the first two fixture slots. The contributor can reserve, acknowledge
 the displayed usage rights, and upload a 10–30 second MP4/MOV. In another terminal,
 set the same `DATABASE_URL` and `APP_MODE=fixture` and run:
 

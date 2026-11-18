@@ -191,3 +191,15 @@ change. Real consented-task model evaluation and user-funded Arc payout remain p
 
 Draft post rendering fix (implementation lead): namespace funding/review sibling keys by panel and post ID. Acceptance: opening an unfunded post emits no duplicate-key warning and selecting another post resets funding approval. Added a separate real-API browser gate with chain funding UI enabled; no wallet transactions.
 Validated: targeted draft-post browser gate 1 passed; production build passed. CI now runs this gate with funding UI enabled alongside the standard fixture flow. No database or contract changes.
+
+2026-11-18 conversational workflow (implementation lead, feat/framebounty-prototype): replace contributor equipment/time form with grounded chat intake and clarifications; buyer chat retains missing fields and previews only complete terms; combine publishing controls under one explicit approval. New owned chat endpoints reuse durable agent sessions/turns, with role isolation, request replay and concurrency checks. Preserve atomic reservation and receipt-gated settlement. Acceptance: missing count/time prompts instead of guesses; chat profile drives real listings; publishing needs fewer app clicks, while wallet signatures remain explicit.
+
+Completed chat-first slice: removed contributor equipment/time form, added
+persistent conversational facts and missing-field questions, one-click explicit
+reservation, automatic pending-reservation checks, and one app approval for guided
+wallet publishing. Evidence: 142 backend passed / 14 separate-chain skips;
+14 real local-chain passed; 7 Chromium flows passed / 1 funding-mode skip;
+separate funding-panel gate 1 passed; 6 publishing-coordinator tests passed;
+production build passed; mobile/desktop chat screenshots inspected. Live Gemini
+clarification smoke passed after transient provider 503s. Existing data and Arc
+funding preserved. Decisions/interfaces: 0010. No migration or ABI change.

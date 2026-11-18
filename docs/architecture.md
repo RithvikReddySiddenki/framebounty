@@ -144,3 +144,13 @@ unprojected work, then atomically updates states, accounting and marker under jo
 reservation locks. No worker approves quality. Pending/reverted payments retain
 obligations until a valid receipt-driven release. Accepted testnet records enter
 coverage, bounded replanning and private export. See decision 0006 for limitations.
+
+## Conversational intake and publishing (2026-11-18)
+
+Decision 0010 adds owned chat sessions and grounded clarification over durable
+agent turns. Missing required details stay missing until stated by the user.
+Contributor facts feed deterministic funded search, with AI ranking restricted
+to actual IDs. The UI restores the latest contributor conversation for the
+signed-in wallet. One explicit posting approval starts guided receipt-gated
+publishing, retaining required wallet signatures and durable public hash recovery.
+No model holds signing keys or approves payment. No migration/ABI change.

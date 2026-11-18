@@ -1,164 +1,58 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { request, sendFundingTransaction, usdc } from "./api";
+import { publishApprovedPlan, type FundingStep, type PendingFunding } from "./publishing";
 
-type Step = {
-  funded: boolean;
-  state: string;
-  step?: string;
-  intent_id?: string;
-  tx_hash?: string;
-  amount_atomic?: string;
-  last_error?: string;
-  transaction?: {
-    from: string;
-    to: string;
-    data: string;
-    value: string;
-    chainId: string;
-  };
-};
-
-export default function Funding({
-  token,
-  jobId,
-  planHash,
-  onPublished,
-  termsApproved = false,
-}: {
-  token: string;
-  jobId: string;
-  planHash: string;
-  onPublished?: () => Promise<void>;
-  termsApproved?: boolean;
+export default function Funding({ token, jobId, planHash, onPublished, termsApproved = false, autoStart = false }: {
+  token: string; jobId: string; planHash: string; onPublished?: () => Promise<void>;
+  termsApproved?: boolean; autoStart?: boolean;
 }) {
-  const [confirmed, setConfirmed] = useState(termsApproved);
-  const [step, setStep] = useState<Step>();
+  const [step, setStep] = useState<FundingStep>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [recoveryHash, setRecoveryHash] = useState("");
-  // Only public transaction metadata is stored, never auth tokens or signatures.
+  const running = useRef(false);
+  const controller = useRef<AbortController | undefined>(undefined);
   const storageKey = `framebounty:funding:${jobId}`;
-  async function update(send: boolean) {
-    if (!confirmed || busy) return;
-    setBusy(true);
-    setError("");
+  useEffect(() => () => controller.current?.abort(), []);
+  async function publish() {
+    if (running.current) return;
+    running.current = true; setBusy(true); setError("");
+    const active = new AbortController(); controller.current = active;
     try {
-      let pending: { intent_id: string; tx_hash: string } | undefined;
-      const stored = sessionStorage.getItem(storageKey);
-      if (stored) pending = JSON.parse(stored);
-      if (recoveryHash && step?.intent_id) {
-        if (!/^0x[0-9a-fA-F]{64}$/.test(recoveryHash))
-          throw new Error(
-            "Enter a complete transaction hash from wallet activity.",
-          );
-        pending = { intent_id: step.intent_id, tx_hash: recoveryHash };
+      if (recoveryHash) {
+        if (!/^0x[0-9a-fA-F]{64}$/.test(recoveryHash)) throw new Error("Enter a complete wallet transaction hash.");
+        const current = step || await request<FundingStep>(`/jobs/${jobId}/funding`, token, { plan_hash: planHash, confirmed: true });
+        if (!current.intent_id) throw new Error("No publishing transaction is awaiting recovery.");
+        sessionStorage.setItem(storageKey, JSON.stringify({ intent_id: current.intent_id, tx_hash: recoveryHash }));
       }
-      // The single continue action reconciles an existing/recovered hash first.
-      // An API timeout must never make this button request a second wallet send.
-      if (send && !pending) {
-        if (!step?.transaction || !step.intent_id || step.state !== "intent")
-          throw new Error("Check the funding step first.");
-        const tx_hash = await sendFundingTransaction(step.transaction);
-        pending = { intent_id: step.intent_id, tx_hash };
-        // Persist the hash before the API request: an API timeout must not cause
-        // another wallet send. Rechecking submits the same identity and hash.
-        sessionStorage.setItem(storageKey, JSON.stringify(pending));
-      }
-      const next = await request<Step>(`/jobs/${jobId}/funding`, token, {
-        plan_hash: planHash,
-        confirmed: true,
-        ...pending,
+      await publishApprovedPlan({
+        load: pending => request<FundingStep>(`/jobs/${jobId}/funding`, token, { plan_hash: planHash, confirmed: true, ...pending }),
+        send: sendFundingTransaction,
+        read: () => { const stored = sessionStorage.getItem(storageKey); return stored ? JSON.parse(stored) as PendingFunding : undefined; },
+        save: pending => { if (pending) sessionStorage.setItem(storageKey, JSON.stringify(pending)); else sessionStorage.removeItem(storageKey); },
+        changed: setStep,
+        wait: () => new Promise(resolve => window.setTimeout(resolve, 2500)), signal: active.signal,
       });
-      setStep(next);
-      if (next.funded) await onPublished?.();
-      if (pending && (next.funded || next.intent_id !== pending.intent_id)) {
-        sessionStorage.removeItem(storageKey);
-        setRecoveryHash("");
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not verify funding. Check wallet activity before retrying.",
-      );
-    } finally {
-      setBusy(false);
-    }
+      if (!active.signal.aborted) { setRecoveryHash(""); await onPublished?.(); }
+    } catch (err) { if (!active.signal.aborted) setError(err instanceof Error ? err.message : "Publishing failed; your saved post is preserved."); }
+    finally { running.current = false; if (!active.signal.aborted) setBusy(false); }
   }
-  // Reconcile only an already-broadcast transaction. Never request wallet
-  // signatures automatically or send a replacement while a receipt is pending.
   useEffect(() => {
-    if (!confirmed || !step?.tx_hash || step.funded || ["reverted", "invalid"].includes(step.state)) return;
-    const timer = window.setInterval(() => void update(false), 4000);
-    return () => window.clearInterval(timer);
-  }, [confirmed, step, busy]);
-  const stepLabel = step?.step === "create_job" ? "Create collection in wallet"
-    : step?.step === "token_approve" ? "Approve exact budget in wallet"
-    : step?.step === "deposit" ? "Deposit budget & publish" : "Prepare publishing";
-  return (
-    <section aria-label="Arc testnet funding">
-      <h3>{step?.funded ? "Published" : "Publish your post"}</h3>
-      <p>
-        Wallet approval is required for each step: create escrow job, allow the
-        exact test-USDC budget, then deposit. Native gas is separate. Listings
-        appear only after verified funding. Contributors wait for confirmed
-        reservations; payouts require human review and a separate wallet
-        transaction.
-      </p>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-        />
-        I confirm the saved plan and its fixed test-USDC budget.
-      </label>
-      {step?.funded ? (
-        <p role="status">
-          Open for contributors. Funding verified and initial tasks published.
-        </p>
-      ) : (
-        <>
-          {step && (
-            <p role="status">
-              {step.state === "intent" ? stepLabel : "Waiting for confirmed funding"}. Budget:{" "}
-              {usdc(step.amount_atomic || "0")} test USDC.{" "}
-              {step.tx_hash && `Transaction: ${step.tx_hash}`}
-            </p>
-          )}
-          <button
-            disabled={!confirmed || busy}
-            className="primary"
-            onClick={() => void update(step?.state === "intent")}
-          >
-            {busy ? "Checking…" : step?.state === "intent" ? stepLabel : step?.tx_hash ? "Check transaction status" : "Continue to publish"}
-          </button>
-          <details>
-            <summary>Recover a wallet transaction</summary>
-            <p>
-              If the browser lost the wallet response, copy its hash from wallet
-              activity and check it here before sending again.
-            </p>
-            <label>
-              Existing transaction hash
-              <input
-                value={recoveryHash}
-                onChange={(e) => setRecoveryHash(e.target.value)}
-                placeholder="0x…"
-              />
-            </label>
-          </details>
-          {step?.last_error && <p role="status">{step.last_error}</p>}
-        </>
-      )}
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-    </section>
-  );
+    if (!autoStart || !termsApproved) return;
+    // Delay until after StrictMode's setup/cleanup probe to avoid duplicate starts.
+    const timer = window.setTimeout(() => void publish(), 0);
+    return () => window.clearTimeout(timer);
+  }, [autoStart, termsApproved, jobId, token]);
+  const label = step?.step === "create_job" ? "Creating escrow" : step?.step === "token_approve" ? "Approving the exact budget" : "Depositing budget";
+  return <section aria-label="Arc testnet funding">
+    <h3>{step?.funded ? "Open for contributors" : busy ? "Publishing your post" : "Publish your saved post"}</h3>
+    <p>One publishing action guides the whole process. MetaMask still asks you to authorize escrow creation, the exact allowance and the deposit. No funds move without your wallet approval.</p>
+    {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - check MetaMask" : " - waiting for confirmation"}`}{step.amount_atomic && ` ? ${usdc(step.amount_atomic)} test USDC`}</p>}
+    {!step?.funded && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the prompts in MetaMask?" : "Publish post"}</button>}
+    {!step?.funded && <details><summary>Recover a wallet transaction</summary><p>Only if the wallet lost its response: enter the existing hash, then continue. Existing transactions are checked before any new signature.</p><label>Existing transaction hash<input value={recoveryHash} disabled={busy} onChange={e => setRecoveryHash(e.target.value)} placeholder="0x?" /></label></details>}
+    {error && <p role="alert" className="error">{error}</p>}
+  </section>;
 }
 
 export function ResumeFunding({ token }: { token: string }) {

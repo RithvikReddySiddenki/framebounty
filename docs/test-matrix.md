@@ -1,6 +1,6 @@
 # Test matrix
 
-## Current evidence (2026-11-17)
+## Current evidence (2026-11-18)
 
 Image/video posts: JPEG/PNG private upload/decode, type/size/animation rejection,
 post-specific verification, consent enforcement, generic non-towel video criteria,
@@ -9,9 +9,9 @@ Live Gemini generated a 20-image cat/tree plan and failed a synthetic color card
 That smoke is not a labeled accuracy evaluation or a live Arc funded-job test.
 
 
-- Full backend: **129 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
+- Full backend: **142 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
   The fourteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-media-posts-release-02`
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-chat-full-final`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
   Includes testnet agent coverage inspection with explicit text consent, denied
   calls without consent, and visible provider failures without fixture fallback.
@@ -120,3 +120,23 @@ The planned IDs are taken from PROJECT_BRIEF.md. Partial coverage never marks an
 entire requirement complete. No local or mocked result proves Arc or Gemini behavior.
 
 Draft-post identity regression: 1 Chromium test passed with NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true using python scripts/test_e2e.py --grep 'draft funding and review panels'. Both funding/review panels render without duplicate-key errors, and selecting another draft resets its funding approval. This separate CI gate performs no wallet transactions. Production build passed.
+
+Conversational intake: 13 PostgreSQL/grounding cases passed, including role/owner
+isolation, exact replay, concurrent updates, missing-count/budget/time questions,
+and refusing to interpret a budget number as an item count. The full suite above
+includes these cases. The 7-pass Chromium flow now exercises short count/budget
+answers and contributor time clarification with no equipment form. The one
+funding-panel test is skipped in fixture UI mode and passes in its separate gate.
+
+Publishing coordinator: 6 tests passed via `npm --prefix apps/web run test:publishing`.
+The exact production coordinator advances three receipt-gated wallet steps and
+preserves hash recovery across API failures, rejection, navigation, timeout and
+revert. Wallet/RPC are the external test boundaries. Full local-chain gate:
+`PYTEST_ADDOPTS="-p no:cacheprovider --basetemp=.local/pytest-chat-chain-final --tb=short" python scripts/test_chain.py` -> 14 passed.
+Production build and desktop/mobile chat screenshots passed inspection.
+
+Live Gemini text-only intake smoke: buyer request without count -> asks count;
+short count answer -> asks budget; budget answer -> exact 20-image / 20-USDC plan;
+contributor phone statement -> time remains missing. No job or transaction was
+created. Initial provider 503s were followed by successful simple/schema probes
+and this complete intake smoke. This is not evidence of real task accuracy.
