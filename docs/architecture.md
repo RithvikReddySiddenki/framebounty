@@ -115,8 +115,9 @@ deliberate operator/user recovery rather than automatic repeat spending.
 
 The isolated chain harness deploys the actual contract/test token and uses random
 ephemeral local node accounts. Local signing refuses remote/non-local networks.
-Real Arc deployment, native/token semantics, wallet transaction UX on an actual
-phone still need live validation.
+Canonical escrow deployment/runtime has now been verified on Arc testnet; see
+live-validation.md. Full native/token funding/payment behavior and wallet UX on an
+actual phone still need live validation.
 
 Migration 0005 adds explicit submission provenance and a transaction projection
 marker. Live claims hold application funds/slots before allocator dispatch. The

@@ -1,7 +1,10 @@
 # Escrow
 
 `src/FrameBountyEscrow.sol` implements the documented reservation/review/refund state
-machine with OpenZeppelin SafeERC20 and ReentrancyGuard. No deployment is claimed.
+machine with OpenZeppelin SafeERC20 and ReentrancyGuard. It is deployed and
+runtime-verified on Arc testnet at `0xd99355572a0a93f97254af3715300082fca3b063`;
+see [live validation evidence](../docs/live-validation.md). No funded collection or
+contributor payout is claimed from deployment alone.
 Only chain 31337 (local tests) and 5042002 (Arc testnet) are allowed. Arc requires
 the documented USDC interface address and six decimals. All rewards are ERC-20
 atomic units; gas uses a separate eighteen-decimal native interface.

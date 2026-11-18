@@ -7,11 +7,11 @@ No concurrent editors have been identified. Shared interfaces are owned here unt
 | --- | --- | --- |
 | Foundation | Reproducible shells, CI, plan/money rules and tests, state machine | c1e4406 pushed |
 | Persistence/auth | PostgreSQL migrations, signed nonce, ownership enforcement | ab7a8e0 pushed; 62 backend tests and web checks passed; remote CI success verified |
-| Escrow | Contract accounting/security suite and local integration | Contract implemented; 14 local-EVM tests pass, including two 256-run fuzz cases; application/Arc smoke integration pending |
-| Collection | Funded search, confirmed atomic reservation, private mobile upload | Fixture search/reservation and authenticated raw phone upload implemented; real-chain reservation integration pending |
-| Review/payment | Bounded verification, reviewer decisions, durable reconciliation | Leased PostgreSQL verification, real decode/sampling, private playback and human decisions implemented; live payment/reconciliation pending |
-| Agents/export | Grounded tools, overlap-aware replanning, authorized dataset export | Role-scoped conversations/tools, durable intent retry, grounded search, confirmed reservation, next batches and private export implemented; live Gemini/evaluation pending |
-| Live demo | Arc smoke, Gemini evaluation, real phone verification | Blocked on external setup |
+| Escrow | Contract accounting/security suite and local integration | 16 contract tests; Arc deployment receipt/runtime verified; full funded Arc workflow pending |
+| Collection | Funded search, confirmed atomic reservation, private mobile upload | Receipt-gated reservation and hash lock tested on local EVM; browser/phone Arc validation pending |
+| Review/payment | Bounded verification, reviewer decisions, durable reconciliation | Human-reviewed receipt-gated payouts, restart projection and releases implemented/local-chain tested; funded Arc check pending |
+| Agents/export | Grounded tools, overlap-aware replanning, authorized dataset export | Implemented; one free-tier synthetic Gemini smoke passed; physical-task/model evaluation pending |
+| Live demo | Arc smoke, Gemini evaluation, real phone verification | Deployment passed; waiting for buyer browser-wallet setup and consented clip |
 
 Canonical interfaces: `services/api/framebounty/domain.py` owns plan and atomic money rules;
 `docs/state-machine.md` owns intended escrow transitions. Changes must update consumers/tests together.
@@ -136,3 +136,11 @@ closed schema valid, synthetic task completion not passed, latency 2.954 seconds
 No private media or application inference was enabled. This is one negative smoke,
 not a task-quality evaluation. Arc deployment remains unbroadcast pending separate
 explicit approval; the screenshot did not authorize spending testnet funds.
+
+User subsequently explicitly approved the testnet deployment. Transaction
+0274c17a...a0ac67f9ee confirmed contract d9935557...2fca3b063; exact runtime and
+token getter independently verified. Actual gas cost 0.028299117 test USDC, below
+the approved 0.0820663 cap. Local escrow address saved; application live flags
+remain false. Escrow balance zero: no job is funded yet. Requested the user's
+separate buyer/reviewer public wallet and browser-wallet app for the interactive
+funding check. Full public evidence and remaining steps are in live-validation.md.

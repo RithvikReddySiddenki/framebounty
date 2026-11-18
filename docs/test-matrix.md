@@ -28,17 +28,17 @@
 - Live setup only: configured Gemini key authenticates for model listing/metadata;
   no generation was performed at that metadata stage. Allocator has 20 test USDC, with successful canonical
   faucet receipt verified against both native and ERC-20 logs without double count.
-  Deployment preparation signs and persists one bounded transaction but broadcast
-  awaits explicit permission. See the separately gated synthetic inference below;
-  no Arc deployment is claimed.
+  After explicit approval, the persisted deployment was broadcast and its receipt,
+  canonical runtime and token getter verified. Actual gas: 0.028299117 test USDC.
+  See docs/live-validation.md. No funded collection/payout is claimed yet.
 - New real-filesystem tests cover OS deployment locking, secret/flag preservation,
   existing configuration and recovery-file protection, and key-alone inference denial.
 - After the user confirmed Free tier with billing disabled, one live synthetic-card
   Gemini smoke passed: gemini-3.5-flash-lite, schema valid, 2.954 seconds, task
   completion not passed. Command: `scripts/smoke_gemini.py` with both explicit smoke
   gates set for that process only. No private media or application model flag was
-  enabled. This is not a physical-task accuracy evaluation. Arc broadcast is still
-  awaiting its separate approval.
+  enabled. This is not a physical-task accuracy evaluation. Arc deployment has
+  separately passed after explicit user approval.
 
 The final synthetic workflow additionally passed its targeted accepted-record
 duplicate regression (1 passed, 10 deselected) using
@@ -49,7 +49,7 @@ no assertions were removed or weakened.
 
 | Requirement | Current files / evidence | Remaining limit |
 | --- | --- | --- |
-| C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund, deposit/refund replay and randomized sequences | Local EVM/test token; no Arc deployment |
+| C01–C09 | contracts/test/Escrow.t.sol: authorization, budgets, fixed recipient, double payout, failed token, reentrancy, cross-job isolation, timeout/refund, deposit/refund replay and randomized sequences; Arc deployment/runtime verified | Full funded Arc workflow pending |
 | I06/I07 chain recovery/funding | test_chain.py + test_chain_workflow.py: durable signature and projection restart, pending/reverted payment, transaction/event verification, funded publication, real media and human-reviewed payout; test_chain_rpc.py: wrong network/token and malformed providers | Arc-native semantics, hashless recovery and fee replacement pending |
 | B03/B06/B08/B12 | test_submission_flow.py + test_media.py: bounded raw upload, private access, hashes, actual malformed/valid decode, review expiry, durable lease fencing | Process timeouts are not a total native-worker memory ceiling |
 | B07/B14 | Exact and perceptual review flags in worker; real decode/frame tests | Similarity threshold is heuristic, no false-positive/negative evaluation |

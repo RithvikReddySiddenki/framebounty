@@ -13,8 +13,10 @@ security/fuzz tests. Fixtures are clearly labeled and never represent real funds
 Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
 Durable chain intents, exact receipt verification and wallet-owned fixed-budget
 funding/publication and receipt-gated reservation/submission/review accounting are
-implemented and tested against a local chain. Arc deployment and provider evaluation
-remain pending. No funded Arc workflow is claimed.
+implemented and tested against a local chain. The canonical escrow is now deployed
+and runtime-verified on Arc testnet; a synthetic Gemini smoke passed. The complete
+funded browser/physical-task workflow and model evaluation remain pending. See
+[live validation evidence](docs/live-validation.md); deployment is not job funding.
 See [workboard](docs/workboard.md).
 
 In the buyer conversation, request the towel example and review its proposal in

@@ -29,7 +29,9 @@ runtime verification or risk unauthorized paid inference.
 Validation: real local EVM tests cover deployment response-loss/rebroadcast and
 signed-term tampering. Native file-lock tests exclude parallel state owners and
 allow reopening; filesystem tests preserve secrets and prior recovery files.
-Arc broadcast remains gated pending the user's separate approval. After the user
+The user subsequently approved the prepared Arc deployment; its receipt/runtime
+passed, with actual gas cost 0.028299117 test USDC. See live-validation.md for the
+public contract/transaction and remaining funded-flow checks. After the user
 confirmed Free tier with billing disabled, the synthetic negative inference smoke
 passed (2.954 seconds, schema valid, task completion fail). Application inference
 flags remain off; physical-task evaluation and private-media consent remain pending.
