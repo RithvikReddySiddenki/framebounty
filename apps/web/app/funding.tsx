@@ -54,11 +54,9 @@ export default function Funding({
           );
         pending = { intent_id: step.intent_id, tx_hash: recoveryHash };
       }
-      if (send) {
-        if (pending)
-          throw new Error(
-            "Check the existing transaction before requesting another signature.",
-          );
+      // The single continue action reconciles an existing/recovered hash first.
+      // An API timeout must never make this button request a second wallet send.
+      if (send && !pending) {
         if (!step?.transaction || !step.intent_id || step.state !== "intent")
           throw new Error("Check the funding step first.");
         const tx_hash = await sendFundingTransaction(step.transaction);

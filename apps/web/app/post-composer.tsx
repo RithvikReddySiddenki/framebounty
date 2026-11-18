@@ -42,6 +42,8 @@ export default function PostComposer({ token, onChanged, onView }: {
     if (!plan || !approved || saved) return;
     setBusy(true); setError("");
     try {
+      if (![plan.budget_atomic, plan.reward_atomic].every(value => /^[0-9]+$/.test(String(value)) && Number.isSafeInteger(Number(value))))
+        throw new Error("This amount exceeds the editor's exact integer range. Ask the agent for a smaller budget.");
       const result = await request<{ id: string; plan_hash: string }>("/jobs", token, {
         ...plan, budget_atomic: Number(plan.budget_atomic), reward_atomic: Number(plan.reward_atomic),
       });
