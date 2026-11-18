@@ -38,3 +38,14 @@ def test_incomplete_event_expectation_cannot_confirm_a_receipt():
             rpc.match_event({"logs": []}, {"name": "Paid", "fields": {"reward": 1000000}}, 1)
     finally:
         rpc.close()
+
+
+def test_deployment_state_lock_excludes_parallel_signers_and_reopens(tmp_path):
+    from framebounty.deployment import exclusive_state
+    path = tmp_path / "deployment.lock"
+    with exclusive_state(path):
+        with pytest.raises(ChainFailure, match="Another deployment process"):
+            with exclusive_state(path):
+                pytest.fail("Parallel process obtained the deployment state lock")
+    with exclusive_state(path):
+        assert path.is_file()

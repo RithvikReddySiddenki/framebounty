@@ -2,16 +2,17 @@
 
 ## Current evidence (2026-11-17)
 
-- Full backend: **108 passed, 11 skipped**, one upstream Starlette/httpx deprecation warning.
-  The eleven local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-workflow-full-02 --junitxml=.local/workflow-backend-results.xml`
+- Full backend: **113 passed, 13 skipped**, one upstream Starlette/httpx deprecation warning.
+  The thirteen local-chain cases run in the separate gate below.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-live-setup-full-02 --junitxml=.local/live-setup-results.xml`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
-- Real PostgreSQL/local-chain gate: **11 passed**, no skips. Deploys the actual
+- Real PostgreSQL/local-chain gate: **13 passed**, no skips. Deploys the actual
   escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
   double payout, reverted/pending payment, receipt-gated funding, full synthetic
   upload/review/payment, confirmed-but-unprojected recovery, rejection, deadlines,
-  concurrent pending claims and late-worker fencing.
-  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-workflow-05 --junitxml=.local/workflow-chain-results.xml`.
+  concurrent pending claims, late-worker fencing, canonical deployment restart
+  and signed-term tamper rejection.
+  Command: `python scripts/test_chain.py -p no:cacheprovider --basetemp=.local/pytest-deployment-full-01 --junitxml=.local/deployment-chain-results.xml`.
 - Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
 - Chromium: **1 passed** in the isolated browser harness, using real wallet signatures,
@@ -24,6 +25,13 @@
   ABI/runtime freshness passes `python scripts/export_contract.py --check`.
 - Read-only Arc preflight confirmed chain ID 5042002 and ERC-20 USDC decimals 6.
   Command: `python scripts/inspect_arc.py`. No transactions were submitted.
+- Live setup only: configured Gemini key authenticates for model listing/metadata;
+  no generation performed. Allocator has 20 test USDC, with successful canonical
+  faucet receipt verified against both native and ERC-20 logs without double count.
+  Deployment preparation signs and persists one bounded transaction but broadcast
+  awaits explicit permission. No live deployment/inference success is claimed.
+- New real-filesystem tests cover OS deployment locking, secret/flag preservation,
+  existing configuration and recovery-file protection, and key-alone inference denial.
 
 The final synthetic workflow additionally passed its targeted accepted-record
 duplicate regression (1 passed, 10 deselected) using

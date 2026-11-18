@@ -163,3 +163,16 @@ It preserves existing allocator settings and leaves live transactions disabled.
 Fund that public address using the Arc testnet faucet; keep buyer/reviewer wallets
 separate. Put the Gemini API key only in `GEMINI_API_KEY` in `.env`; account/model
 access must be checked before selecting `GEMINI_MODEL` or enabling inference.
+
+`python scripts/deploy_arc.py` prepares one bounded canonical deployment and saves
+its signature privately in `.local/arc-deployment.json`; it does not broadcast.
+After explicit deployment authorization, `--broadcast` reuses that same signature
+and verifies receipt/runtime before saving the escrow address in `.env`. It never
+enables application flags. Parallel deployment processes are excluded by an OS lock.
+
+Model metadata access does not establish free-tier billing or inference quality.
+`scripts/smoke_gemini.py` requires explicit `ALLOW_LIVE_MODEL_SMOKE=true` and human
+confirmation `GEMINI_FREE_TIER_CONFIRMED=true` that billing is disabled. It sends
+only generated synthetic color cards in one request and checks the existing schema;
+it never uploads private task media or enables app inference. It is not an accuracy
+evaluation. Leave both flags false until the setup checks and consent are complete.

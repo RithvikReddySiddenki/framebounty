@@ -110,3 +110,22 @@ private key. Manual checks passed: literal dollar values survive loading, invali
 files reject atomically, key/address match, repeated setup preserves the existing
 file, and live flags remain false. Local .env is ignored; credentials are not
 committed. User still needs to add their Gemini key and faucet-fund the allocator.
+
+Live setup verified: Gemini key authenticates for model listing, allocator address
+matches its local key, and Arc receipt c58fb358...06ec198 transferred 20 test USDC
+to it. Native/ERC-20 views are the same balance, not additive. Active slice: lead
+owns durable, bounded deployment preparation/reconciliation and an explicit live
+model smoke gate. No paid inference or private-media upload is authorized by merely
+saving a key. Confirm account free-tier status before any generation request.
+
+Prepared deployment: predicted address d9935557...2fca3b063, hash
+0274c17a...a0ac67f9ee; maximum native fee 0.0820663 test USDC. Nothing broadcast:
+automatic approval review requires explicit permission for this irreversible
+testnet deployment, requested asynchronously. Model metadata for
+gemini-3.5-flash-lite verifies generateContent and official image/structured
+support; local model selection set with application inference flags unchanged.
+The synthetic-only live smoke additionally requires confirmed free-tier billing.
+Duplicate blank/populated Gemini entries in local .env were safely consolidated
+without exposing or replacing populated secrets. New deployment locks, signature
+checks and configuration-preservation tests pass. No deployed escrow or inference
+success is claimed while these gates are pending.
