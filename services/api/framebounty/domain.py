@@ -46,6 +46,7 @@ class Requirement(ClosedModel):
 
 class Plan(ClosedModel):
     media_type: Literal["image", "video"] = "video"
+    verification_policy: Literal["human", "ai"] = "ai"
     version: int = Field(strict=True, ge=1)
     title: str = Field(min_length=3, max_length=160)
     total: int = Field(strict=True, ge=1, le=20)

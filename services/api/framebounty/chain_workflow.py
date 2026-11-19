@@ -74,13 +74,16 @@ def project(db: Session, rpc: ChainRPC, intent_id: str) -> Reservation:
             reservation.state, submission.state = "paid", "accepted"
             job.committed_atomic -= reservation.reward_atomic
             job.paid_atomic += reservation.reward_atomic
-        elif intent.kind in {"reject", "expire", "timeout"}:
-            expected = {"reject": ("submitted", 4, "rejected"), "expire": ("reserved", 5, "expired"), "timeout": ("submitted", 6, "timed_out")}[intent.kind]
+        elif intent.kind in {"reject", "verify_reject", "expire", "timeout"}:
+            expected = {"reject": ("submitted", 4, "rejected"), "verify_reject": ("submitted", 4, "rejected"), "expire": ("reserved", 5, "expired"), "timeout": ("submitted", 6, "timed_out")}[intent.kind]
             if reservation.state == expected[0]:
                 if fields.get("terminalState") != expected[1] or fields.get("reward") != reservation.reward_atomic:
                     raise ChainFailure("Release event changed the obligation")
                 if intent.kind == "reject" and (submission is None or submission.state != "reject_pending"):
                     raise ChainFailure("Rejection lacks the human reviewer decision")
+                if intent.kind == "verify_reject" and (submission is None or submission.state != "verification_rejected"
+                        or submission.findings.get("verification", {}).get("decision") != "reject"):
+                    raise ChainFailure("Rejection lacks a deterministic verification failure")
                 reservation.state = expected[2]
                 if submission:
                     submission.state = expected[2]

@@ -1,7 +1,7 @@
 """PostgreSQL leased verification jobs with fenced completion and bounded retries.
 
 Slow media/model processing runs outside database transactions. A worker that loses
-its lease cannot overwrite a new owner's result. No worker can approve or pay.
+its lease cannot overwrite a new owner's result. Workers can reject qualifying failures; they cannot pay.
 """
 import argparse
 import os
@@ -17,6 +17,7 @@ from .marketplace import new_id
 from .media import InvalidMedia, LocalStorage, MediaUnavailable, decode_video, inspect_video, inspect_image, sample_frames
 from .models import Job, Submission, VerificationJob
 from .verification import GeminiFrames, ProviderFailure, fixture_assessment, generic_fixture_assessment
+from .automatic_verification import automatic, evaluate
 
 
 def claim(db: Session) -> tuple[str, str] | None:
@@ -66,6 +67,13 @@ def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool, conten
     try:
         if fixture:
             assessment = fixture_assessment() if "media_type" not in rubric else generic_fixture_assessment(rubric)
+            if rubric.get("verification_policy", "ai") == "ai":
+                result = os.getenv("FIXTURE_VERIFICATION_RESULT", "uncertain")
+                if result not in {"pass", "fail", "uncertain"}: result = "uncertain"
+                assessment = generic_fixture_assessment(rubric)
+                assessment = assessment.model_copy(update={"checks": {key: value.model_copy(update={
+                    "result": result, "confidence": 100 if result != "uncertain" else 0,
+                    "explanation": "Simulated verification only; no AI inspected this media."}) for key, value in assessment.checks.items()}})
         else:
             if os.getenv("ALLOW_MODEL_MEDIA") != "true" or not model_consent:
                 raise ProviderFailure("Sending private media to Gemini requires explicit ALLOW_MODEL_MEDIA=true consent")
@@ -105,6 +113,14 @@ def finish(db: Session, job_id: str, lease_token: str, findings: dict | None, er
 
 def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
     db_engine, storage = db_engine or engine(), storage or LocalStorage()
+    # Recover a crash between durable decoding and policy evaluation. This path
+    # cannot pay and rechecks reservation state under financial row locks.
+    with Session(db_engine) as db:
+        candidates = db.scalars(select(Submission.id).join(Job, Submission.job_id == Job.id).where(
+            Submission.state.in_(["needs_review", "invalid"]),
+            or_(Job.plan["verification_policy"].as_string().is_(None), Job.plan["verification_policy"].as_string() == "ai")).limit(20)).all()
+    for candidate in candidates:
+        with Session(db_engine) as db: evaluate(db, candidate)
     with Session(db_engine) as db:
         claimed = claim(db)
         if claimed is None:
@@ -138,6 +154,8 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
         error = type(exc).__name__ + ": verification infrastructure unavailable"
     with Session(db_engine) as db:
         committed = finish(db, job_id, token, findings, error, invalid)
+    if committed:
+        with Session(db_engine) as db: evaluate(db, submission_id)
     if not committed and findings:
         for frame in findings.get("frames", []):
             storage.path(frame["key"]).unlink(missing_ok=True)

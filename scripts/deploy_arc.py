@@ -59,6 +59,7 @@ def configure(root, contract):
 def main():
     parser = argparse.ArgumentParser(description="Bounded Arc TESTNET escrow deployment, never mainnet")
     parser.add_argument("--broadcast", action="store_true")
+    parser.add_argument("--state-file", default=".local/arc-deployment.json", help="Workspace .local file; retain a separate signed state for each escrow version")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     (root / ".local").mkdir(exist_ok=True)
@@ -67,7 +68,9 @@ def main():
 
 
 def execute(root, args):
-    path = root / ".local/arc-deployment.json"
+    path = (root / getattr(args, "state_file", ".local/arc-deployment.json")).resolve()
+    if path.parent != (root / ".local").resolve() or path.suffix != ".json":
+        raise SystemExit("Deployment state must remain a JSON file in this workspace's .local directory")
     path.parent.mkdir(exist_ok=True)
     if os.getenv("ARC_CHAIN_ID") != str(CHAIN_ID):
         raise SystemExit("Only explicitly configured Arc testnet 5042002 is allowed")

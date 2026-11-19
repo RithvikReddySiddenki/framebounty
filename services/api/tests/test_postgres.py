@@ -66,6 +66,28 @@ def seeded(db, slots=1, buyer=None):
     return job, task
 
 
+def test_reservation_window_is_twice_expected_minutes_and_capped_by_listing(pg, monkeypatch):
+    monkeypatch.setenv("APP_MODE", "fixture")
+    actor = "0x" + "2" * 40
+    with Session(pg) as db:
+        _, task = seeded(db, slots=2)
+        confirmation = prepare_confirmation(db, actor, task.id)
+        before = datetime.now(UTC)
+        item = reserve(db, actor, confirmation.id, task.id, task.version, task.reward_atomic, "bounded-reserve-window")
+        assert before + timedelta(minutes=30) <= item.expires_at <= datetime.now(UTC) + timedelta(minutes=30)
+        original = item.expires_at
+        assert reserve(db, actor, confirmation.id, task.id, task.version, task.reward_atomic, "bounded-reserve-window").expires_at == original
+        # Give the second reservation its own available budget so the assertion
+        # tests the listing cap rather than the solvency check.
+        job = db.get(Job, task.job_id)
+        job.deposited_atomic = 2_000_000
+        task.deadline = datetime.now(UTC) + timedelta(minutes=5)
+        db.commit()
+        confirmation = prepare_confirmation(db, actor, task.id)
+        short = reserve(db, actor, confirmation.id, task.id, task.version, task.reward_atomic, "listing-bounded-window")
+        assert short.expires_at == task.deadline
+
+
 def test_nonce_replay_expiry_wrong_wallet_and_concurrent_login(pg, monkeypatch):
     monkeypatch.setenv("ARC_CHAIN_ID", "5042002")
     account = Account.create()

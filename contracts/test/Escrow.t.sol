@@ -344,4 +344,46 @@ contract EscrowTest {
             conservation();
         }
     }
+
+    function twoSubmitted() internal returns (bytes32[] memory ids) {
+        submitted(1_000_000);
+        bytes32 second = keccak256("second-reservation");
+        vm.prank(ALLOCATOR);
+        escrow.reserve(JOB, second, CONTRIBUTOR, 1_000_000, uint64(block.timestamp + 1 hours));
+        vm.prank(CONTRIBUTOR);
+        escrow.submit(second, keccak256("second-content"));
+        ids = new bytes32[](2); ids[0] = R; ids[1] = second;
+    }
+
+    function testBatchPaysFixedRecipientsOnceAndCannotBeSentByAllocator() public {
+        bytes32[] memory ids = twoSubmitted();
+        vm.expectRevert(); vm.prank(ALLOCATOR); escrow.approveBatch(keccak256("batch"), ids);
+        vm.prank(REVIEWER); escrow.approveBatch(keccak256("batch"), ids);
+        require(token.balanceOf(CONTRIBUTOR) == 2_000_000, "batch fixed rewards");
+        vm.expectRevert(); vm.prank(REVIEWER); escrow.approveBatch(keccak256("batch"), ids);
+        conservation();
+    }
+
+    function testBatchDuplicateAndFailedTransferAreAtomic() public {
+        bytes32[] memory ids = twoSubmitted();
+        ids[1] = ids[0];
+        vm.expectRevert(); vm.prank(REVIEWER); escrow.approveBatch(keccak256("duplicate"), ids);
+        ids[1] = keccak256("second-reservation");
+        token.setFailure(true);
+        vm.expectRevert(); vm.prank(REVIEWER); escrow.approveBatch(keccak256("failure"), ids);
+        require(token.balanceOf(CONTRIBUTOR) == 0, "failed batch paid");
+        require(!escrow.paidBatches(keccak256("failure")), "failed batch consumed");
+        conservation();
+    }
+
+    function testVerifierCanRejectButCannotPay() public {
+        submitted(1_000_000);
+        vm.expectRevert(); vm.prank(STRANGER); escrow.rejectVerification(R, keccak256("failure"));
+        vm.expectRevert(); vm.prank(ALLOCATOR); escrow.approve(R);
+        vm.prank(ALLOCATOR); escrow.rejectVerification(R, keccak256("failure"));
+        require(token.balanceOf(CONTRIBUTOR) == 0, "rejection paid");
+        require(escrow.available(JOB) == 20_000_000, "rejection retained commitment");
+        vm.expectRevert(); vm.prank(ALLOCATOR); escrow.rejectVerification(R, keccak256("failure"));
+        conservation();
+    }
 }

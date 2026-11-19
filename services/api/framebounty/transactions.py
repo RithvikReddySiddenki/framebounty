@@ -27,7 +27,8 @@ KINDS = {"create_job": ("createJob", "JobCreated"), "token_approve": ("tokenAppr
     "deposit": ("deposit", "Deposited"), "reserve": ("reserve", "Reserved"),
     "submit": ("submit", "Submitted"), "approve": ("approve", "Paid"),
     "reject": ("reject", "Released"), "expire": ("expire", "Released"),
-    "timeout": ("timeout", "Released"), "close": ("close", "Closed"), "refund": ("refund", "Refunded")}
+    "timeout": ("timeout", "Released"), "close": ("close", "Closed"), "refund": ("refund", "Refunded"),
+    "verify_reject": ("rejectVerification", "Released"), "approve_batch": ("approveBatch", "BatchPaid")}
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,13 @@ def validate_action(rpc: ChainRPC, action: Action):
 def create_intent(db: Session, rpc: ChainRPC, action: Action) -> TransactionIntent:
     validate_action(rpc, action)
     rpc.check_contract()
+    if action.job_id:
+        from .models import Job
+        job = db.get(Job, action.job_id)
+        if job and job.escrow_address is None:
+            job.escrow_address = address(rpc.config.escrow)
+        elif job and job.escrow_address != address(rpc.config.escrow):
+            raise ChainFailure("This job is bound to another deployed escrow")
     key = hashlib.sha256(f"tx:{rpc.config.chain_id}:{action.kind}:{action.resource_id}".encode()).hexdigest()
     values = dict(id=key, chain_id=rpc.config.chain_id, kind=action.kind, resource_id=action.resource_id,
         job_id=action.job_id, reservation_id=action.reservation_id, sender=address(action.sender),

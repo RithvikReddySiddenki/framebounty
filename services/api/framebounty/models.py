@@ -43,10 +43,23 @@ class Job(Base):
     plan_hash: Mapped[str] = mapped_column(String(64))
     state: Mapped[str] = mapped_column(String(20), default="draft")
     fixture: Mapped[bool] = mapped_column(Boolean, default=False)
+    escrow_address: Mapped[str | None] = mapped_column(String(42))
     deposited_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
     committed_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
     paid_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
     refunded_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PayoutBatch(Base):
+    __tablename__ = "payout_batches"
+    __table_args__ = (UniqueConstraint("job_id", "request_id", name="batch_request_unique"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id"), index=True)
+    reviewer: Mapped[str] = mapped_column(String(42))
+    request_id: Mapped[str] = mapped_column(String(64))
+    submission_ids: Mapped[list] = mapped_column(JSONB)
+    state: Mapped[str] = mapped_column(String(24))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

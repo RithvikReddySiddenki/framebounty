@@ -5,6 +5,9 @@ from framebounty.domain import CoverageItem, Plan, deficits, parse_usdc
 
 
 def draft(**overrides):
+    # Existing manual-review cases are legacy compatibility coverage. New
+    # automatic-verification tests explicitly create AI-policy plans.
+    overrides.setdefault("verification_policy", "human")
     return Plan.model_validate(dict(version=1, title="Towel folding", total=20,
         budget_atomic=20_000_000, reward_atomic=1_000_000, min_seconds=10, max_seconds=30,
         review_hours=72, rights_declaration="Contributor permits the stated dataset usage.",

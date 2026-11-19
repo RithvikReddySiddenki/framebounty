@@ -1,7 +1,7 @@
 """Explicitly gated wallet funding routes. No signing keys enter HTTP handlers."""
 import os
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
@@ -9,23 +9,32 @@ from .arc import CHAIN_ID, USDC_ADDRESS
 from .auth import current_wallet
 from .chain_rpc import ChainConfig, ChainFailure, ChainRPC, address
 from .db import session
+from .models import Job, Reservation
 from .funding import funding_step
 
 router = APIRouter()
 
 
-def funding_rpc():
+def configured_rpc(db, job_id=None, reservation_id=None):
     if os.getenv("APP_MODE") != "testnet" or os.getenv("ALLOW_CHAIN_TRANSACTIONS") != "true":
         raise HTTPException(503, "Chain funding is disabled; no transaction was requested")
     try:
-        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), CHAIN_ID,
-            os.getenv("ARC_ESCROW_ADDRESS", ""), USDC_ADDRESS))
+        reference = db.get(Reservation, reservation_id) if reservation_id else None
+        job = db.get(Job, job_id or reference.job_id) if job_id or reference else None
+        escrow = job.escrow_address if job and job.escrow_address else os.getenv("ARC_ESCROW_ADDRESS", "")
+        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), CHAIN_ID, escrow, USDC_ADDRESS))
     except ChainFailure:
         raise HTTPException(503, "Configure and verify the deployed Arc testnet escrow first") from None
     try:
         yield rpc
     finally:
         rpc.close()
+
+
+def funding_rpc(request: Request, db: Session = Depends(session)):
+    # Only route identities select a deployment; query parameters cannot redirect
+    # a reservation action to another collection's escrow.
+    yield from configured_rpc(db, request.path_params.get("job_id"), request.path_params.get("reservation_id"))
 
 
 class FundingRequest(BaseModel):

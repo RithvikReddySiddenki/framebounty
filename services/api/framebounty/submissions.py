@@ -81,6 +81,8 @@ def review(db: Session, wallet: str, submission_id: str, decision: str, task_com
     job = db.scalar(select(Job).where(Job.id == reference.job_id).with_for_update().execution_options(populate_existing=True))
     if wallet != job.reviewer:
         raise HTTPException(403, "Only the job's designated reviewer can decide quality")
+    if job.plan.get("verification_policy", "ai") == "ai":
+        raise HTTPException(409, "Verification is automatic. Release funds only after the submission is AI-verified.")
     reservation = db.scalar(select(Reservation).where(Reservation.id == reference.reservation_id).with_for_update().execution_options(populate_existing=True))
     item = db.scalar(select(Submission).where(Submission.id == submission_id).with_for_update().execution_options(populate_existing=True))
     allowed_tags = {r["key"] for r in job.plan["requirements"]}

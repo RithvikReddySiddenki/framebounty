@@ -1,48 +1,84 @@
-"""Reconcile durable chain actions; only reserve dispatch uses the allocator key.
+"""Reconcile durable chain actions; allocator signs reservations and non-paying releases.
 
-Never signs quality decisions, submit hashes, refunds or payouts. Wallet hashes
+Never signs submit hashes, refunds or payouts. Deterministic verification policy may authorize rejection. Wallet hashes
 must first be attached by authenticated owners. Logs contain public IDs only.
 """
 import argparse
 import logging
 import os
 import time
+from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from .arc import CHAIN_ID, USDC_ADDRESS
 from .chain_rpc import ChainConfig, ChainFailure, ChainRPC
 from .chain_workflow import project, sync_allocation
 from .db import engine
-from .models import Reservation, TransactionIntent
+from .models import Reservation, TransactionIntent, Submission
 from .transactions import KeySigner, reconcile
+from .escrow_scope import scoped_rpc
+from .verification_chain import sync_failure_or_deadline
 
 log = logging.getLogger("framebounty.chain_worker")
 
 
 def run_once(db_engine, rpc, signer):
+    try:
+        chain_time = datetime.fromtimestamp(int(rpc.rpc("eth_getBlockByNumber", ["latest", False])["timestamp"], 16), UTC)
+    except (ChainFailure, KeyError, TypeError, ValueError):
+        chain_time = None  # Unknown chain time can never authorize a deadline release.
     with Session(db_engine) as db:
         pending = list(db.scalars(select(Reservation.id).where(Reservation.state == "reserve_pending").limit(50)))
         transactions = list(db.scalars(select(TransactionIntent.id).where(TransactionIntent.reservation_id.is_not(None),
             TransactionIntent.projected.is_(False),
             TransactionIntent.state.in_(["signed", "broadcast", "confirmed", "reverted"])).limit(100)))
+        batches = list(db.scalars(select(TransactionIntent.id).where(TransactionIntent.kind == "approve_batch",
+            TransactionIntent.projected.is_(False), TransactionIntent.state.in_(["broadcast", "confirmed", "reverted"])).limit(50)))
+        deadlines = list(db.scalars(select(Reservation.id).outerjoin(Submission, Submission.reservation_id == Reservation.id).where(or_(
+            (Reservation.state == "reserved") & (Reservation.expires_at <= chain_time),
+            (Reservation.state == "submitted") & or_(Submission.review_deadline <= chain_time,
+                (Submission.state == "verification_rejected") & or_(
+                    Submission.findings["verification"]["legacy_release_wait"].as_boolean().is_(None),
+                    Submission.findings["verification"]["legacy_release_wait"].as_boolean() == False)))).limit(100))) if chain_time else []
     for rid in pending:
         with Session(db_engine) as db:
             try:
-                sync_allocation(db, rpc, rid, signer)
+                reservation = db.get(Reservation, rid)
+                with scoped_rpc(db, reservation.job_id, rpc) as active:
+                    sync_allocation(db, active, rid, signer)
             except ChainFailure:
                 db.rollback()
                 log.warning("allocation_pending reservation_id=%s", rid)
     for intent_id in transactions:
         with Session(db_engine) as db:
             try:
-                reconcile(db, rpc, intent_id)
-                project(db, rpc, intent_id)
+                intent = db.get(TransactionIntent, intent_id)
+                with scoped_rpc(db, intent.job_id, rpc) as active:
+                    reconcile(db, active, intent_id)
+                    project(db, active, intent_id)
             except ChainFailure:
                 db.rollback()
                 log.warning("reconciliation_pending intent_id=%s", intent_id)
-    return len(pending) + len(transactions)
+    for intent_id in batches:
+        with Session(db_engine) as db:
+            try:
+                from .payouts import project_batch
+                intent = db.get(TransactionIntent, intent_id)
+                with scoped_rpc(db, intent.job_id, rpc) as active:
+                    reconcile(db, active, intent_id); project_batch(db, active, intent_id)
+            except ChainFailure:
+                db.rollback(); log.warning("batch_release_pending intent_id=%s", intent_id)
+    for rid in deadlines:
+        with Session(db_engine) as db:
+            try:
+                reservation = db.get(Reservation, rid)
+                with scoped_rpc(db, reservation.job_id, rpc) as active:
+                    sync_failure_or_deadline(db, active, rid, signer)
+            except ChainFailure:
+                db.rollback(); log.warning("automatic_release_pending reservation_id=%s", rid)
+    return len(pending) + len(transactions) + len(batches)
 
 
 def main():

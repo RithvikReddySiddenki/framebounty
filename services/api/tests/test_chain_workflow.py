@@ -66,6 +66,160 @@ def uploaded(db, rpc, accounts, rid, video):
     return item.id
 
 
+def ai_image_ready(pg, rpc, accounts, *, reject=False):
+    """Real escrow/hash/Pillow path; only external model observations simulated."""
+    from framebounty.domain import Plan
+    from framebounty.funding import actions
+    from framebounty.marketplace import create_job
+    from framebounty.automatic_verification import evaluate
+    from test_chain import send
+    from test_image_posts import image_plan, image_bytes
+    with Session(pg) as db:
+        job = create_job(db, accounts[1], Plan.model_validate({**image_plan(), "verification_policy": "ai"}))
+        for action in actions(rpc, job, accounts[0]): send(db, rpc, action)
+        funding_step(db, rpc, accounts[1], job.id, job.plan_hash, accounts[0])
+        task = db.scalar(select(Task).where(Task.job_id == job.id))
+        jid = job.id
+    submissions = []
+    for index in range(1 if reject else 2):
+        with Session(pg) as db:
+            task = db.scalar(select(Task).where(Task.job_id == jid))
+            confirmation = prepare_confirmation(db, accounts[2], task.id)
+            reservation = reserve(db, accounts[2], confirmation.id, task.id, task.version, task.reward_atomic, "ai-image-" + str(index))
+            sync_allocation(db, rpc, reservation.id, LocalUnlockedSigner(rpc, accounts[0]))
+            data = image_bytes()
+            key = secrets.token_hex(16) + ".image"; LocalStorage().path(key).write_bytes(data)
+            item = finalize_upload(db, accounts[2], reservation.id, key, hashlib.sha256(data).hexdigest(), len(data), "image/png")
+            sid = item.id
+            transact(db, rpc, accounts[2], reservation.id, "submit")
+        assert run_once(pg)
+        with Session(pg) as db:
+            item = db.get(Submission, sid)
+            assert item.findings["decoded"]
+            checks = {key: {**value, "result": "pass", "confidence": 95} for key, value in item.findings["assessment"].items()} if item.findings.get("assessment") else {
+                key: {"result": "pass", "confidence": 95, "explanation": "Synthetic observation only", "timestamps_ms": [0]}
+                for key in ["task_completion", "visibility", "cat_climbing_tree"]}
+            if reject: checks["cat_climbing_tree"].update(result="fail", confidence=80, explanation="No cat or tree visible")
+            item.state, item.findings = "needs_review", {**item.findings, "assessment": checks}
+            work = db.scalar(select(VerificationJob).where(VerificationJob.submission_id == sid)); work.state = "done"
+            db.commit(); assert evaluate(db, sid)
+            submissions.append(sid)
+    return jid, submissions
+
+
+def test_ai_verified_batch_waits_for_final_wallet_and_recovers_projection(pg, chain, live_mode):
+    from framebounty.payouts import release_step
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts)
+    with Session(pg) as db:
+        assert all(db.get(Submission, sid).state == "verified" for sid in ids)
+        assert token_balance(rpc, accounts[2]) == 0 and db.get(Job, jid).paid_atomic == 0
+        with pytest.raises(HTTPException): release_step(db, rpc, accounts[2], jid, "unauthorized-batch")
+        db.rollback()
+        step = release_step(db, rpc, accounts[1], jid, "final-batch-release")
+        rpc.rpc("evm_setAutomine", [False])
+        transaction = {k: v for k, v in step["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(1_500_000)
+        tx_hash = rpc.rpc("eth_sendTransaction", [transaction])
+        assert not release_step(db, rpc, accounts[1], jid, "final-batch-release", step["intent_id"], tx_hash)["confirmed"]
+        assert db.get(Job, jid).paid_atomic == 0 and token_balance(rpc, accounts[2]) == 0
+    rpc.rpc("evm_mine", []); rpc.rpc("evm_setAutomine", [True])
+    with Session(pg) as db:
+        intent = reconcile(db, rpc, step["intent_id"])
+        assert intent.state == "confirmed" and not intent.projected
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    with Session(pg) as db:
+        assert release_step(db, rpc, accounts[1], jid, "final-batch-release")["confirmed"]
+        assert token_balance(rpc, accounts[2]) == 2_000_000
+        assert db.get(Job, jid).paid_atomic == 2_000_000 and db.get(Job, jid).committed_atomic == 0
+        assert all(db.get(Submission, sid).state == "accepted" for sid in ids)
+        assert db.get(TransactionIntent, step["intent_id"]).projected
+
+
+def test_confident_ai_failure_rejects_and_frees_budget_without_reviewer_signature(pg, chain, live_mode):
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts, reject=True)
+    with Session(pg) as db:
+        assert db.get(Submission, ids[0]).state == "verification_rejected"
+        assert db.get(Job, jid).committed_atomic == 1_000_000
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    with Session(pg) as db:
+        assert db.get(Submission, ids[0]).state == "rejected"
+        assert db.get(Job, jid).committed_atomic == 0 and db.get(Job, jid).paid_atomic == 0
+        assert token_balance(rpc, accounts[2]) == 0
+        intents = db.scalars(select(TransactionIntent).where(TransactionIntent.kind == "verify_reject")).all()
+        assert len(intents) == 1 and intents[0].sender == accounts[0]
+
+
+def test_original_escrow_funds_remain_bound_and_release_through_legacy_path(pg, chain, live_mode):
+    from dataclasses import replace
+    from eth_abi import encode
+    from framebounty.chain_rpc import artifact, ChainRPC
+    from framebounty.escrow_scope import scoped_rpc
+    from framebounty.payouts import release_step
+    rpc, accounts = chain
+    creation = artifact(1)["creation_bytecode"] + encode(["address"], [rpc.config.token]).hex()
+    legacy_hash = rpc.rpc("eth_sendTransaction", [{"from": accounts[0], "data": creation, "gas": hex(5_000_000)}])
+    legacy = receipt(rpc, legacy_hash)["contractAddress"].lower()
+    old_rpc = ChainRPC(replace(rpc.config, escrow=legacy))
+    try:
+        old_rpc.check_contract(); assert old_rpc.contract_version == 1
+        jid, ids = ai_image_ready(pg, old_rpc, accounts, reject=False)
+        with Session(pg) as db:
+            assert db.get(Job, jid).escrow_address == legacy
+            with scoped_rpc(db, jid, rpc) as bound:
+                assert bound.config.escrow == legacy
+                step = release_step(db, bound, accounts[1], jid, "legacy-final-batch")
+                for _ in range(2):
+                    assert step["legacy"] and not step["confirmed"]
+                    transaction = {k: v for k, v in step["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(500000)
+                    tx = bound.rpc("eth_sendTransaction", [transaction]); receipt(bound, tx)
+                    step = release_step(db, bound, accounts[1], jid, "legacy-final-batch", step["intent_id"], tx)
+                assert step["confirmed"]
+            assert db.get(Job, jid).escrow_address == legacy and db.get(Job, jid).paid_atomic == 2_000_000
+            assert token_balance(rpc, accounts[2]) == 2_000_000
+    finally: old_rpc.close()
+
+
+def test_worker_expires_short_reservation_without_a_human_wallet_action(pg, chain, live_mode):
+    rpc, accounts = chain
+    with Session(pg) as db:
+        jid, rid = prepare(db, rpc, accounts)
+        sync_allocation(db, rpc, rid, LocalUnlockedSigner(rpc, accounts[0]))
+        expiry = int(db.get(Reservation, rid).expires_at.timestamp())
+    rpc.rpc("evm_setNextBlockTimestamp", [expiry + 1]); rpc.rpc("evm_mine", [])
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    with Session(pg) as db:
+        assert db.get(Reservation, rid).state == "expired"
+        assert db.get(Job, jid).committed_atomic == 0 and db.get(Job, jid).paid_atomic == 0
+        assert token_balance(rpc, accounts[2]) == 0
+
+
+def test_reverted_batch_pays_none_and_new_explicit_release_can_retry(pg, chain, live_mode):
+    from framebounty.payouts import release_step
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts)
+    with Session(pg) as db:
+        step = release_step(db, rpc, accounts[1], jid, "batch-that-reverts")
+        failure = rpc.rpc("eth_sendTransaction", [{"from": accounts[0], "to": rpc.config.token,
+            "data": call_data("setFailure(bool)", ["bool"], [True]), "gas": hex(200000)}]); receipt(rpc, failure)
+        transaction = {k: v for k, v in step["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(1_500_000)
+        failed_hash = rpc.rpc("eth_sendTransaction", [transaction])
+        failed_receipt = rpc.rpc("eth_getTransactionReceipt", [failed_hash])
+        assert int(failed_receipt["status"], 16) == 0
+        failed = release_step(db, rpc, accounts[1], jid, "batch-that-reverts", step["intent_id"], failed_hash)
+        assert failed["state"] == "reverted" and not failed["confirmed"]
+        assert all(db.get(Submission, sid).state == "verified" for sid in ids)
+        assert db.get(Job, jid).paid_atomic == 0 and token_balance(rpc, accounts[2]) == 0
+        restored = rpc.rpc("eth_sendTransaction", [{"from": accounts[0], "to": rpc.config.token,
+            "data": call_data("setFailure(bool)", ["bool"], [False]), "gas": hex(200000)}]); receipt(rpc, restored)
+        retry = release_step(db, rpc, accounts[1], jid, "new-explicit-release")
+        transaction = {k: v for k, v in retry["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(1_500_000)
+        successful = rpc.rpc("eth_sendTransaction", [transaction]); receipt(rpc, successful)
+        assert release_step(db, rpc, accounts[1], jid, "new-explicit-release", retry["intent_id"], successful)["confirmed"]
+        assert db.get(Job, jid).paid_atomic == 2_000_000 and token_balance(rpc, accounts[2]) == 2_000_000
+
+
 def test_image_post_receipt_gated_funding_hash_lock_and_single_payout(pg, chain, live_mode):
     from framebounty.domain import Plan
     from framebounty.funding import actions

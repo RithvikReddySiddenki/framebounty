@@ -110,9 +110,13 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
         raise HTTPException(409, "Available budget changed; refresh search")
     job.committed_atomic += reward_atomic
     task.claimed += 1
+    # A reservation is a short collection window, not the entire listing lifetime.
+    # Bound it at creation; pending chain allocation must not extend the deadline.
+    expires_at = min(task.deadline, datetime.now(UTC) + timedelta(minutes=2 * task.minutes),
+                     datetime.now(UTC) + timedelta(days=7))
     reservation = Reservation(id=new_id(), confirmation_id=confirmation_id, task_id=task.id, job_id=job.id,
         wallet=wallet, idempotency_key=idempotency_key, reward_atomic=reward_atomic,
-        rubric_hash=job.plan_hash, state="fixture_reserved" if fixture else "reserve_pending", expires_at=task.deadline)
+        rubric_hash=job.plan_hash, state="fixture_reserved" if fixture else "reserve_pending", expires_at=expires_at)
     db.add(reservation)
     audit(db, wallet, "contributor", "fixture_reserve" if fixture else "reserve_requested", reservation.id, {"task_id": task.id, "reward_atomic": reward_atomic})
     db.commit()

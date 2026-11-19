@@ -269,6 +269,7 @@ def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: Ge
                 plan = intake.plan
             if plan is None or plan.total != facts["count"] or plan.media_type != facts["media_type"] or plan.budget_atomic != budget:
                 raise ProviderFailure("The agent's proposed terms did not match your confirmed count, type and budget. Please retry your request.")
+            plan = plan.model_copy(update={"verification_policy": "ai"})
             data["plan"] = {**plan.model_dump(mode="json"), "budget_atomic": str(plan.budget_atomic), "reward_atomic": str(plan.reward_atomic)}
             tool, reply = "draft_plan", "Your post is ready. Review the terms below, then publish when you are happy with it."
         else:

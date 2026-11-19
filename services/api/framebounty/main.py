@@ -21,6 +21,7 @@ from .agent_routes import router as agents_router
 from .funding_routes import router as funding_router
 from .chain_routes import router as chain_router
 from .chat import router as chat_router
+from .payouts import router as payouts_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -29,6 +30,7 @@ app.include_router(agents_router)
 app.include_router(funding_router)
 app.include_router(chain_router)
 app.include_router(chat_router)
+app.include_router(payouts_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -96,7 +98,7 @@ def overview(wallet: str = Depends(current_wallet), db: Session = Depends(sessio
     owned = (Job.buyer == wallet) & ((Job.fixture == fixture) | (Job.state == "draft"))
     count = lambda condition: db.scalar(select(func.count()).select_from(Job).where(condition))
     reviews = db.scalar(select(func.count()).select_from(Submission).join(Job, Submission.job_id == Job.id).where(
-        Job.reviewer == wallet, Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid"])))
+        Job.reviewer == wallet, Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid", "verified", "release_pending"])))
     claimable = select(Task.id).where(Task.job_id == Job.id, Task.state == "open", Task.deadline > datetime.now(UTC),
         Task.claimed < Task.slots, Task.reward_atomic <= Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic).exists()
     return {"collections": count(owned), "open_collections": count(owned & (Job.state == "open") & claimable),

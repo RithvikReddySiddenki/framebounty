@@ -83,6 +83,16 @@ Use consented/lawful demo videos and document provenance. Fixture mode must be c
 
 Use structured logs with request/job/reservation/transaction identifiers, without logging sensitive payloads. Treat malformed uploads, prompt injection, failed providers, and duplicate requests as expected inputs.
 Definition of done
+Current user-authorized verification policy (2026-11-18)
+The user explicitly superseded mandatory manual quality review: default image/video
+posts use automatic verification, with rejection for a mandatory failure at >=80%
+model-reported confidence. Low-confidence/provider failures retry and cannot pay.
+The buyer's only required post-submission check is final funds release, optionally
+as one atomic batch on V2. Models still hold no keys and cannot authorize payment.
+Reserve upload windows are capped at twice the expected task length. Preserve V1
+funded jobs and explain its immutable transaction limitations. Decision 0011 governs
+this change; earlier human-quality-checkbox guidance is historical compatibility.
+
 A feature is done when acceptance criteria work, meaningful tests pass, errors are handled, comments/docs match behavior, migrations/config are reproducible, and changes are committed/pushed when access permits. "Done" also requires reporting what was not tested.
 
 Every handoff must include:

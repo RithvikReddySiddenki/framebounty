@@ -24,7 +24,7 @@ def image_bytes(fmt="PNG", size=(320, 240)):
 
 
 def image_plan():
-    return dict(media_type="image", version=1, title="Cat climbing a tree", total=20,
+    return dict(verification_policy="human", media_type="image", version=1, title="Cat climbing a tree", total=20,
         budget_atomic=20_000_000, reward_atomic=1_000_000, min_seconds=10, max_seconds=10,
         review_hours=72, rights_declaration="Synthetic test images only; no real animal or capture claim.",
         requirements=[dict(key="cat_climbing_tree", description="A cat visibly climbing a tree", minimum=20)])

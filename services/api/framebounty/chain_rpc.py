@@ -45,8 +45,9 @@ def resource_id(value: str) -> bytes:
     return bytes.fromhex(value).rjust(32, b"\x00")
 
 
-def artifact() -> dict:
-    return json.loads(files("framebounty").joinpath("contract_abi/escrow.json").read_text(encoding="utf-8"))
+def artifact(version: int = 2) -> dict:
+    name = "escrow_v1.json" if version == 1 else "escrow.json"
+    return json.loads(files("framebounty").joinpath("contract_abi/" + name).read_text(encoding="utf-8"))
 
 
 def call_data(signature: str, types: list[str], arguments: list) -> str:
@@ -61,8 +62,8 @@ def escrow_call(name: str, arguments: list) -> str:
     return call_data(name + "(" + ",".join(types) + ")", types, arguments)
 
 
-def expected_runtime(token: str) -> bytes:
-    compiled = artifact()
+def expected_runtime(token: str, version: int = 2) -> bytes:
+    compiled = artifact(version)
     result = bytearray(hex_bytes(compiled["runtime_bytecode"]))
     replacement = bytes.fromhex(address(token)[2:]).rjust(32, b"\x00")
     for references in compiled["immutable_references"].values():
@@ -141,7 +142,11 @@ class ChainRPC:
         if decimals != 6:
             raise ChainFailure("Unsupported token decimals")
         actual = hex_bytes(self.rpc("eth_getCode", [self.config.escrow, "latest"]))
-        if actual != expected_runtime(self.config.token):
+        if actual == expected_runtime(self.config.token):
+            self.contract_version = 2
+        elif actual == expected_runtime(self.config.token, 1):
+            self.contract_version = 1
+        else:
             raise ChainFailure("Escrow bytecode does not match the canonical compiled contract")
 
     def read_escrow(self, name: str, arguments: list) -> tuple:
