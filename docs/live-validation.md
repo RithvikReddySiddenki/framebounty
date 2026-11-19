@@ -1,0 +1,102 @@
+# Live validation evidence
+
+## Protected marketplace V3 activated (2026-11-18)
+
+After the initial automatic-review rejection, the user explicitly approved migration
+0007, the owned-service restart and V3 Arc testnet deployment. The original rejected
+command did not run. The subsequently approved deployment was signed once, saved
+in ignored `.local/arc-deployment-v3.json`, broadcast and independently reconciled.
+
+- Chain: 5042002; default escrow: `0xe613799458201e41830a5be3da5c2a7d18140da0`.
+- [Deployment transaction](https://explorer.testnet.arc.io/tx/0x5fa53fe2a9d61756daada30a42dcf9d5361682f73c8a03c6a2c23f6f7cc0477b).
+- Runtime keccak256: `0xcff7913f90ff88320b0fb0b5c13e0836cea8f5c96c0506f9cb14008a624032b3`.
+- Actual native fee: **0.048168687 test USDC** (48168687000000000 native atoms,
+  18 decimals); prepared maximum **0.1392871 test USDC**.
+- Migration 0007 applied only to the active demo database; zero demo jobs remain.
+  The original archived database still contains four jobs. Old escrow artifacts,
+  funded-job bindings and archived media remain preserved.
+- API and preview returned HTTP 200 after restarting owned API/chain/media/web
+  processes. Runtime validation independently identifies the default as V3.
+
+This verifies deployment and activation, not a complete live V3 buyer funding ->
+real contributor media -> AI verification -> one-hour settlement -> rating demo.
+Local-chain tests cover that state-machine behavior with synthetic observations;
+real-task model accuracy and the physical-phone walkthrough remain pending.
+Existing V1/V2 jobs retain their original contracts and do not acquire V3 promises.
+
+## Arc testnet deployment
+
+The user explicitly approved the prepared deployment on chain **5042002**.
+The saved transaction was broadcast once and its receipt/runtime verified:
+
+- Escrow: `0xd99355572a0a93f97254af3715300082fca3b063`
+- [Deployment transaction](https://explorer.testnet.arc.io/tx/0x0274c17ae90bb87dbf2fdd2d25fdbe77fb89a6f1fcf163decb7bd2a0ac67f9ee)
+- Actual native gas cost: **0.028299117 test USDC** (18-decimal accounting).
+- Prepared maximum: **0.0820663 test USDC**.
+- Runtime keccak256: `0x19aa00ec0d82c5cdb64adda80a41a52db84ad946fb651fa69a0fb124c70125e2`
+- Immutable token/getter: `0x3600000000000000000000000000000000000000`.
+
+The runtime matches the canonical compiled artifact with that token immutable.
+A separate read-only ChainRPC check passed after the deployment CLI completed.
+The verified address is saved in local ignored `.env`; signed bytes stay in
+ignored `.local`. Escrow balance was zero at verification. **No collection is
+funded and no contributor payment is claimed by this deployment.** Application
+transaction and model flags remain disabled pending the interactive demo setup.
+
+The buyer wallet was subsequently verified funded above the 20-USDC budget plus
+gas. An interactive local preview now runs at http://localhost:3000 with process-only
+testnet funding and free-tier text-agent flags enabled. Private-video Gemini uploads
+remain disabled. Persisted `.env` defaults stay conservative. The API health check
+and page return HTTP 200; live task search is empty before any buyer deposit.
+Owned process metadata/logs are private under `.local`. Preview output uses the
+ignored `.next-live` directory independently of browser-test caches. Fixture funding
+controls are hidden in the live funding interface. This is readiness evidence, not
+a claim that the buyer has signed or deposited funds.
+
+## Gemini synthetic smoke
+
+The user supplied an AI Studio screenshot showing Free tier and billing not set
+up. One explicitly gated request sent generated synthetic cards only, using
+`gemini-3.5-flash-lite`. Schema validation passed in 2.954 seconds. Task completion
+was `fail`, towel/surface observations `uncertain`, and visibility `fail`.
+This is a negative transport/schema smoke, not a physical-task accuracy benchmark.
+No private videos were sent and application inference flags were not enabled.
+
+## Remaining interactive checks
+
+1. Buyer provides a public browser-wallet address distinct from the allocator and
+   funds it with the intended contributor budget plus native testnet gas. A separate
+   contributor wallet also needs gas to confirm its content hash.
+2. Enable the verified testnet configuration and funding UI, then have the buyer
+   authorize creation, exact allowance and deposit in their own wallet.
+3. Contributor explicitly confirms a real funded task; allocator commits it on chain.
+4. Contributor uploads a lawful/consented physical-task clip and confirms its hash.
+   Private-frame model evaluation requires separate consent before enabling media.
+5. Automatic verification checks the post requirements. A confident failure rejects
+   with visible reasons; passing work waits for the buyer's final batch release.
+   Verify its exact payout receipt, automatic next batch, coverage and export.
+6. Perform a physical-phone check and record actual results before review/merge.
+
+Close/refund UI, fee replacement, automatic hashless recovery and unsigned pending
+allocation cancellation remain open. Local-EVM tests do not establish all Arc-native
+funding/payment behavior. Do not merge the draft PR merely because deployment passed.
+
+## V2 deployment and automatic verification (2026-11-18)
+
+- Contract: `0xea83a29db7486295b93318081447222481d0dbea`.
+- Transaction: `0xccf895f7185bcf4bcb6125affb3798b60ef708fa2fde8af9e8c2ed487e45ec0d`.
+- Chain: Arc testnet 5042002; successful receipt and exact canonical runtime verified.
+- Runtime keccak: `0x0f9cd999a6624e87be4b2895a1d91631d04ed20f16fa6135130cf3ede9595d33`.
+- Native gas cost: 34230105000000000 atoms (18 decimals), or **0.034230105 test USDC**.
+  The prepared maximum was 0.0991465 test USDC. No buyer escrow tokens moved.
+- Migration 0006 applied locally with existing monetary ledger rows unchanged.
+  All existing funded jobs retain their original contract binding.
+- The signed V2 deployment remains in ignored `.local/arc-deployment-v2.json`;
+  the original V1 signed record is preserved. An explicit previous-address guard
+  was required to switch the default after confirmation; no replacement deployment
+  or second broadcast was needed. New jobs default to V2; V1 funds stay at V1.
+- Live synthetic image verification returned failure at reported confidence 100.
+  This supports provider/schema connectivity, not a real-world accuracy claim.
+
+A user-funded V2 collection-to-batch-payout walkthrough and labeled real-task AI
+accuracy evaluation remain pending. Contract deployment alone is not that proof.

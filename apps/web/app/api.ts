@@ -1,0 +1,199 @@
+"use client";
+
+export const apiBase =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export function notifySessionExpired(token: string) {
+  window.dispatchEvent(
+    new CustomEvent("framebounty:session-expired", { detail: { token } }),
+  );
+}
+
+export async function request<T>(
+  path: string,
+  token?: string,
+  body?: unknown,
+): Promise<T> {
+  let response: Response;
+  // Contributor chat may make two bounded 45-second model calls (intake and
+  // ranking). Do not abandon a healthy request at the normal API's 15s limit.
+  const agentMessage = body !== undefined && /^\/(chat-sessions|agent-sessions)\/[^/]+\/messages$/.test(path);
+  try {
+    response = await fetch(apiBase + path, {
+      method: body === undefined ? "GET" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(agentMessage ? 120000 : 15000),
+    });
+  } catch (error) {
+    if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
+      throw new Error(agentMessage
+        ? "The AI is taking longer than expected. Your message is kept; retry the same message to check for its result."
+        : "FrameBounty took too long to respond. Please retry.");
+    }
+    throw new Error(
+      "Cannot reach FrameBounty. Check that the API is running and try again.",
+    );
+  }
+  if (!response.ok) {
+    if (response.status === 401 && token) notifySessionExpired(token);
+    const data = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof data.detail === "string"
+        ? data.detail
+        : `Request failed (${response.status}). Please check your input and retry.`,
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
+type Provider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on?: (event: string, listener: () => void) => void;
+  removeListener?: (event: string, listener: () => void) => void;
+};
+
+export function watchWalletChange(
+  disconnect: () => void,
+  sessionExpired: (token: string) => void = disconnect,
+): () => void {
+  const provider = (window as Window & { ethereum?: Provider }).ethereum;
+  provider?.on?.("accountsChanged", disconnect);
+  provider?.on?.("chainChanged", disconnect);
+  provider?.on?.("disconnect", disconnect);
+  const expired = (event: Event) => {
+    const token = (event as CustomEvent<{ token: string }>).detail?.token;
+    if (token) sessionExpired(token);
+  };
+  window.addEventListener("framebounty:session-expired", expired);
+  return () => {
+    provider?.removeListener?.("accountsChanged", disconnect);
+    provider?.removeListener?.("chainChanged", disconnect);
+    provider?.removeListener?.("disconnect", disconnect);
+    window.removeEventListener("framebounty:session-expired", expired);
+  };
+}
+
+const ARC_TESTNET = {
+  chainId: "0x4cef52",
+  chainName: "Arc Testnet",
+  // Arc's native gas balance is USDC with 18 decimals (the ERC-20 view uses 6).
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: ["https://rpc.testnet.arc.io"],
+  blockExplorerUrls: ["https://explorer.testnet.arc.io"],
+};
+
+/** Ask the wallet to switch to Arc testnet, adding the network first if the
+ * wallet doesn't know it (EIP-3085 / EIP-3326). Returns the resulting chain. */
+async function ensureArcTestnet(provider: Provider): Promise<unknown> {
+  const chain = await provider.request({ method: "eth_chainId" });
+  if (chain === ARC_TESTNET.chainId) return chain;
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: ARC_TESTNET.chainId }],
+    });
+  } catch (error) {
+    const code = (error as { code?: number })?.code;
+    // 4902: unrecognized chain. Some wallets report it as -32603 with nested data.
+    const nested = (error as { data?: { originalError?: { code?: number } } })?.data?.originalError?.code;
+    if (code !== 4902 && nested !== 4902) throw error;
+    await provider.request({ method: "wallet_addEthereumChain", params: [ARC_TESTNET] });
+  }
+  return provider.request({ method: "eth_chainId" });
+}
+
+export async function authenticate(): Promise<{
+  wallet: string;
+  token: string;
+  expiresAt: number;
+}> {
+  const provider = (window as Window & { ethereum?: Provider }).ethereum;
+  if (!provider)
+    throw new Error(
+      "Install or open an Ethereum-compatible browser wallet to sign in.",
+    );
+  const accounts = (await provider.request({
+    method: "eth_requestAccounts",
+  })) as string[];
+  const wallet = accounts[0];
+  if (!wallet) throw new Error("No wallet account was selected.");
+  let chain: unknown;
+  try {
+    chain = await ensureArcTestnet(provider);
+  } catch {
+    chain = await provider.request({ method: "eth_chainId" });
+  }
+  if (chain !== "0x4cef52")
+    throw new Error(
+      "Switch your wallet to Arc testnet (chain 5042002), then try again.",
+    );
+  const challenge = await request<{ nonce: string; message: string }>(
+    "/auth/challenge",
+    undefined,
+    { wallet },
+  );
+  const hex =
+    "0x" +
+    Array.from(new TextEncoder().encode(challenge.message), (b) =>
+      b.toString(16).padStart(2, "0"),
+    ).join("");
+  const signature = await provider.request({
+    method: "personal_sign",
+    params: [hex, wallet],
+  });
+  const result = await request<{ token: string; expires_in_seconds: number }>(
+    "/auth/login",
+    undefined,
+    {
+      nonce: challenge.nonce,
+      signature,
+    },
+  );
+  // Session stays in memory; reloading requires another signature. Never persist a signing key.
+  return {
+    wallet,
+    token: result.token,
+    expiresAt: Date.now() + result.expires_in_seconds * 1000,
+  };
+}
+
+export function usdc(atomic: string): string {
+  const amount = BigInt(atomic);
+  return `${amount / 1000000n}.${(amount % 1000000n).toString().padStart(6, "0").replace(/0+$/, "") || "0"}`;
+}
+
+export async function sendFundingTransaction(transaction: {
+  from: string;
+  to: string;
+  data: string;
+  value: string;
+  chainId: string;
+}): Promise<string> {
+  const provider = (window as Window & { ethereum?: Provider }).ethereum;
+  if (!provider) throw new Error("Open your connected browser wallet.");
+  const accounts = (await provider.request({
+    method: "eth_accounts",
+  })) as string[];
+  const chain = await provider.request({ method: "eth_chainId" });
+  if (chain !== "0x4cef52" || transaction.chainId !== chain)
+    throw new Error(
+      "Switch to Arc testnet before authorizing this transaction.",
+    );
+  if (accounts[0]?.toLowerCase() !== transaction.from.toLowerCase())
+    throw new Error("Reconnect the wallet that owns this action.");
+  const hash = await provider.request({
+    method: "eth_sendTransaction",
+    params: [transaction],
+  });
+  if (typeof hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(hash))
+    throw new Error(
+      "Wallet returned no transaction hash. Check wallet activity before retrying.",
+    );
+  return hash;
+}
+
+export const sendWalletTransaction = sendFundingTransaction;
