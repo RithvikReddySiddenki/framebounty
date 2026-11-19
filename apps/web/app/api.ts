@@ -77,6 +77,35 @@ export function watchWalletChange(
   };
 }
 
+const ARC_TESTNET = {
+  chainId: "0x4cef52",
+  chainName: "Arc Testnet",
+  // Arc's native gas balance is USDC with 18 decimals (the ERC-20 view uses 6).
+  nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+  rpcUrls: ["https://rpc.testnet.arc.io"],
+  blockExplorerUrls: ["https://explorer.testnet.arc.io"],
+};
+
+/** Ask the wallet to switch to Arc testnet, adding the network first if the
+ * wallet doesn't know it (EIP-3085 / EIP-3326). Returns the resulting chain. */
+async function ensureArcTestnet(provider: Provider): Promise<unknown> {
+  const chain = await provider.request({ method: "eth_chainId" });
+  if (chain === ARC_TESTNET.chainId) return chain;
+  try {
+    await provider.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: ARC_TESTNET.chainId }],
+    });
+  } catch (error) {
+    const code = (error as { code?: number })?.code;
+    // 4902: unrecognized chain. Some wallets report it as -32603 with nested data.
+    const nested = (error as { data?: { originalError?: { code?: number } } })?.data?.originalError?.code;
+    if (code !== 4902 && nested !== 4902) throw error;
+    await provider.request({ method: "wallet_addEthereumChain", params: [ARC_TESTNET] });
+  }
+  return provider.request({ method: "eth_chainId" });
+}
+
 export async function authenticate(): Promise<{
   wallet: string;
   token: string;
@@ -92,7 +121,12 @@ export async function authenticate(): Promise<{
   })) as string[];
   const wallet = accounts[0];
   if (!wallet) throw new Error("No wallet account was selected.");
-  const chain = await provider.request({ method: "eth_chainId" });
+  let chain: unknown;
+  try {
+    chain = await ensureArcTestnet(provider);
+  } catch {
+    chain = await provider.request({ method: "eth_chainId" });
+  }
   if (chain !== "0x4cef52")
     throw new Error(
       "Switch your wallet to Arc testnet (chain 5042002), then try again.",

@@ -260,7 +260,7 @@ export default function Workspace() {
             </details>
           </div>
           <p className="access-footer">
-            Testnet funds only · Buyer releases verified rewards
+            Testnet funds only · Verified work is paid automatically from escrow
           </p>
         </section>
       </main>

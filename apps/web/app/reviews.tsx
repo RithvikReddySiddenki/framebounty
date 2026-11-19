@@ -270,8 +270,9 @@ export default function Reviews({
             <details>
               <summary>Post requirements</summary>
               <p>
-                {rubric.min_seconds}–{rubric.max_seconds} seconds, complete
-                towel fold required.
+                Videos: {rubric.min_seconds}–{rubric.max_seconds} seconds. Each
+                submission is checked automatically against the requirements
+                below.
               </p>
               {rubric.requirements.map((r) => (
                 <p key={r.key}>{r.description}</p>
