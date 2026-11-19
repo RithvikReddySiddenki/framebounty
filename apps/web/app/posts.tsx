@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { request, usdc } from "./api";
 import Funding from "./funding";
 import Reviews from "./reviews";
+import RefundUnused from "./refund-unused";
 import type { PlanProposal } from "./agent-pane";
 
-type Post = { id: string; title: string; state: string; fixture: boolean; media_type: "image" | "video";
+type Post = { protection_version?: number; expires_at?: string | null;  id: string; title: string; state: string; fixture: boolean; media_type: "image" | "video";
   publication_status: string; open_slots: number; plan: PlanProposal; plan_hash: string; deposited_atomic: string; paid_atomic: string };
-const labels: Record<string, string> = { draft: "Draft · Not public", awaiting_funding: "Awaiting funding · Not public", open: "Open for contributors", no_available_tasks: "No available tasks", closed: "Closed" };
+const labels: Record<string, string> = { draft: "Draft · Not public", awaiting_funding: "Awaiting funding · Not public", open: "Open for contributors", no_available_tasks: "No available tasks", closed: "Closed", expired: "Expired" };
 
 export default function Posts({ token, active, onChanged }: { token: string; active: boolean; onChanged: () => Promise<void> }) {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -33,7 +34,8 @@ export default function Posts({ token, active, onChanged }: { token: string; act
     </button>)}</div>
     {post && <section className="panel post-detail" aria-label="Your post details">
       <span className="tag">{post.media_type === "image" ? "Image post" : "Video post"}</span>
-      <h2>{post.title}</h2><p className="post-status">{labels[post.publication_status] || post.publication_status}</p>
+      <h2>{post.title}</h2>
+      {post.protection_version === 3 && <p className="notice">Protected budget locked until {post.expires_at ? new Date(post.expires_at).toLocaleString() : "publication expires"}. Requirements are fixed. Verified work pays automatically after one hour.</p>}<p className="post-status">{labels[post.publication_status] || post.publication_status}</p>
       <p>{post.plan.total} {post.media_type === "image" ? "images" : "videos"} · {usdc(String(post.plan.reward_atomic))} test USDC per accepted item</p>
       {post.media_type === "video" && <p>{post.plan.min_seconds}–{post.plan.max_seconds} seconds per video</p>}
       <ul>{post.plan.requirements.map(r => <li key={r.key}>{r.description} · at least {r.minimum}</li>)}</ul>
@@ -42,6 +44,7 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       {post.state === "draft" && <p>This post is saved privately. Complete funding to make tasks visible to contributors.</p>}
       {post.publication_status === "no_available_tasks" && <p>The collection is funded, but tasks are claimed, expired or no longer covered by available funds. Review submissions or ask the collection agent to commission the next batch.</p>}
       {post.state === "draft" && process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && <Funding key={`funding-${post.id}`} token={token} jobId={post.id} planHash={post.plan_hash} onPublished={changed} />}
+      {post.protection_version === 3 && post.expires_at && new Date(post.expires_at).getTime() <= Date.now() && <RefundUnused token={token} jobId={post.id} onChanged={changed} />}
       <Reviews key={`reviews-${post.id}`} token={token} jobId={post.id} onChanged={changed} />
     </section>}
     {error && <p className="error" role="alert">{error}</p>}

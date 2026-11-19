@@ -101,6 +101,10 @@ def get_submission(submission_id: str, wallet: str = Depends(current_wallet), db
 @router.get("/submissions/{submission_id}/video")
 def video(submission_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     item = private_submission(db, submission_id, wallet)
+    from .previews import owns_original, preview_response
+    if not owns_original(item, wallet):
+        if item.content_type.startswith("image/"): return preview_response(item)
+        raise HTTPException(403, "Original video unlocks after confirmed payment; use the watermarked preview")
     path = LocalStorage().path(item.object_key)
     if not path.is_file():
         raise HTTPException(404, "Video object is unavailable")
@@ -113,10 +117,18 @@ def frame(submission_id: str, index: int, wallet: str = Depends(current_wallet),
     frames = item.findings.get("frames", [])
     if index < 0 or index >= len(frames):
         raise HTTPException(404, "Frame not found")
+    from .previews import owns_original, preview_response
+    if not owns_original(item, wallet): return preview_response(item, index)
     path = LocalStorage().path(frames[index]["key"])
     if not path.is_file():
         raise HTTPException(404, "Frame object is unavailable")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/submissions/{submission_id}/preview")
+def preview(submission_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    from .previews import preview_response
+    return preview_response(private_submission(db, submission_id, wallet))
 
 
 class ReviewRequest(BaseModel):

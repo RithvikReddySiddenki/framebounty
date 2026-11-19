@@ -1,6 +1,6 @@
-"""Reconcile durable chain actions; allocator signs reservations and non-paying releases.
+"""Reconcile durable actions, verification attestations and fixed permissionless payments.
 
-Never signs submit hashes, refunds or payouts. Deterministic verification policy may authorize rejection. Wallet hashes
+Never signs contributor hashes, refunds or buyer approvals. V3 settlement executes only an attested, fixed reward after its chain deadline. Deterministic policy may authorize rejection. Wallet hashes
 must first be attached by authenticated owners. Logs contain public IDs only.
 """
 import argparse
@@ -16,7 +16,7 @@ from .arc import CHAIN_ID, USDC_ADDRESS
 from .chain_rpc import ChainConfig, ChainFailure, ChainRPC
 from .chain_workflow import project, sync_allocation
 from .db import engine
-from .models import Reservation, TransactionIntent, Submission
+from .models import Job, Reservation, TransactionIntent, Submission
 from .transactions import KeySigner, reconcile
 from .escrow_scope import scoped_rpc
 from .verification_chain import sync_failure_or_deadline
@@ -30,6 +30,8 @@ def run_once(db_engine, rpc, signer):
     except (ChainFailure, KeyError, TypeError, ValueError):
         chain_time = None  # Unknown chain time can never authorize a deadline release.
     with Session(db_engine) as db:
+        protected = list(db.scalars(select(Reservation.id).join(Job, Job.id == Reservation.job_id).join(Submission, Submission.reservation_id == Reservation.id).where(
+            Job.protection_version >= 3, Reservation.state == "submitted", Submission.state.in_(["verified", "release_pending"])).limit(100)))
         pending = list(db.scalars(select(Reservation.id).where(Reservation.state == "reserve_pending").limit(50)))
         transactions = list(db.scalars(select(TransactionIntent.id).where(TransactionIntent.reservation_id.is_not(None),
             TransactionIntent.projected.is_(False),
@@ -78,7 +80,16 @@ def run_once(db_engine, rpc, signer):
                     sync_failure_or_deadline(db, active, rid, signer)
             except ChainFailure:
                 db.rollback(); log.warning("automatic_release_pending reservation_id=%s", rid)
-    return len(pending) + len(transactions) + len(batches)
+    for rid in protected:
+        with Session(db_engine) as db:
+            try:
+                from .protected_chain import sync_protected
+                reservation = db.get(Reservation, rid)
+                with scoped_rpc(db, reservation.job_id, rpc) as active:
+                    sync_protected(db, active, rid, signer)
+            except ChainFailure:
+                db.rollback(); log.warning("protected_settlement_pending reservation_id=%s", rid)
+    return len(pending) + len(transactions) + len(batches) + len(protected)
 
 
 def main():

@@ -1,5 +1,17 @@
 # Architecture and implementation status
 
+Current protected workflow (2026-11-18, decision 0012): new AI posts bind budget,
+rubric, publication expiry and task estimate to V3. Budgets cannot be withdrawn
+before expiry; active obligations remain protected afterward. An oracle attests
+passing verification, starting a fixed one-hour payment window. Buyer batch
+release can pay early; anyone can settle afterward. The chain worker executes
+permissionless settlement and projects only verified receipts. Provider failures
+remain pending and retry, rather than becoming rejection. Buyer originals unlock
+only after payment; all unpaid media/frame reads use small watermarked previews.
+One permanent counterparty vote per paid submission is recorded directly on chain.
+V1/V2 jobs remain bound to their original contracts and do not acquire V3 promises.
+Earlier human-final-release descriptions below are historical compatibility.
+
 See workboard and test matrix for implemented slices and validation evidence.
 Target: Next.js UI -> FastAPI domain services -> PostgreSQL; durable jobs in PostgreSQL;
 private storage adapter; bounded FFmpeg worker; Gemini observations; Arc escrow adapter.

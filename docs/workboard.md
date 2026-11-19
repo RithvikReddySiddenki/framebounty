@@ -10,6 +10,16 @@ Acceptance: no early refund/close on protected jobs, no unverified payment or
 buyer veto, exact-once permissionless settlement after deadline, no unpaid
 original/frame bypass, and one immutable vote per paid trade per participant.
 
+Implementation complete in source: V3 contract (27 contract passes), verification
+attestation/automatic settlement worker, pending-provider retry, paid-only media,
+fixed-deadline confirmation, counterparty ratings UI/API and expired-budget refund.
+Full chain gate 23 passed; three targeted cases subsequently passed including one
+new refund case. Backend 162 passed; browser 7 passed plus separate funding-mode
+case 1 passed; six publishing coordinator tests and final production build pass.
+Contract milestone b775e1b pushed. Activation requires explicit operator approval:
+automatic review rejected active migration/restart/V3 deployment; no part ran.
+Read-only Arc preflight caps deployment at 0.1392871 test USDC at its quote.
+
 Owner: implementation lead (Codex), branch `feat/framebounty-prototype`.
 No concurrent editors have been identified. Shared interfaces are owned here until reassigned.
 

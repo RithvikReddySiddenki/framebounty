@@ -1,5 +1,22 @@
 # Test matrix
 
+Protected-marketplace evidence (2026-11-18, decision 0012): 27 contract tests pass
+(including two existing 256-run fuzz cases). Full local chain gate: 23 passed
+(22 chain cases + one config guard), including V1/V2 job binding, verification
+receipts, automatic payment despite an unsigned buyer batch, signed ratings and
+exact-once projections. Three subsequent targeted chain cases passed for automatic
+payment, rating receipt handling and the newly added expired-post refund path
+(one additional distinct case). Snapshot tests reset node time near wall time;
+production deadline bounds remain unchanged. Backend: 162 passed; chain cases
+separately gated. Chromium: 7 passed / one separate funding-mode skip, plus that
+funding-mode case separately passed. Six publishing coordinator tests and final
+production build passed. Media tests verify <=480px watermarks, metadata stripping,
+no unpaid original/frame alias bypass, fixed confirmation deadlines, pending
+provider retry and fixture exclusion from blockchain ratings. No real-task model
+accuracy claim. V3 deployment/active-demo migration still needs explicit operator
+approval after automatic review rejected those side effects. Read-only Arc gas
+preflight caps deployment at 0.1392871 test USDC at that quote; nothing signed/sent.
+
 ## Current evidence (2026-11-18)
 
 Image/video posts: JPEG/PNG private upload/decode, type/size/animation rejection,

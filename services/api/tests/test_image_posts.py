@@ -65,8 +65,13 @@ def test_private_image_upload_verification_review_export(pg, flow, fmt, mime, ex
     assert result.json()["media_type"] == "image"
     assert client.post(endpoint, headers={**actor, "Content-Type": mime}, content=data).json()["id"] == submission
     assert client.get(f"/submissions/{submission}/media", headers=stranger).status_code == 404
-    assert client.get(f"/submissions/{submission}/media", headers=buyer).content == data
+    assert client.get(f"/submissions/{submission}/media", headers=buyer).status_code == 409
+    assert client.get(f"/submissions/{submission}/media", headers=actor).content == data
     assert run_once(pg)
+    preview = client.get(f"/submissions/{submission}/media", headers=buyer)
+    assert preview.status_code == 200 and preview.content != data
+    assert preview.headers["content-type"] == "image/jpeg"
+    assert client.get(f"/submissions/{submission}/frames/0", headers=buyer).content == preview.content
     verified = client.get(f"/submissions/{submission}", headers=actor).json()
     assert verified["state"] == "needs_review" and verified["findings"]["decoded"]
     assert set(verified["findings"]["assessment"]) == {"task_completion", "visibility", "cat_climbing_tree"}
@@ -74,6 +79,7 @@ def test_private_image_upload_verification_review_export(pg, flow, fmt, mime, ex
     body = dict(decision="accept", task_completed=True, watched_full_video=True, tags=["cat_climbing_tree"], reason="Synthetic workflow validation only")
     assert client.post(f"/submissions/{submission}/review", headers=actor, json=body).status_code == 403
     assert client.post(f"/submissions/{submission}/review", headers=buyer, json=body).json()["state"] == "fixture_accepted"
+    assert client.get(f"/submissions/{submission}/media", headers=buyer).content == data
     exported = client.get(f"/jobs/{job_id}/dataset.zip", headers=buyer)
     with zipfile.ZipFile(io.BytesIO(exported.content)) as archive:
         manifest = json.loads(archive.read("manifest.json"))

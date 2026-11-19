@@ -40,7 +40,7 @@ def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, dig
     item = Submission(id=new_id(), reservation_id=reservation.id, job_id=job.id, wallet=wallet, fixture=fixture,
         object_key=key, sha256=digest, size_bytes=size, content_type=mime,
         rights_declaration=job.plan["rights_declaration"], rubric_hash=reservation.rubric_hash,
-        state="queued" if fixture else "chain_pending", findings={"model_consent": model_ack}, reviewed_tags=[],
+        state="queued" if fixture else "chain_pending", findings={"model_consent": model_ack, "protected": job.protection_version >= 3}, reviewed_tags=[],
         review_deadline=datetime.now(UTC) + timedelta(hours=job.plan["review_hours"]))
     db.add(item)
     db.flush()  # The durable job FK is written in the same transaction as submission.
@@ -71,6 +71,7 @@ def submission_view(item: Submission, include_private_pairs: bool = False) -> di
     return {"id": item.id, "media_type": "image" if (item.content_type or "").startswith("image/") else "video", "reservation_id": item.reservation_id, "job_id": item.job_id,
         "state": item.state, "findings": findings, "reviewed_tags": item.reviewed_tags,
         "review_reason": item.review_reason, "review_deadline": item.review_deadline,
+        "payment_due_at": item.payment_due_at,
         "rights_declaration": item.rights_declaration, "rubric_hash": item.rubric_hash,
         "fixture": item.fixture, "payment_confirmed": not item.fixture and item.state == "accepted"}
 

@@ -42,7 +42,7 @@ def prepare(db, wallet, job_id, request_id):
     active = db.scalar(select(PayoutBatch).where(PayoutBatch.job_id == job_id, PayoutBatch.state == "prepared"))
     if active: return active
     items = db.scalars(select(Submission).where(Submission.job_id == job_id, Submission.state == "verified",
-        Submission.review_deadline > datetime.now(UTC)).order_by(Submission.id).with_for_update()).all()
+        *([Submission.payment_due_at.is_not(None)] if job.protection_version >= 3 else [Submission.review_deadline > datetime.now(UTC)])).order_by(Submission.id).with_for_update()).all()
     if not items: raise HTTPException(409, "No AI-verified submissions are ready for funds release")
     if len(items) > 20: raise HTTPException(409, "Payout batch exceeds the approved collection bound")
     for item in items:
@@ -99,6 +99,10 @@ def project_batch(db, rpc, intent_id):
 def release_step(db, rpc, wallet, job_id, request_id, intent_id=None, tx_hash=None):
     batch = prepare(db, wallet, job_id, request_id)
     job = db.get(Job, job_id)
+    if job.protection_version >= 3 and all(db.get(Submission, sid).state == "accepted" for sid in batch.submission_ids):
+        # A permissionless settlement may win while the buyer's wallet is open.
+        # Report existing payments, never request a second transfer for that batch.
+        return {"confirmed": True, "batch_id": batch.id, "state": "confirmed", "automatically_settled": True}
     if batch.state == "confirmed":
         allocate_remaining(db, batch.job_id, batch.id)
         return {"confirmed": True, "fixture": job.fixture, "batch_id": batch.id, "state": "confirmed"}

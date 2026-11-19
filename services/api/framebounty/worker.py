@@ -22,6 +22,15 @@ from .automatic_verification import automatic, evaluate
 
 def claim(db: Session) -> tuple[str, str] | None:
     now = datetime.now(UTC)
+    # Retry protected provider failures in bounded bursts after a cooldown. They
+    # retain funding rather than turning an infrastructure failure into rejection.
+    waiting = db.scalars(select(VerificationJob).join(Submission, Submission.id == VerificationJob.submission_id)
+        .join(Job, Job.id == Submission.job_id).where(Job.protection_version >= 3,
+            Submission.state == "verification_pending", VerificationJob.available_at <= now,
+            VerificationJob.state.in_(["done", "failed"])).with_for_update(of=VerificationJob, skip_locked=True).limit(20)).all()
+    for old in waiting:
+        old.state, old.attempts, old.lease_until = "queued", 0, None
+        db.get(Submission, old.submission_id).state = "queued"
     exhausted = db.scalars(select(VerificationJob).where(VerificationJob.state == "leased",
         VerificationJob.attempts >= 3, VerificationJob.lease_until <= now).with_for_update(skip_locked=True).limit(50)).all()
     for old in exhausted:
@@ -63,7 +72,7 @@ def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool, conten
         frames = sample_frames(path, storage, metadata.duration_ms)
         metadata_dict, duration_ms = asdict(metadata), metadata.duration_ms
     findings = {"decoded": True, "media_type": kind, "metadata": metadata_dict, "frames": frames,
-                "limitations": "AI checks can be uncertain and do not prove consent or authenticity. Samples cannot establish every action. Human review authorizes payment."}
+                "limitations": "AI checks can be uncertain and do not prove consent or authenticity. Samples cannot establish every action. Protected escrow payment follows deterministic verification and a chain-enforced payment window."}
     try:
         if fixture:
             assessment = fixture_assessment() if "media_type" not in rubric else generic_fixture_assessment(rubric)
@@ -97,14 +106,15 @@ def finish(db: Session, job_id: str, lease_token: str, findings: dict | None, er
         db.commit()
         return False
     consent = submission.findings.get("model_consent", False)
+    protected = submission.findings.get("protected", False)
     if error and not invalid and item.attempts < 3:
         item.state = "queued"
         submission.state = "queued"
-        submission.findings = {"processing_error": error, "retry_attempt": item.attempts, "model_consent": consent}
+        submission.findings = {"processing_error": error, "retry_attempt": item.attempts, "model_consent": consent, "protected": protected}
     else:
         item.state = "failed" if error else "done"
         submission.state = "invalid" if invalid else "needs_review"
-        submission.findings = {**(findings or {"processing_error": error, "decoded": False}), "model_consent": consent}
+        submission.findings = {**(findings or {"processing_error": error, "decoded": False}), "model_consent": consent, "protected": protected}
     item.lease_until = datetime.now(UTC) + timedelta(seconds=2 ** item.attempts) if item.state == "queued" else None
     item.lease_token = None
     db.commit()

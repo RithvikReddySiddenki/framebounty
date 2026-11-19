@@ -6,6 +6,7 @@ import MediaView from "./media-view";
 import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
 import ReleaseFunds from "./release-funds";
+import Reputation from "./reputation";
 
 type Job = { id: string; title: string; state: string; fixture: boolean };
 type Coverage = {
@@ -20,18 +21,21 @@ function ReviewCard({ item, token }: { item: Submission; token: string; requirem
   return <article className="panel review-card">
     <p className="eyebrow">{item.fixture ? "FIXTURE SUBMISSION" : "TESTNET SUBMISSION"} - {item.state.replaceAll("_", " ")}</p>
     <h3>Submission {item.id.slice(0, 8)}</h3>
-    <p>{item.payment_confirmed ? "Payment confirmed." : item.state === "verified" ? "AI verification passed. Awaiting final buyer funds release." : "No chain payment confirmed."}</p>
+    {item.payment_due_at && !item.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(item.payment_due_at).toLocaleString()}. Release sooner in a batch below.</p>}
+    {!item.payment_confirmed && item.state !== "fixture_accepted" && <p className="muted">Originals unlock after confirmed payment. Before payment, only reduced watermarked previews are available.</p>}
+    <p>{item.payment_confirmed ? "Payment confirmed." : item.state === "verified" ? "AI verification passed. Payment window is shown below." : "No chain payment confirmed."}</p>
     {item.review_reason && <p>{item.review_reason}</p>}
     {item.findings.verification && <p className="notice">{item.findings.verification.reason}</p>}
-    <button onClick={() => setMediaVisible(!mediaVisible)}>{mediaVisible ? "Hide submitted media" : item.media_type === "image" ? "View submitted image & AI checks" : "Watch full video & inspect frames"}</button>
+    <button onClick={() => setMediaVisible(!mediaVisible)}>{mediaVisible ? "Hide submitted media" : item.media_type === "image" ? "View submitted image & AI checks" : "View watermarked preview & AI checks"}</button>
     {mediaVisible && <>
-      <MediaView path={`/submissions/${item.id}/media`} token={token} image={item.media_type === "image"} alt="Submitted image" />
+      <MediaView path={`/submissions/${item.id}/${item.payment_confirmed || item.state === "fixture_accepted" ? "media" : "preview"}`} token={token} image={item.media_type === "image" || (!item.payment_confirmed && item.state !== "fixture_accepted")} alt="Submitted image" />
       {item.media_type !== "image" && <div className="frame-grid">{item.findings.frames?.map((frame, index) => <figure key={index}><MediaView path={`/submissions/${item.id}/frames/${index}`} token={token} image alt={`Video sample at ${frame.timestamp_ms / 1000} seconds`} /><figcaption>{(frame.timestamp_ms / 1000).toFixed(2)} seconds</figcaption></figure>)}</div>}
     </>}
     {item.findings.assessment && <div className="criterion-grid">{Object.entries(item.findings.assessment).map(([key, value]) => <div key={key}><strong>{key.replaceAll("_", " ")}: {value.result}{value.confidence !== undefined ? ` (${value.confidence}% model-reported confidence)` : ""}</strong><p>{value.explanation}</p></div>)}</div>}
     {item.findings.processing_error && <p className="error">{item.findings.processing_error}</p>}
     {item.findings.provider_error && <p className="notice">{item.findings.provider_error}</p>}
-    <p className="muted">{item.findings.limitations || "AI certainty is not a calibrated probability. Only the buyer can release funds."}</p>
+    <p className="muted">{item.findings.limitations || "AI certainty is not a calibrated probability. Protected posts pay automatically after their payment window."}</p>
+    {item.payment_confirmed && <Reputation token={token} submissionId={item.id} />}
   </article>;
 }
 
@@ -209,7 +213,7 @@ export default function Reviews({
   return (
     <section className="panel reviews">
       <p className="eyebrow">AUTOMATIC VERIFICATION & FUNDS RELEASE</p>
-      <h2>Automatic checks. One final funds release.</h2>
+      <h2>Automatic checks. Protected payment.</h2>
       {!token ? (
         <p>
           Connect and authenticate the designated buyer/reviewer wallet to

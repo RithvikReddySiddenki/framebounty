@@ -104,3 +104,13 @@ Every handoff must include:
 - Known risks, blockers, and next task.
 Paste this into a teammate's agent
 Read AGENTS.md, docs/PROJECT_BRIEF.md, docs/architecture.md, docs/test-matrix.md, and docs/workboard.md where present. Inspect the current repository and tests before editing. Your assigned task is: [TASK]. Work on [BRANCH] within [MODULES]. Coordinate shared-interface changes with [OWNER]. Implement a small complete slice, add meaningful unit/integration tests, run the required regression gates, explain non-obvious decisions in comments/docs, and commit/push tested milestones to the configured feature branch. Do not merge or overwrite others' work. Finish with a precise handoff including commands/results, commit, CI status, and remaining limitations.
+
+User-authorized protected marketplace update (2026-11-18): implement on-chain
+reputation despite the original exclusion. New protected posts lock budgets until
+expiry, prohibit buyer quality vetoes, attest AI passes on chain and permit
+automatic fixed payment after one hour (buyer can batch-release earlier). Provider
+failures remain pending. Buyer originals unlock only after confirmed payment;
+unpaid previews and frames are reduced and watermarked. One immutable +/-1
+counterparty vote per paid trade, with role-specific public counts. Preserve
+legacy funded contract bindings. Decision 0012 supersedes earlier final-human-
+release-only instructions for new protected posts.

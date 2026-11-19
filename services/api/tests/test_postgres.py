@@ -74,7 +74,8 @@ def test_reservation_window_is_twice_expected_minutes_and_capped_by_listing(pg, 
         confirmation = prepare_confirmation(db, actor, task.id)
         before = datetime.now(UTC)
         item = reserve(db, actor, confirmation.id, task.id, task.version, task.reward_atomic, "bounded-reserve-window")
-        assert before + timedelta(minutes=30) <= item.expires_at <= datetime.now(UTC) + timedelta(minutes=30)
+        assert item.expires_at == confirmation.reservation_expires_at
+        assert before + timedelta(minutes=29) <= item.expires_at <= datetime.now(UTC) + timedelta(minutes=30)
         original = item.expires_at
         assert reserve(db, actor, confirmation.id, task.id, task.version, task.reward_atomic, "bounded-reserve-window").expires_at == original
         # Give the second reservation its own available budget so the assertion

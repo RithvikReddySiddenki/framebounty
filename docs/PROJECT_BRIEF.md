@@ -190,3 +190,14 @@ uncertain/provider failures retry and cannot pay. The buyer's sole required
 post-submission action is final batch funds release. New reservation upload
 windows are capped at twice estimated task minutes. Decision 0011 supersedes
 older manual-review requirements; signing-key and receipt/payment invariants remain.
+
+User-authorized protected-marketplace update (2026-11-18): new posts lock their
+budget until publication expiry and freeze agreed requirements. Reservations are
+bounded at twice task estimate and show exact terms/deadline before acceptance.
+After on-chain AI verification, buyers can release a batch immediately; after a
+one-hour window anyone may execute the fixed payment. This supersedes mandatory
+buyer final authorization for new protected posts. Provider failures remain pending
+with automatic retry. Buyer originals and exports unlock after confirmed payment;
+unpaid previews, including frame routes, are reduced and watermarked. Add mutual
+on-chain up/down reputation, restricted to counterparties on paid submissions.
+Decision 0012 records guarantees, oracle/availability trust and legacy compatibility.

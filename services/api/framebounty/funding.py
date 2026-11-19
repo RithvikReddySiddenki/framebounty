@@ -5,6 +5,7 @@ must separately authorize creation, allowance and deposit. This service cannot
 reserve work or authorize quality/payment.
 """
 from fastapi import HTTPException
+from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -33,9 +34,21 @@ def actions(rpc: ChainRPC, job: Job, allocator: str) -> list[Action]:
     plan = Plan.model_validate(job.plan)
     jid = resource_id(job.id)
     fields = {"jobId": "0x" + jid.hex()}
+    rpc.check_contract()
+    if plan.verification_policy == "ai" and rpc.contract_version < 3 and job.escrow_address is None:
+        raise HTTPException(409, "New automatic posts require the protected V3 escrow; legacy funded posts retain their original contract")
+    protected = rpc.contract_version >= 3 and plan.verification_policy == "ai"
+    if protected:
+        job.protection_version = 3
+        if job.expires_at is None:
+            job.expires_at = datetime.now(UTC).replace(microsecond=0) + timedelta(hours=plan.posting_hours)
+        if job.expires_at <= datetime.now(UTC) and job.state == "draft":
+            raise HTTPException(409, "Publication deadline expired; create a new post")
+    create_args = [jid, job.reviewer, address(allocator), bytes.fromhex(job.plan_hash), plan.review_hours * 3600]
+    if protected: create_args += [int(job.expires_at.timestamp()), plan.expected_minutes * 60]
     return [
-        Action("create_job", job.id, job.buyer, rpc.config.escrow,
-            escrow_call("createJob", [jid, job.reviewer, address(allocator), bytes.fromhex(job.plan_hash), plan.review_hours * 3600]),
+        Action("create_protected" if protected else "create_job", job.id, job.buyer, rpc.config.escrow,
+            escrow_call("createProtectedJob" if protected else "createJob", create_args),
             {"name": "JobCreated", "fields": {**fields, "buyer": job.buyer, "reviewer": job.reviewer,
                 "allocator": address(allocator), "rubric": "0x" + job.plan_hash, "reviewSeconds": plan.review_hours * 3600}}, job_id=job.id),
         Action("token_approve", job.id, job.buyer, rpc.config.token,
@@ -63,6 +76,9 @@ def project_funding(db: Session, rpc: ChainRPC, job_id: str, wallet: str, plan_h
         raise ChainFailure("Current escrow terms no longer match this open job")
     if values[6:] != (plan.budget_atomic, job.committed_atomic, job.paid_atomic, job.refunded_atomic):
         raise ChainFailure("Current escrow accounting differs from the application ledger")
+    if job.protection_version >= 3 and rpc.read_escrow("protections", [resource_id(job.id)]) != (
+        int(job.expires_at.timestamp()), plan.expected_minutes * 60, 3600):
+        raise ChainFailure("Protected deadline/duration differs from the approved terms")
     if job.state == "draft":
         job.deposited_atomic, job.state = plan.budget_atomic, "open"
         # Reuse the same bounded first-batch policy as explicit fixture funding.

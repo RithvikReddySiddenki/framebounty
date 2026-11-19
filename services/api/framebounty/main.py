@@ -22,6 +22,8 @@ from .funding_routes import router as funding_router
 from .chain_routes import router as chain_router
 from .chat import router as chat_router
 from .payouts import router as payouts_router
+from .reputation import router as reputation_router
+from .refunds import router as refunds_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -31,6 +33,8 @@ app.include_router(funding_router)
 app.include_router(chain_router)
 app.include_router(chat_router)
 app.include_router(payouts_router)
+app.include_router(reputation_router)
+app.include_router(refunds_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -133,7 +137,8 @@ def tasks(equipment: str = "", minutes: int = 20, db: Session = Depends(session)
 def confirmation(task_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     item = prepare_confirmation(db, wallet, task_id)
     return {"confirmation_id": item.id, "task_id": item.task_id, "version": item.version,
-            "reward_atomic": str(item.reward_atomic), "expires_at": item.expires_at}
+            "reward_atomic": str(item.reward_atomic), "expires_at": item.expires_at,
+            "reservation_expires_at": item.reservation_expires_at}
 
 
 @app.post("/reservations")
@@ -166,11 +171,13 @@ def my_jobs(wallet: str = Depends(current_wallet), db: Session = Depends(session
         slots = sum(max(0, task.slots - task.claimed) for task in db.scalars(select(Task).where(
             Task.job_id == item.id, Task.state == "open", Task.deadline > datetime.now(UTC), Task.reward_atomic <= available)))
         pending = db.scalar(select(TransactionIntent.id).where(TransactionIntent.job_id == item.id,
-            TransactionIntent.kind.in_(["create_job", "token_approve", "deposit"]),
+            TransactionIntent.kind.in_(["create_job", "create_protected", "token_approve", "deposit"]),
             TransactionIntent.state.in_(["intent", "signed", "broadcast"])).limit(1))
         status = ("awaiting_funding" if pending else "draft") if item.state == "draft" else (
             "open" if item.state == "open" and slots else "no_available_tasks" if item.state == "open" else item.state)
+        if item.state == "open" and item.expires_at and item.expires_at <= datetime.now(UTC): status = "expired"
         rows.append({"id": item.id, "title": item.plan["title"], "state": item.state, "fixture": item.fixture,
+            "protection_version": item.protection_version, "expires_at": item.expires_at,
             "publication_status": status, "open_slots": slots, "media_type": item.plan.get("media_type", "video"),
             "plan": item.plan, "plan_hash": item.plan_hash, "available_atomic": str(available),
             "deposited_atomic": str(item.deposited_atomic), "paid_atomic": str(item.paid_atomic)})

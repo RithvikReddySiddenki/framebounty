@@ -43,6 +43,12 @@ def chain(pg):
     dummy = ChainRPC(ChainConfig(url, 31337, "0x" + "1" * 40, "0x" + "2" * 40, allow_local=True))
     dummy.check_network()
     snapshot = dummy.rpc("evm_snapshot", [])
+    # Snapshot rollback restores old block time while the Python/server clock
+    # keeps advancing. Start each isolated case near wall time like the live
+    # continuously mined network; never weaken production deadline checks.
+    latest = int(dummy.rpc("eth_getBlockByNumber", ["latest", False])["timestamp"], 16)
+    dummy.rpc("evm_setNextBlockTimestamp", [max(int(time.time()), latest + 1)])
+    dummy.rpc("evm_mine", [])
     accounts = [value.lower() for value in dummy.rpc("eth_accounts", [])]
     assert len(accounts) >= 3
     dummy.rpc("evm_setAutomine", [True])
@@ -225,7 +231,7 @@ def test_wallet_funding_requires_receipts_and_publishes_only_once(pg, chain):
         assert denied.value.status_code == 404
         db.rollback()
         step = funding_step(db, rpc, accounts[1], job_id, plan_hash, accounts[0])
-        for expected_step in ["create_job", "token_approve", "deposit"]:
+        for expected_step in ["create_protected", "token_approve", "deposit"]:
             assert step["step"] == expected_step and not step["funded"]
             assert db.get(Job, job_id).deposited_atomic == 0
             assert db.scalars(select(Task).where(Task.job_id == job_id)).all() == []

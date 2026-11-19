@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
+import Reputation from "./reputation";
 
 export type Submission = {
   id: string;
@@ -15,9 +16,11 @@ export type Submission = {
   fixture: boolean;
   rights_declaration: string;
   review_deadline: string;
+  payment_due_at?: string | null;
   reviewed_tags: string[];
   review_reason: string | null;
   findings: {
+    protected?: boolean;
     decoded?: boolean;
     verification?: { decision: string; reason: string; threshold: number };
     processing_error?: string;
@@ -222,13 +225,15 @@ export default function Upload({
               : "No chain payment confirmed"}
           </p>
           {submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
+          {submission.payment_due_at && !submission.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(submission.payment_due_at).toLocaleString()}. Your reserved reward remains locked.</p>}
+          {submission.payment_confirmed && <Reputation token={token} submissionId={submission.id} />}
           {submission.review_reason && (
             <p>Decision: {submission.review_reason}</p>
           )}
-          <p className="muted">
+          {!submission.findings.protected && <p className="muted">
             Review deadline:{" "}
             {new Date(submission.review_deadline).toLocaleString()}
-          </p>
+          </p>}
           {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check]) => <p key={key}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
           {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Verification retries automatically; payment remains blocked until checks pass.</p>}
           {submission.findings.processing_error && (

@@ -1,6 +1,6 @@
 """Deterministic policy over untrusted model observations. Never sends payouts.
 
-Only the final buyer release can pay. A definite mandatory failure at reported
+Legacy jobs require buyer release; protected jobs attest then settle after one hour. A definite mandatory failure at reported
 confidence >=80 rejects; insufficient evidence/provider failure retries (bounded).
 The score is a model estimate, not a calibrated probability of correctness.
 """
@@ -53,7 +53,8 @@ def evaluate(db: Session, submission_id: str) -> bool:
             reservation.state = "fixture_rejected"
         item.reviewed_tags = []
     elif passed:
-        decision, reason = "pass", "Required checks passed automated verification; awaiting buyer funds release."
+        decision, reason = "pass", ("Required checks passed; awaiting on-chain verification and its one-hour payment window."
+            if job.protection_version >= 3 else "Required checks passed automated verification; awaiting buyer funds release.")
         item.state, item.review_reason = "verified", reason
         item.reviewed_tags = sorted(key for key in {r["key"] for r in job.plan["requirements"]}
             if checks.get(key, {}).get("result") == "pass" and checks[key].get("confidence", 0) >= THRESHOLD)
@@ -64,7 +65,11 @@ def evaluate(db: Session, submission_id: str) -> bool:
             work.lease_until = datetime.now(UTC) + timedelta(seconds=2 ** work.attempts)
         else:
             item.state = "verification_pending"
-            reason += " Automatic retries are exhausted; the obligation will release at its deadline, without payment."
+            if job.protection_version >= 3:
+                work.available_at = datetime.now(UTC) + timedelta(minutes=5)
+                reason += " Pending automatic retry in five minutes; reserved funds stay protected."
+            else:
+                reason += " Automatic retries are exhausted; the obligation will release at its deadline, without payment."
     item.findings = {**item.findings, "verification": {"decision": decision, "threshold": THRESHOLD,
         "score_notice": "Model-reported certainty is not a calibrated probability.", "reason": reason,
         "attempts": work.attempts}}

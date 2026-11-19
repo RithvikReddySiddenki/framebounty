@@ -75,7 +75,8 @@ test("image request becomes a labeled post, automatic verification and final fun
   const match = actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i });
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });
-  await match.getByRole("button", { name: /Reserve for/ }).click();
+  await match.getByRole("button", { name: /Review reservation for/ }).click();
+  await match.getByRole("button", { name: /Accept fixed terms for/ }).click();
   const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   await expect(actor.getByRole("checkbox")).toHaveCount(0);
@@ -97,7 +98,8 @@ test("image request becomes a labeled post, automatic verification and final fun
   // A second fixture image fails automatically; the contributor sees rejection
   // and its reason without a buyer quality decision or refresh click.
   await actor.getByRole("button", { name: "Find work", exact: true }).click();
-  await actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i }).getByRole("button", { name: /Reserve for/ }).click();
+  await actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i }).getByRole("button", { name: /Review reservation for/ }).click();
+  await actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i }).getByRole("button", { name: /Accept fixed terms for/ }).click();
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-failure.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   const uploadResponse = actor.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/media?"));
   await actor.getByRole("button", { name: "Upload image", exact: true }).click();
@@ -333,7 +335,8 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     .click();
   await contributor.getByLabel("Message your work agent").fill("I have a phone, a towel and a dark table. I have 20 minutes.");
   await contributor.getByRole("button", { name: "Send", exact: true }).click();
-  await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Reserve for/ }).click();
+  await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Review reservation for/ }).click();
+  await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Accept fixed terms for/ }).click();
   await contributor
     .getByLabel("Choose a phone video")
     .setInputFiles(process.env.E2E_VIDEO!);
@@ -361,22 +364,10 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await expect(buyer.getByText("Open for contributors", { exact: true })).toBeVisible();
   await buyer.locator(".post-card").click();
   await buyer
-    .getByRole("button", { name: "Watch full video & inspect frames" })
+    .getByRole("button", { name: "View watermarked preview & AI checks" })
     .click();
-  await buyer.locator("video").evaluate(async (element) => {
-    await (element as HTMLVideoElement).play();
-  });
-  await expect
-    .poll(() =>
-      buyer
-        .locator("video")
-        .evaluate((element) => (element as HTMLVideoElement).currentTime),
-    )
-    .toBeGreaterThan(0);
-  await buyer
-    .locator("video")
-    .evaluate((element) => (element as HTMLVideoElement).pause());
-  await expect(buyer.locator(".sample-image")).toHaveCount(5);
+  await expect(buyer.locator("video")).toHaveCount(0);
+  await expect(buyer.locator(".sample-image")).toHaveCount(6);
   await expect(buyer.getByRole("checkbox")).toHaveCount(0);
   await buyer.getByRole("button", { name: "Release simulated funds", exact: true }).click();
   await expect(buyer.locator(".nav-count")).toHaveCount(0);
@@ -420,7 +411,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     .click();
   expireToken(buyerAuthorization);
   await buyer
-    .getByRole("button", { name: "Watch full video & inspect frames" })
+    .getByRole("button", { name: "View watermarked preview & AI checks" })
     .click();
   await expect(
     buyer.getByRole("button", { name: "Connect wallet" }),

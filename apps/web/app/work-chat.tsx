@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { request, usdc } from "./api";
+import { BuyerReputation } from "./reputation";
 
-type Task = { task_id: string; title: string; media_type: string; version: number; reward_atomic: string;
+type Task = { job_id: string; task_id: string; title: string; media_type: string; version: number; reward_atomic: string;
   minutes: number; deadline: string; fixture: boolean; requirements: { key: string; description: string }[];
   rights_declaration: string; review_hours: number; reviewer: string; explanation: string };
 type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[]; minutes?: number; no_time_limit?: boolean }; tasks?: Task[] } };
@@ -16,6 +17,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [prepared, setPrepared] = useState<{ task: string; deadline: string }>();
   const attempt = useRef<{ id: string; message: string } | undefined>(undefined);
   const reservation = useRef<{ task: string; body: Record<string, unknown> } | undefined>(undefined);
   const log = useRef<HTMLDivElement | null>(null);
@@ -51,16 +53,18 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
     setBusy(true); setError("");
     try {
       if (reservation.current?.task !== task.task_id) {
-        const confirmation = await request<{ confirmation_id: string; version: number; reward_atomic: string }>(`/tasks/${task.task_id}/confirmation`, token, {});
+        const confirmation = await request<{ confirmation_id: string; version: number; reward_atomic: string; reservation_expires_at: string }>(`/tasks/${task.task_id}/confirmation`, token, {});
         if (confirmation.version !== task.version || confirmation.reward_atomic !== task.reward_atomic)
           throw new Error("This task changed. Ask me to find current work before reserving.");
         reservation.current = { task: task.task_id, body: { confirmation_id: confirmation.confirmation_id,
           version: confirmation.version, reward_atomic: confirmation.reward_atomic, task_id: task.task_id,
           confirmed: true, idempotency_key: crypto.randomUUID() } };
+        setPrepared({ task: task.task_id, deadline: confirmation.reservation_expires_at });
+        return;
       }
       await request("/reservations", token, reservation.current.body);
       await onReserved();
-      reservation.current = undefined;
+      reservation.current = undefined; setPrepared(undefined);
     } catch (err) { setError(err instanceof Error ? err.message : "This task is no longer available; ask me to search again"); }
     finally { setBusy(false); }
   }
@@ -75,10 +79,11 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
     {latest?.data.tasks?.map(task => <article className="panel agent-task" key={task.task_id}>
       <span className="tag">{task.media_type === "image" ? "Image post" : "Video post"}</span>
       <h3>{task.title}</h3><p><strong>{usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</strong> per accepted item · about {task.minutes} minutes</p>
-      <p>{task.explanation}</p>
+      <p>{task.explanation}</p><BuyerReputation token={token} jobId={task.job_id} />
+      {prepared?.task === task.task_id && <p className="notice">Accept {usdc(task.reward_atomic)} test USDC for these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
       <p>Reserve for up to {2 * task.minutes} minutes. Listing closes {new Date(task.deadline).toLocaleString()}.</p>
       <details><summary>Requirements & usage rights</summary><ul>{task.requirements.map(r => <li key={r.key}>{r.description}</li>)}</ul><p>{task.rights_declaration}</p><p>Reviewer: {task.reviewer}. Payment requires acceptance; it is not guaranteed by reservation.</p></details>
-      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>Reserve for {usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</button>
+      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</button>
     </article>)}
     <form onSubmit={e => { e.preventDefault(); void send(); }}>
       <label htmlFor="work-message">Message your work agent</label>

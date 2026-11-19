@@ -76,6 +76,10 @@ def ai_image_ready(pg, rpc, accounts, *, reject=False):
     from test_image_posts import image_plan, image_bytes
     with Session(pg) as db:
         job = create_job(db, accounts[1], Plan.model_validate({**image_plan(), "verification_policy": "ai"}))
+        rpc.check_contract()
+        if rpc.contract_version < 3:
+            # Represents a historical job already pinned before the upgrade.
+            job.escrow_address = rpc.config.escrow; db.commit()
         for action in actions(rpc, job, accounts[0]): send(db, rpc, action)
         funding_step(db, rpc, accounts[1], job.id, job.plan_hash, accounts[0])
         task = db.scalar(select(Task).where(Task.job_id == job.id))
@@ -86,6 +90,11 @@ def ai_image_ready(pg, rpc, accounts, *, reject=False):
             task = db.scalar(select(Task).where(Task.job_id == jid))
             confirmation = prepare_confirmation(db, accounts[2], task.id)
             reservation = reserve(db, accounts[2], confirmation.id, task.id, task.version, task.reward_atomic, "ai-image-" + str(index))
+            if db.get(Job, jid).protection_version >= 3:
+                from framebounty.chain_rpc import resource_id
+                now = int(rpc.rpc("eth_getBlockByNumber", ["latest", False])["timestamp"], 16)
+                policy = rpc.read_escrow("protections", [resource_id(jid)])
+                assert now < int(reservation.expires_at.timestamp()) <= min(policy[0], now + 2 * policy[1]), (int(reservation.expires_at.timestamp()), now, policy, db.get(Job, jid).protection_version)
             sync_allocation(db, rpc, reservation.id, LocalUnlockedSigner(rpc, accounts[0]))
             data = image_bytes()
             key = secrets.token_hex(16) + ".image"; LocalStorage().path(key).write_bytes(data)
@@ -104,6 +113,12 @@ def ai_image_ready(pg, rpc, accounts, *, reject=False):
             work = db.scalar(select(VerificationJob).where(VerificationJob.submission_id == sid)); work.state = "done"
             db.commit(); assert evaluate(db, sid)
             submissions.append(sid)
+    if not reject:
+        from framebounty.protected_chain import sync_protected
+        with Session(pg) as db:
+            if db.get(Job, jid).protection_version >= 3:
+                for sid in submissions:
+                    sync_protected(db, rpc, db.get(Submission, sid).reservation_id, LocalUnlockedSigner(rpc, accounts[0]))
     return jid, submissions
 
 
@@ -151,28 +166,111 @@ def test_confident_ai_failure_rejects_and_frees_budget_without_reviewer_signatur
         assert len(intents) == 1 and intents[0].sender == accounts[0]
 
 
-def test_original_escrow_funds_remain_bound_and_release_through_legacy_path(pg, chain, live_mode):
+def test_protected_worker_automatically_pays_once_at_confirmed_deadline(pg, chain, live_mode):
+    from framebounty.payouts import release_step
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts)
+    with Session(pg) as db:
+        due = max(db.get(Submission, sid).payment_due_at.timestamp() for sid in ids)
+        first_due = min(db.get(Submission, sid).payment_due_at.timestamp() for sid in ids)
+        assert db.get(Job, jid).protection_version == 3
+        # Buyer opens the batch prompt but never signs. This cannot veto payment.
+        assert not release_step(db, rpc, accounts[1], jid, "unsigned-buyer-batch")["confirmed"]
+    rpc.rpc("evm_setNextBlockTimestamp", [int(first_due) - 1]); rpc.rpc("evm_mine", [])
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    assert token_balance(rpc, accounts[2]) == 0
+    rpc.rpc("evm_setNextBlockTimestamp", [int(due)]); rpc.rpc("evm_mine", [])
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    with Session(pg) as db:
+        assert all(db.get(Submission, sid).state == "accepted" for sid in ids)
+        assert db.get(Job, jid).paid_atomic == 2_000_000 and db.get(Job, jid).committed_atomic == 0
+        assert len(export(jid, accounts[1], db)["items"]) == 2
+        assert release_step(db, rpc, accounts[1], jid, "unsigned-buyer-batch")["automatically_settled"]
+    assert token_balance(rpc, accounts[2]) == 2_000_000
+
+
+def test_wallet_signed_counterparty_votes_are_receipt_gated_and_immutable(pg, chain, live_mode, monkeypatch):
+    from framebounty import reputation
+    from framebounty.reputation import VoteRequest
+    from framebounty.payouts import release_step
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts)
+    def scoped(*args, **kwargs): yield rpc
+    monkeypatch.setattr(reputation, "configured_rpc", scoped)
+    with Session(pg) as db:
+        assert not reputation.rating(ids[0], accounts[2], db)["eligible"]
+        step = release_step(db, rpc, accounts[1], jid, "rating-paid-trade")
+        tx = {k: v for k, v in step["transaction"].items() if k != "chainId"}; tx["gas"] = hex(1_500_000)
+        tx_hash = rpc.rpc("eth_sendTransaction", [tx]); receipt(rpc, tx_hash)
+        assert release_step(db, rpc, accounts[1], jid, "rating-paid-trade", step["intent_id"], tx_hash)["confirmed"]
+        before = reputation.rating(ids[0], accounts[2], db)
+        assert before["eligible"] and before["up"] == before["down"] == 0
+        vote = reputation.rate(ids[0], VoteRequest(vote=1), accounts[2], db)
+        assert not vote["confirmed"]
+        tx = {k: v for k, v in vote["transaction"].items() if k != "chainId"}; tx["gas"] = hex(300000)
+        tx_hash = rpc.rpc("eth_sendTransaction", [tx]); receipt(rpc, tx_hash)
+        result = reputation.rate(ids[0], VoteRequest(vote=1, intent_id=vote["intent_id"], tx_hash=tx_hash), accounts[2], db)
+        assert result["confirmed"]
+        assert reputation.rate(ids[0], VoteRequest(vote=1), accounts[2], db)["confirmed"]
+        after = reputation.rating(ids[0], accounts[2], db)
+        assert after["up"] == 1 and after["vote"] == 1 and not after["eligible"]
+        with pytest.raises(HTTPException): reputation.rate(ids[0], VoteRequest(vote=-1), accounts[2], db)
+        assert reputation.buyer_reputation(jid, db)["up"] == 1
+
+
+def test_refund_after_post_expiry_preserves_and_pays_verified_obligations(pg, chain, live_mode):
+    from framebounty.refunds import refund_step
+    rpc, accounts = chain
+    jid, ids = ai_image_ready(pg, rpc, accounts)
+    with Session(pg) as db:
+        with pytest.raises(HTTPException): refund_step(db, rpc, accounts[1], jid, "unused-budget-refund")
+        expiry = int(db.get(Job, jid).expires_at.timestamp())
+    rpc.rpc("evm_setNextBlockTimestamp", [expiry + 1]); rpc.rpc("evm_mine", [])
+    with Session(pg) as db:
+        step = refund_step(db, rpc, accounts[1], jid, "unused-budget-refund")
+        for _ in range(2):
+            assert not step["funded"]
+            tx = {k:v for k,v in step["transaction"].items() if k != "chainId"}; tx["gas"] = hex(300000)
+            tx_hash = rpc.rpc("eth_sendTransaction", [tx]); receipt(rpc, tx_hash)
+            step = refund_step(db, rpc, accounts[1], jid, "unused-budget-refund", step["intent_id"], tx_hash)
+        assert step["funded"]
+        job = db.get(Job, jid)
+        refunded = job.refunded_atomic
+        assert refunded == job.deposited_atomic - 2_000_000 and job.committed_atomic == 2_000_000
+        assert refund_step(db, rpc, accounts[1], jid, "unused-budget-refund")["funded"]
+        assert job.refunded_atomic == refunded
+    reconcile_once(pg, rpc, LocalUnlockedSigner(rpc, accounts[0]))
+    with Session(pg) as db:
+        job = db.get(Job, jid)
+        assert job.committed_atomic == 0 and job.paid_atomic == 2_000_000 and job.refunded_atomic == refunded
+    assert token_balance(rpc, accounts[2]) == 2_000_000
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_original_escrow_funds_remain_bound_and_release_through_legacy_path(pg, chain, live_mode, version):
     from dataclasses import replace
     from eth_abi import encode
     from framebounty.chain_rpc import artifact, ChainRPC
     from framebounty.escrow_scope import scoped_rpc
     from framebounty.payouts import release_step
     rpc, accounts = chain
-    creation = artifact(1)["creation_bytecode"] + encode(["address"], [rpc.config.token]).hex()
+    creation = artifact(version)["creation_bytecode"] + encode(["address"], [rpc.config.token]).hex()
     legacy_hash = rpc.rpc("eth_sendTransaction", [{"from": accounts[0], "data": creation, "gas": hex(5_000_000)}])
     legacy = receipt(rpc, legacy_hash)["contractAddress"].lower()
     old_rpc = ChainRPC(replace(rpc.config, escrow=legacy))
     try:
-        old_rpc.check_contract(); assert old_rpc.contract_version == 1
+        old_rpc.check_contract(); assert old_rpc.contract_version == version
         jid, ids = ai_image_ready(pg, old_rpc, accounts, reject=False)
         with Session(pg) as db:
             assert db.get(Job, jid).escrow_address == legacy
             with scoped_rpc(db, jid, rpc) as bound:
                 assert bound.config.escrow == legacy
                 step = release_step(db, bound, accounts[1], jid, "legacy-final-batch")
-                for _ in range(2):
-                    assert step["legacy"] and not step["confirmed"]
-                    transaction = {k: v for k, v in step["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(500000)
+                for _ in range(2 if version == 1 else 1):
+                    assert not step["confirmed"]
+                    if version == 1: assert step["legacy"]
+                    transaction = {k: v for k, v in step["transaction"].items() if k != "chainId"}; transaction["gas"] = hex(1_500_000)
                     tx = bound.rpc("eth_sendTransaction", [transaction]); receipt(bound, tx)
                     step = release_step(db, bound, accounts[1], jid, "legacy-final-batch", step["intent_id"], tx)
                 assert step["confirmed"]

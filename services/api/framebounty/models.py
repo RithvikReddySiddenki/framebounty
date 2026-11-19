@@ -44,6 +44,8 @@ class Job(Base):
     state: Mapped[str] = mapped_column(String(20), default="draft")
     fixture: Mapped[bool] = mapped_column(Boolean, default=False)
     escrow_address: Mapped[str | None] = mapped_column(String(42))
+    protection_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deposited_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
     committed_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
     paid_atomic: Mapped[int] = mapped_column(BigInteger, default=0)
@@ -87,6 +89,7 @@ class Confirmation(Base):
     version: Mapped[int] = mapped_column(Integer)
     reward_atomic: Mapped[int] = mapped_column(BigInteger)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    reservation_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Reservation(Base):
@@ -133,6 +136,7 @@ class Submission(Base):
     reviewed_tags: Mapped[list] = mapped_column(JSONB, default=list)
     review_reason: Mapped[str | None] = mapped_column(Text)
     review_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payment_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

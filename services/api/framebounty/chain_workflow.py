@@ -74,6 +74,18 @@ def project(db: Session, rpc: ChainRPC, intent_id: str) -> Reservation:
             reservation.state, submission.state = "paid", "accepted"
             job.committed_atomic -= reservation.reward_atomic
             job.paid_atomic += reservation.reward_atomic
+        elif intent.kind == "verify" and reservation.state == "submitted":
+            if submission is None or submission.findings.get("verification", {}).get("decision") != "pass":
+                raise ChainFailure("On-chain verification lacks its deterministic passing result")
+            submission.payment_due_at = datetime.fromtimestamp(fields["payAfter"], UTC)
+        elif intent.kind == "settle" and reservation.state == "submitted":
+            if submission is None or submission.state not in {"verified", "release_pending"} or not submission.payment_due_at:
+                raise ChainFailure("Automatic payment lacks confirmed verification")
+            if fields.get("recipient") != reservation.wallet or fields.get("reward") != reservation.reward_atomic:
+                raise ChainFailure("Automatic payout changed its fixed recipient/reward")
+            reservation.state, submission.state = "paid", "accepted"
+            job.committed_atomic -= reservation.reward_atomic
+            job.paid_atomic += reservation.reward_atomic
         elif intent.kind in {"reject", "verify_reject", "expire", "timeout"}:
             expected = {"reject": ("submitted", 4, "rejected"), "verify_reject": ("submitted", 4, "rejected"), "expire": ("reserved", 5, "expired"), "timeout": ("submitted", 6, "timed_out")}[intent.kind]
             if reservation.state == expected[0]:
@@ -95,6 +107,9 @@ def project(db: Session, rpc: ChainRPC, intent_id: str) -> Reservation:
             {"transaction_hash": intent.tx_hash, "state": reservation.state})
     intent.projected = True
     db.commit()
+    if intent.kind == "settle" and reservation.state == "paid":
+        from .payouts import allocate_remaining
+        allocate_remaining(db, job.id, reservation.id)
     return reservation
 
 

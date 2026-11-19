@@ -44,7 +44,7 @@ export default function Funding({ token, jobId, planHash, onPublished, termsAppr
     const timer = window.setTimeout(() => void publish(), 0);
     return () => window.clearTimeout(timer);
   }, [autoStart, termsApproved, jobId, token]);
-  const label = step?.step === "create_job" ? "Creating escrow" : step?.step === "token_approve" ? "Approving the exact budget" : "Depositing budget";
+  const label = (step?.step === "create_job" || step?.step === "create_protected") ? "Creating escrow" : step?.step === "token_approve" ? "Approving the exact budget" : "Depositing budget";
   return <section aria-label="Arc testnet funding">
     <h3>{step?.funded ? "Open for contributors" : busy ? "Publishing your post" : "Publish your saved post"}</h3>
     <p>One publishing action guides the whole process. MetaMask still asks you to authorize escrow creation, the exact allowance and the deposit. No funds move without your wallet approval.</p>

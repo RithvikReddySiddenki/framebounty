@@ -7,7 +7,7 @@ Implemented locally: signed EOA wallet login, buyer-owned versioned draft plans,
 database-backed filtered task search, explicit version/reward confirmation,
 atomic and idempotent fixture reservations, private reservation lists, strict
 money/coverage rules, private phone uploads, durable verification jobs, real
-FFmpeg decoding and sampled frames, human review, next-batch allocation, and
+FFmpeg decoding and sampled frames, automatic verification, next-batch allocation, and
 accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
 security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
 Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
@@ -18,6 +18,19 @@ and runtime-verified on Arc testnet; a synthetic Gemini smoke passed. The comple
 funded browser/physical-task workflow and model evaluation remain pending. See
 [live validation evidence](docs/live-validation.md); deployment is not job funding.
 See [workboard](docs/workboard.md).
+
+Protected posts use the V3 escrow: fixed budget/requirements, expiry-bound funding,
+up-to-2x task reservation windows, a one-hour payment window after on-chain
+verification, optional early buyer batch release and permissionless settlement.
+Unpaid buyer media access is reduced and watermarked; originals unlock only after
+confirmed payment. Provider failures stay pending and retry. Paid counterparties
+can cast permanent on-chain up/down votes, shown as separate buyer/contributor
+counts. V1/V2 posts keep their original rules and funding address. These contract
+rules do not decentralize the AI oracle or private storage, prevent screenshotting,
+or eliminate collusion in ratings. See [decision 0012](docs/decisions/0012-protected-escrow-and-reputation.md).
+
+V3 source is ready; activation of migration 0007 and the new testnet deployment
+awaits explicit operator approval. The currently configured live demo remains V2.
 
 Describe your task in the buyer workspace, for example: "I want 20 images of a
 cat climbing a tree under 20 test USDC." The configured buyer AI generates an

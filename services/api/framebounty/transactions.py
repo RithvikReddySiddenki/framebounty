@@ -29,6 +29,8 @@ KINDS = {"create_job": ("createJob", "JobCreated"), "token_approve": ("tokenAppr
     "reject": ("reject", "Released"), "expire": ("expire", "Released"),
     "timeout": ("timeout", "Released"), "close": ("close", "Closed"), "refund": ("refund", "Refunded"),
     "verify_reject": ("rejectVerification", "Released"), "approve_batch": ("approveBatch", "BatchPaid")}
+KINDS.update({"create_protected": ("createProtectedJob", "JobCreated"),
+    "verify": ("verify", "Verified"), "settle": ("settle", "Paid"), "rate": ("rate", "Rated")})
 
 
 @dataclass(frozen=True)

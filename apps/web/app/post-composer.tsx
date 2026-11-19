@@ -5,7 +5,7 @@ import { request, usdc } from "./api";
 import type { PlanProposal } from "./agent-pane";
 import Funding from "./funding";
 
-type Plan = PlanProposal & { media_type: "image" | "video" };
+type Plan = PlanProposal & { media_type: "image" | "video"; posting_hours?: number; expected_minutes?: number };
 
 /** One request becomes an editable post, never an implicit payment authorization. */
 export default function PostComposer({ token, onChanged, onView }: {
@@ -71,7 +71,7 @@ export default function PostComposer({ token, onChanged, onView }: {
         onChange={e => setMessage(e.target.value)} disabled={busy} />
       <button className="primary" disabled={busy || !message.trim()}>{busy ? "Working..." : "Send"}</button>
     </form>
-    <p className="muted">Up to 20 items. Images: JPEG/PNG. Videos: MP4/MOV, 10–30 seconds. AI verification assists a human payment reviewer.</p>
+    <p className="muted">Up to 20 items. Images: JPEG/PNG. Videos: MP4/MOV, 10–30 seconds. AI verifies submissions; protected posts pay automatically after their payment window.</p>
     {plan && <section className="post-preview" aria-label="Generated post preview">
       <div className="post-tags"><span className="tag">{plan.media_type === "image" ? "Image post" : "Video post"}</span><span className="post-status">{published ? chain ? "Open for contributors" : "Open - Simulated funding" : saved ? publishNow ? "Awaiting wallet funding" : "Draft - Not public" : "Preview - Not published"}</span></div>
       <h3>{plan.title}</h3>
@@ -79,9 +79,11 @@ export default function PostComposer({ token, onChanged, onView }: {
       {plan.media_type === "video" && <p>{plan.min_seconds}–{plan.max_seconds} seconds per video</p>}
       <ul>{plan.requirements.map(r => <li key={r.key}>{r.description} · at least {r.minimum}</li>)}</ul>
       <p><strong>Usage rights:</strong> {plan.rights_declaration}</p>
-      <p>{plan.review_hours}-hour funds-release window. AI verifies submissions; your wallet makes the final payment decision.</p>
+      <p className="notice">Publishing locks this budget and these requirements for {plan.posting_hours || 24} hours from the start of wallet publishing. Task estimate: {plan.expected_minutes || 15} minutes; reservations last up to twice that time. After on-chain verification, you have one hour to release a batch early; otherwise the contract permits automatic payment. Originals unlock after confirmed payment.</p>
       {!saved && <>
         <details><summary>Edit post details</summary>
+          <label>Post open for (hours)<input type="number" min={1} max={720} value={plan.posting_hours || 24} onChange={e => setPlan({ ...plan, posting_hours: Number(e.target.value) })} /></label>
+          <label>Expected task time (minutes)<input type="number" min={1} max={720} value={plan.expected_minutes || 15} onChange={e => setPlan({ ...plan, expected_minutes: Number(e.target.value) })} /></label>
           <label>Post title<input value={plan.title} onChange={e => { setPlan({ ...plan, title: e.target.value });  }} /></label>
           <label>Requested usage rights<textarea value={plan.rights_declaration} onChange={e => { setPlan({ ...plan, rights_declaration: e.target.value });  }} /></label>
           {plan.requirements.map((r, i) => <label key={r.key}>Requirement {i + 1}<textarea value={r.description} onChange={e => { setPlan({ ...plan, requirements: plan.requirements.map((v, n) => n === i ? { ...v, description: e.target.value } : v) });  }} /></label>)}

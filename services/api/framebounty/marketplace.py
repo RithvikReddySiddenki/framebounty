@@ -64,10 +64,15 @@ def prepare_confirmation(db: Session, wallet: str, task_id: str, confirmation_id
     if job.state != "open" or task.claimed >= task.slots or job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic < task.reward_atomic:
         raise HTTPException(409, "Task is no longer funded or available")
     item = Confirmation(id=confirmation_id or new_id(), wallet=wallet, task_id=task.id, version=task.version,
-                        reward_atomic=task.reward_atomic, expires_at=datetime.now(UTC) + timedelta(minutes=5))
+                        reward_atomic=task.reward_atomic, expires_at=datetime.now(UTC) + timedelta(minutes=5),
+                        # Small clock-skew allowance keeps the advertised window
+                        # within the on-chain maximum even if latest block lags.
+                        reservation_expires_at=min(task.deadline, datetime.now(UTC).replace(microsecond=0)
+                            + timedelta(minutes=2 * task.minutes, seconds=-5 if job.protection_version >= 3 else 0)))
     if confirmation_id:
         db.execute(insert(Confirmation).values(id=item.id, wallet=item.wallet, task_id=item.task_id,
-            version=item.version, reward_atomic=item.reward_atomic, expires_at=item.expires_at).on_conflict_do_nothing(index_elements=["id"]))
+            version=item.version, reward_atomic=item.reward_atomic, expires_at=item.expires_at,
+            reservation_expires_at=item.reservation_expires_at).on_conflict_do_nothing(index_elements=["id"]))
         db.commit()
         saved = db.get(Confirmation, item.id)
         if saved.wallet != wallet or saved.task_id != task_id:
@@ -106,6 +111,8 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
     if task.version != version or task.reward_atomic != reward_atomic or task.state != "open" or task.deadline <= datetime.now(UTC) or task.claimed >= task.slots or job.state != "open":
         raise HTTPException(409, "Task changed or filled; refresh search")
     available = job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic
+    if job.protection_version >= 3 and wallet == job.buyer:
+        raise HTTPException(409, "Use a separate contributor account; protected posts cannot self-trade")
     if available < reward_atomic:
         raise HTTPException(409, "Available budget changed; refresh search")
     job.committed_atomic += reward_atomic
@@ -114,6 +121,9 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
     # Bound it at creation; pending chain allocation must not extend the deadline.
     expires_at = min(task.deadline, datetime.now(UTC) + timedelta(minutes=2 * task.minutes),
                      datetime.now(UTC) + timedelta(days=7))
+    if confirmation.reservation_expires_at is not None:
+        expires_at = min(expires_at, confirmation.reservation_expires_at)
+    if expires_at <= datetime.now(UTC): raise HTTPException(409, "Displayed reservation deadline expired; confirm current terms")
     reservation = Reservation(id=new_id(), confirmation_id=confirmation_id, task_id=task.id, job_id=job.id,
         wallet=wallet, idempotency_key=idempotency_key, reward_atomic=reward_atomic,
         rubric_hash=job.plan_hash, state="fixture_reserved" if fixture else "reserve_pending", expires_at=expires_at)

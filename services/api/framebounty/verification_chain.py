@@ -15,7 +15,7 @@ def sync_failure_or_deadline(db, rpc, reservation_id, signer):
     rpc.check_contract()
     chain_time = datetime.fromtimestamp(int(rpc.rpc("eth_getBlockByNumber", ["latest", False])["timestamp"], 16), UTC)
     failed = submission and submission.state == "verification_rejected" and submission.findings.get("verification", {}).get("decision") == "reject"
-    if failed and reservation.state == "submitted" and rpc.contract_version >= 2 and submission.review_deadline > chain_time:
+    if failed and reservation.state == "submitted" and rpc.contract_version >= 2 and (job.protection_version >= 3 or submission.review_deadline > chain_time):
         terms = rpc.read_escrow("jobs", [resource_id(job.id)])
         if signer.address != terms[2] or signer.address in {job.buyer, job.reviewer}:
             raise ChainFailure("Only the assigned dedicated verifier can dispatch automatic rejection")
@@ -25,7 +25,7 @@ def sync_failure_or_deadline(db, rpc, reservation_id, signer):
             {"name": "Released", "fields": {**event_fields(reservation), "terminalState": 4,
                 "reasonHash": "0x" + reason.hex(), "reward": reservation.reward_atomic}}, job.id, reservation.id)
     elif ((reservation.state == "reserved" and reservation.expires_at <= chain_time) or
-          (reservation.state == "submitted" and submission and submission.review_deadline <= chain_time)):
+          (reservation.state == "submitted" and submission and job.protection_version < 3 and submission.review_deadline <= chain_time)):
         # These deadline releases are permissionless even in the old deployment.
         action = replace(wallet_action(db, rpc, reservation.wallet, reservation.id, "release"), sender=signer.address)
     else:

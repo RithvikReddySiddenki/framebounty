@@ -1,5 +1,22 @@
 # Live validation evidence
 
+## Protected marketplace V3 activation pending (2026-11-18)
+
+V3 source/artifact and API/UI are tested locally (decision 0012 and test matrix).
+Automatic approval review rejected pausing owned services, applying migration 0007
+to the active demo database and preparing/deploying V3 because explicit operator
+permission is required. The rejected command did not run. No V3 signed state,
+broadcast or deployment hash exists. Default remains V2 at
+0xea83a29db7486295b93318081447222481d0dbea. Existing V1/V2 funded jobs do not acquire
+V3 payment/reputation guarantees. Read-only preflight found zero fresh-demo jobs
+and no pending chain intents; original archived records remain preserved.
+
+Read-only eth_estimateGas for exact V3 creation code: 2,313,119 gas; helper's bounded
+limit 2,785,742. At that quote maximum native fee is 0.1392871 test USDC
+(139287100000000000 native atoms, 18 decimals). No buyer budget is involved.
+Quotes may change; the fixed helper caps still apply. Await explicit activation
+approval before signing, migrating, restarting or changing the configured default.
+
 ## Arc testnet deployment
 
 The user explicitly approved the prepared deployment on chain **5042002**.
