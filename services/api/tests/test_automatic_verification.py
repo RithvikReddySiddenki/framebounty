@@ -7,9 +7,16 @@ from sqlalchemy.orm import Session
 from framebounty.automatic_verification import evaluate
 from framebounty.models import Job, Submission, Task, VerificationJob
 from framebounty.worker import run_once
+from framebounty.domain import Plan
 from test_image_posts import image_plan, image_bytes
 from test_postgres import pg
 from test_submission_flow import flow
+
+
+def test_current_default_plan_uses_automatic_verification():
+    payload = image_plan()
+    payload.pop("verification_policy")
+    assert Plan.model_validate(payload).verification_policy == "ai"
 
 
 def uploaded_ai(client, buyer, actor, key="auto-reserve-01"):

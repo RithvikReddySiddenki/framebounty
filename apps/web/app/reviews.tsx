@@ -5,7 +5,7 @@ import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
-import WalletAction from "./wallet-action";
+import ReleaseFunds from "./release-funds";
 
 type Job = { id: string; title: string; state: string; fixture: boolean };
 type Coverage = {
@@ -15,214 +15,24 @@ type Coverage = {
   fixture: boolean;
 };
 
-function ReviewCard({
-  item,
-  token,
-  refreshed,
-  requirements,
-}: {
-  item: Submission;
-  token: string;
-  refreshed: () => Promise<void>;
-  requirements: { key: string; description: string }[];
-}) {
-  const [watched, setWatched] = useState(false);
-  const [completed, setCompleted] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+function ReviewCard({ item, token }: { item: Submission; token: string; requirements?: { key: string; description: string }[]; refreshed?: () => Promise<void> }) {
   const [mediaVisible, setMediaVisible] = useState(false);
-  const reviewable = item.state === "needs_review" || item.state === "invalid";
-  async function decide(decision: "accept" | "reject") {
-    setBusy(true);
-    setError("");
-    try {
-      await request(`/submissions/${item.id}/review`, token, {
-        decision,
-        task_completed: completed,
-        watched_full_video: watched,
-        tags: decision === "accept" ? tags : [],
-        reason,
-      });
-      await refreshed();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Review failed; please retry.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <article className="panel review-card">
-      <p className="eyebrow">
-        {item.fixture ? "FIXTURE SUBMISSION" : "TESTNET SUBMISSION"} ·{" "}
-        {item.state.replaceAll("_", " ")}
-      </p>
-      <h3>Submission {item.id.slice(0, 8)}</h3>
-      {!item.fixture &&
-        !["accepted", "rejected", "expired", "timed_out"].includes(
-          item.state,
-        ) && (
-          <WalletAction
-            token={token}
-            reservationId={item.reservation_id}
-            purpose="release"
-            label="Release only after the applicable deadline expires"
-            refreshed={refreshed}
-          />
-        )}
-      {!item.fixture &&
-        ["accept_pending", "reject_pending"].includes(item.state) && (
-          <WalletAction
-            token={token}
-            reservationId={item.reservation_id}
-            purpose="review"
-            label={
-              item.state === "accept_pending"
-                ? "Pay the fixed recipient for this human-reviewed submission"
-                : "Confirm this human review rejection on chain"
-            }
-            refreshed={refreshed}
-          />
-        )}
-      <p className="muted">
-        Review before {new Date(item.review_deadline).toLocaleString()}.{" "}
-        {item.payment_confirmed
-          ? "Chain payment confirmed."
-          : "No chain payment confirmed."}
-      </p>
-      <button onClick={() => setMediaVisible(!mediaVisible)}>
-        {mediaVisible
-          ? "Hide submitted media"
-          : item.media_type === "image" ? "View submitted image & AI checks" : "Watch full video & inspect frames"}
-      </button>
-      {mediaVisible && (
-        <>
-          <MediaView path={`/submissions/${item.id}/media`} token={token} image={item.media_type === "image"} alt="Submitted image" />
-          <div className="frame-grid">
-            {item.media_type !== "image" && item.findings.frames?.map((frame, index) => (
-              <figure key={index}>
-                <MediaView
-                  path={`/submissions/${item.id}/frames/${index}`}
-                  token={token}
-                  image
-                  alt={`Video sample at ${frame.timestamp_ms / 1000} seconds`}
-                />
-                <figcaption>
-                  {(frame.timestamp_ms / 1000).toFixed(2)} seconds
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </>
-      )}
-      {item.findings.assessment && (
-        <div className="criterion-grid">
-          {Object.entries(item.findings.assessment).map(([key, value]) => (
-            <div key={key}>
-              <strong>
-                {key.replaceAll("_", " ")}: {value.result}
-              </strong>
-              <p>{value.explanation}</p>
-            </div>
-          ))}
-        </div>
-      )}
-      {item.findings.processing_error && (
-        <p role="alert" className="error">
-          {item.findings.processing_error}
-        </p>
-      )}
-      {item.findings.provider_error && (
-        <p className="notice">
-          {item.findings.provider_error} Full-video human review is still
-          required.
-        </p>
-      )}
-      {!!(
-        (item.findings.exact_duplicate_candidates?.length || 0) +
-        (item.findings.perceptual_duplicate_candidates?.length || 0)
-      ) && (
-        <div className="notice">
-          <strong>Possible duplicate pairs</strong>
-          <p>
-            Compare this submission with{" "}
-            {[
-              ...new Set([
-                ...(item.findings.exact_duplicate_candidates || []),
-                ...(item.findings.perceptual_duplicate_candidates || []),
-              ]),
-            ].join(", ")}{" "}
-            in this queue.
-          </p>
-          <p>{item.findings.duplicate_notice}</p>
-        </div>
-      )}
-      <p className="muted">
-        {item.findings.limitations ||
-          "Automated checks do not prove ownership, consent, authenticity or task completion."}
-      </p>
-      {reviewable && (
-        <div className="review-form">
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={watched}
-              onChange={(e) => setWatched(e.target.checked)}
-            />
-            {item.media_type === "image" ? "I inspected the full image." : "I watched the full video."}
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={completed}
-              onChange={(e) => setCompleted(e.target.checked)}
-            />
-            The submission meets the task described in this post.
-          </label>
-          {requirements.map(rule => <label className="check" key={rule.key}><input type="checkbox" checked={tags.includes(rule.key)} onChange={e => setTags(e.target.checked ? [...tags, rule.key] : tags.filter(t => t !== rule.key))} />{rule.description}</label>)}
-          <label htmlFor={`reason-${item.id}`}>Decision reason</label>
-          <textarea
-            id={`reason-${item.id}`}
-            minLength={3}
-            maxLength={1000}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-          />
-          <button
-            className="primary"
-            disabled={
-              busy ||
-              !watched ||
-              !completed ||
-              !item.findings.decoded ||
-              reason.trim().length < 3
-            }
-            onClick={() => void decide("accept")}
-          >
-            {item.fixture
-              ? "Accept fixture work"
-              : "Accept quality; prepare wallet payout"}
-          </button>
-          <button
-            disabled={busy || reason.trim().length < 3}
-            onClick={() => void decide("reject")}
-          >
-            Reject with reason
-          </button>
-        </div>
-      )}
-      {item.review_reason && <p>Review decision: {item.review_reason}</p>}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </article>
-  );
+  return <article className="panel review-card">
+    <p className="eyebrow">{item.fixture ? "FIXTURE SUBMISSION" : "TESTNET SUBMISSION"} - {item.state.replaceAll("_", " ")}</p>
+    <h3>Submission {item.id.slice(0, 8)}</h3>
+    <p>{item.payment_confirmed ? "Payment confirmed." : item.state === "verified" ? "AI verification passed. Awaiting final buyer funds release." : "No chain payment confirmed."}</p>
+    {item.review_reason && <p>{item.review_reason}</p>}
+    {item.findings.verification && <p className="notice">{item.findings.verification.reason}</p>}
+    <button onClick={() => setMediaVisible(!mediaVisible)}>{mediaVisible ? "Hide submitted media" : item.media_type === "image" ? "View submitted image & AI checks" : "Watch full video & inspect frames"}</button>
+    {mediaVisible && <>
+      <MediaView path={`/submissions/${item.id}/media`} token={token} image={item.media_type === "image"} alt="Submitted image" />
+      {item.media_type !== "image" && <div className="frame-grid">{item.findings.frames?.map((frame, index) => <figure key={index}><MediaView path={`/submissions/${item.id}/frames/${index}`} token={token} image alt={`Video sample at ${frame.timestamp_ms / 1000} seconds`} /><figcaption>{(frame.timestamp_ms / 1000).toFixed(2)} seconds</figcaption></figure>)}</div>}
+    </>}
+    {item.findings.assessment && <div className="criterion-grid">{Object.entries(item.findings.assessment).map(([key, value]) => <div key={key}><strong>{key.replaceAll("_", " ")}: {value.result}{value.confidence !== undefined ? ` (${value.confidence}% model-reported confidence)` : ""}</strong><p>{value.explanation}</p></div>)}</div>}
+    {item.findings.processing_error && <p className="error">{item.findings.processing_error}</p>}
+    {item.findings.provider_error && <p className="notice">{item.findings.provider_error}</p>}
+    <p className="muted">{item.findings.limitations || "AI certainty is not a calibrated probability. Only the buyer can release funds."}</p>
+  </article>;
 }
 
 export default function Reviews({
@@ -240,6 +50,7 @@ export default function Reviews({
   const [coverage, setCoverage] = useState<Coverage>();
   const [rubric, setRubric] = useState<{
     requirements: { key: string; description: string }[];
+    reward_atomic: string | number;
     min_seconds: number;
     max_seconds: number;
   }>();
@@ -270,7 +81,8 @@ export default function Reviews({
         request<{
           plan: {
             requirements: { key: string; description: string }[];
-            min_seconds: number;
+            reward_atomic: string | number;
+    min_seconds: number;
             max_seconds: number;
           };
         }>(`/jobs/${id}`, token),
@@ -298,6 +110,12 @@ export default function Reviews({
       setSelected("");
     }
   }, [token]);
+  useEffect(() => {
+    if (!selected || !token) return;
+    let polling = false;
+    const timer = window.setInterval(() => { if (!polling) { polling = true; void load().finally(() => { polling = false; }); } }, 3000);
+    return () => window.clearInterval(timer);
+  }, [selected, token]);
   async function exportManifest() {
     if (!token || !selected) return;
     try {
@@ -390,8 +208,8 @@ export default function Reviews({
   }
   return (
     <section className="panel reviews">
-      <p className="eyebrow">HUMAN REVIEW & DATASET COVERAGE</p>
-      <h2>Review the work. Know what counts.</h2>
+      <p className="eyebrow">AUTOMATIC VERIFICATION & FUNDS RELEASE</p>
+      <h2>Automatic checks. One final funds release.</h2>
       {!token ? (
         <p>
           Connect and authenticate the designated buyer/reviewer wallet to
@@ -492,6 +310,7 @@ export default function Reviews({
               work enters review.
             </p>
           )}
+          {selected && <ReleaseFunds key={selected} token={token} jobId={selected} count={items.filter(item => ["verified", "release_pending", "accept_pending"].includes(item.state)).length} amountAtomic={String(BigInt(rubric?.reward_atomic || 0) * BigInt(items.filter(item => ["verified", "release_pending", "accept_pending"].includes(item.state)).length))} pending={items.some(item => ["release_pending", "accept_pending"].includes(item.state))} fixture={items[0]?.fixture || false} onChanged={() => load()} />}
           {items.map((item) => (
             <ReviewCard
               key={item.id}

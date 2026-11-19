@@ -18,7 +18,7 @@ npm ci --prefix contracts
 The setup helper installs checksum-pinned Linux x86_64 Arc Foundry and solc 0.8.24
 in ignored `.local`; Windows uses Ubuntu WSL. On Linux invoke the installed forge
 with `test --root contracts --use "$PWD/.local/arc-foundry/solc-0.8.24" --offline -vv`.
-The 16-test suite includes two 256-run fuzz tests, malicious token callbacks,
+The 19-test suite includes two 256-run fuzz tests, malicious token callbacks,
 cross-job funding isolation, failed payment, timeout and close/refund races.
 One fixed-budget deposit per job and unique job-scoped refund IDs prevent retries
 from debiting again. Re-export the canonical ABI after contract changes with
@@ -30,3 +30,10 @@ Buyer/allocator reservations rely on the backend's authenticated, task-specific
 confirmation policy. Quality approval trusts the fixed reviewer. An abandoned
 review times out by releasing funds, not by automatically paying. No role setter,
 arbitrary recipient override, upgrade mechanism or unbounded loop exists.
+
+V2 adds reviewer-only atomic `approveBatch` (maximum 20 immutable reservations)
+and allocator-only `rejectVerification`, which can free a commitment but cannot
+pay or withdraw escrow funds. V2 is receipt/runtime verified on Arc testnet at
+`0xea83a29db7486295b93318081447222481d0dbea`. The preserved V1 artifact validates
+the original deployed contract. Per-job address binding prevents an application
+upgrade from moving or forgetting funded V1 jobs.

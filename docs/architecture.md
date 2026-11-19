@@ -154,3 +154,14 @@ to actual IDs. The UI restores the latest contributor conversation for the
 signed-in wallet. One explicit posting approval starts guided receipt-gated
 publishing, retaining required wallet signatures and durable public hash recovery.
 No model holds signing keys or approves payment. No migration/ABI change.
+
+## Automatic verification and final release (2026-11-18)
+
+Decision 0011 supersedes mandatory quality-review forms for default posts.
+Automatic policy may reject a mandatory failure at >=80% model-reported certainty;
+only the human reviewer can authorize payment. Verified submissions wait in a
+durable payout batch until that final action. V2 supports atomic batches and
+non-paying verifier rejection; V1 jobs stay bound to their original contract.
+Migration 0006 adds escrow binding and payout batches without rewriting old plan
+hashes or balances. Reservation upload windows are capped at 2x expected minutes;
+chain-confirmed timeout/expiry and subsequent batch allocation are automatic.

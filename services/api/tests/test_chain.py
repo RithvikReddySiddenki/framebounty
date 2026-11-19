@@ -78,7 +78,9 @@ def send(db, rpc, action):
 
 def funded(db, rpc, accounts):
     allocator, buyer, _ = accounts[:3]
-    job = create_job(db, buyer, example_plan())
+    # This helper preserves historical human-review compatibility cases. The
+    # current default and the dedicated automatic-policy tests use AI plans.
+    job = create_job(db, buyer, example_plan().model_copy(update={"verification_policy": "human"}))
     jid = resource_id(job.id)
     jid_hex = "0x" + jid.hex()
     create = Action("create_job", job.id, buyer, rpc.config.escrow,

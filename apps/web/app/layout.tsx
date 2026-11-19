@@ -5,7 +5,7 @@ import "./workspace.css";
 export const metadata: Metadata = {
   title: "FrameBounty — custom data, collected with purpose",
   description:
-    "A marketplace for custom datasets with buyer and contributor agents and human review.",
+    "A marketplace for custom datasets with buyer and contributor agents and automatic verification.",
 };
 
 export default function RootLayout({

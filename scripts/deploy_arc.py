@@ -30,12 +30,14 @@ def save(path, record):
             temporary.unlink(missing_ok=True)
 
 
-def configure(root, contract):
+def configure(root, contract, replace_existing=None):
     path = root / ".env"
     original = path.read_text(encoding="utf-8")
     lines = original.splitlines()
     entries = [line for line in lines if line.startswith("ARC_ESCROW_ADDRESS=")]
-    if len(entries) != 1 or entries[0].split("=", 1)[1].strip().lower() not in {"", contract.lower()}:
+    allowed = {"", contract.lower()}
+    if replace_existing: allowed.add(replace_existing.lower())
+    if len(entries) != 1 or entries[0].split("=", 1)[1].strip().lower() not in allowed:
         raise ChainFailure("Existing escrow configuration preserved; inspect it before replacing")
     # The key-bearing file never enters output or source control. Preserve every
     # other setting, particularly the disabled transaction/model flags.
@@ -60,6 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description="Bounded Arc TESTNET escrow deployment, never mainnet")
     parser.add_argument("--broadcast", action="store_true")
     parser.add_argument("--state-file", default=".local/arc-deployment.json", help="Workspace .local file; retain a separate signed state for each escrow version")
+    parser.add_argument("--replace-existing", help="Explicit previous default address; existing jobs must already be pinned by migration 0006")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     (root / ".local").mkdir(exist_ok=True)
@@ -95,7 +98,7 @@ def execute(root, args):
                 time.sleep(1)
         save(path, record)
         if record["state"] == "confirmed":
-            configure(root, record["address"])
+            configure(root, record["address"], getattr(args, "replace_existing", None))
         print(json.dumps({"state": record["state"], "contract": record["address"], "transaction": record["tx_hash"],
             "chain_id": record["chain_id"], "maximum_fee_native_atomic": str(record["unsigned"]["gas"] * record["unsigned"]["maxFeePerGas"]),
             "gas_cost_native_atomic": record.get("gas_cost_native_atomic")}, indent=2))

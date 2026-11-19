@@ -76,7 +76,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
       <span className="tag">{task.media_type === "image" ? "Image post" : "Video post"}</span>
       <h3>{task.title}</h3><p><strong>{usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</strong> per accepted item · about {task.minutes} minutes</p>
       <p>{task.explanation}</p>
-      <p>Upload before {new Date(task.deadline).toLocaleString()} · {task.review_hours}-hour human review.</p>
+      <p>Reserve for up to {2 * task.minutes} minutes. Listing closes {new Date(task.deadline).toLocaleString()}.</p>
       <details><summary>Requirements & usage rights</summary><ul>{task.requirements.map(r => <li key={r.key}>{r.description}</li>)}</ul><p>{task.rights_declaration}</p><p>Reviewer: {task.reviewer}. Payment requires acceptance; it is not guaranteed by reservation.</p></details>
       <button className="primary" disabled={busy} onClick={() => void reserve(task)}>Reserve for {usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</button>
     </article>)}

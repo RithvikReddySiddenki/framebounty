@@ -9,20 +9,20 @@ Live Gemini generated a 20-image cat/tree plan and failed a synthetic color card
 That smoke is not a labeled accuracy evaluation or a live Arc funded-job test.
 
 
-- Full backend: **150 passed, 14 skipped**, one upstream Starlette/httpx deprecation warning.
-  The fourteen local-chain cases run in the separate gate below.
-  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-unlimited-full-01`
+- Full backend: **158 passed, 19 skipped**, one upstream Starlette/httpx deprecation warning.
+  The nineteen local-chain cases run in the separate gate below.
+  Command: `python -m pytest services/api/tests -q -p no:cacheprovider --basetemp=.local/pytest-final-release-backend-02`
   with TEST_DATABASE_URL pointing to the isolated local PostgreSQL 18 instance.
   Includes testnet agent coverage inspection with explicit text consent, denied
   calls without consent, and visible provider failures without fixture fallback.
-- Real PostgreSQL/local-chain gate: **14 passed**, no skips. Deploys the actual
+- Real PostgreSQL/local-chain gate: **20 passed**, no skips (19 real-chain cases plus one deployment-configuration guard). Deploys the actual
   escrow/test token on an owned ephemeral node, and uses real FFmpeg: restart /
   double payout, reverted/pending payment, receipt-gated funding, full synthetic
   upload/review/payment, confirmed-but-unprojected recovery, rejection, deadlines,
   concurrent pending claims, late-worker fencing, canonical deployment restart
   and signed-term tamper rejection.
   Command: `python scripts/test_chain.py` with `PYTEST_ADDOPTS="-p no:cacheprovider --basetemp=.local/pytest-media-chain-03 --tb=short"`.
-- Escrow: **16 passed**, no skips, including two 256-run fuzz tests.
+- Escrow: **19 passed**, no skips, including two 256-run fuzz tests.
   Command: workspace-local Arc Foundry `forge test --root contracts --use <absolute-local-solc-0.8.24> --offline -vv`.
 - Chromium: **7 passed** in the isolated browser harness, using real wallet signatures,
   PostgreSQL, API, Next.js, video decode/sampling and standalone worker. Funds/model
@@ -149,3 +149,20 @@ listing to distinguish no filter from a fabricated 1440-minute limit, recovers a
 already-saved buggy profile from history, and verifies later numeric limits and
 resource corrections. Live Gemini returned no_time_limit=true, minutes=null and
 both cat/phone resources for the reported synthetic conversation.
+
+Automatic verification/final-release evidence (2026-11-18): default AI-policy posts
+reject mandatory failures at >=80% model-reported confidence, block low-confidence
+or unavailable checks, and require only final buyer release for payment. Real
+PostgreSQL/Pillow tests cover 79/80 boundaries, contributor-visible rejection,
+retry exhaustion, release authorization/replay and the 2x task-time reservation cap.
+Explicit historical human-policy fixtures remain legacy compatibility tests.
+
+Final commands/results: full backend 158 passed / 19 separately gated chain skips;
+`PYTEST_ADDOPTS="-p no:cacheprovider --basetemp=.local/pytest-final-release-chain --tb=short" python scripts/test_chain.py` -> 20 passed (19 chain plus one configuration unit case);
+contract suite -> 19 passed including two 256-run fuzz tests. Chromium -> 7 passed /
+1 separate funding-UI skip; verifies no review/consent checkboxes, automatic
+contributor rejection with reasons, final release and automatic next-batch posting.
+Production build passed. V1 funded-job binding, V2 atomic batches, automatic
+non-paying rejection, deadline release, reverted-batch retry and restart projection
+are covered against the actual local EVM. Live Gemini rejected a generated color
+card at reported confidence 100; this is not real task-accuracy evaluation.

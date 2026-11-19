@@ -11,6 +11,23 @@ from test_chain import chain
 from test_postgres import pg
 
 
+def test_default_escrow_replacement_requires_exact_explicit_previous_address(tmp_path):
+    from pathlib import Path
+    import runpy
+    configure = runpy.run_path(str(Path(__file__).resolve().parents[3] / "scripts/deploy_arc.py"))["configure"]
+    old, new = "0x" + "1" * 40, "0x" + "2" * 40
+    original = f"ARC_ESCROW_ADDRESS={old}\nALLOW_CHAIN_TRANSACTIONS=false\nGEMINI_API_KEY=TEST-ONLY\n"
+    target = tmp_path / ".env"
+    target.write_text(original, encoding="utf-8")
+    with pytest.raises(ChainFailure): configure(tmp_path, new)
+    assert target.read_text(encoding="utf-8") == original
+    with pytest.raises(ChainFailure): configure(tmp_path, new, "0x" + "3" * 40)
+    configure(tmp_path, new, old)
+    updated = target.read_text(encoding="utf-8")
+    assert f"ARC_ESCROW_ADDRESS={new}" in updated
+    assert "ALLOW_CHAIN_TRANSACTIONS=false" in updated and "GEMINI_API_KEY=TEST-ONLY" in updated
+
+
 def test_canonical_deployment_reconciles_after_lost_response(chain, tmp_path):
     rpc, accounts = chain
     record = prepare(rpc, LocalUnlockedSigner(rpc, accounts[0]))

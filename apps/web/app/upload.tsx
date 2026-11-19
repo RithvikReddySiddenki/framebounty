@@ -19,6 +19,7 @@ export type Submission = {
   review_reason: string | null;
   findings: {
     decoded?: boolean;
+    verification?: { decision: string; reason: string; threshold: number };
     processing_error?: string;
     provider_error?: string;
     limitations?: string;
@@ -29,7 +30,7 @@ export type Submission = {
     }[];
     assessment?: Record<
       string,
-      { result: string; explanation: string; timestamps_ms: number[] }
+      { result: string; confidence?: number; explanation: string; timestamps_ms: number[] }
     > | null;
     exact_duplicate_candidates?: string[];
     perceptual_duplicate_candidates?: string[];
@@ -56,7 +57,6 @@ export default function Upload({
 }) {
   const image = mediaType === "image";
   const [file, setFile] = useState<File>();
-  const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [percent, setPercent] = useState(0);
   const [error, setError] = useState("");
@@ -78,12 +78,13 @@ export default function Upload({
   }
   useEffect(() => { if (existingId) void refresh(); }, [existingId]);
   useEffect(() => {
-    if (!submission || !["queued", "verifying"].includes(submission.state)) return;
-    const timer = window.setInterval(() => void refresh(), 3000);
+    if (!submission || ["accepted", "fixture_accepted", "rejected", "verification_rejected", "expired", "timed_out"].includes(submission.state)) return;
+    const delay = ["queued", "verifying"].includes(submission.state) ? 3000 : 10000;
+    const timer = window.setInterval(() => void refresh(), delay);
     return () => window.clearInterval(timer);
   }, [submission?.id, submission?.state]);
   async function upload() {
-    if (!file || !acknowledged) return;
+    if (!file) return;
     if (file.size > (image ? 20 : 100) * 1024 * 1024) {
       setError(image ? "Choose an image smaller than 20 MiB." : "Choose a video smaller than 100 MiB.");
       return;
@@ -172,22 +173,12 @@ export default function Upload({
             disabled={busy}
             onChange={(event) => {
               setFile(event.target.files?.[0]);
-              setAcknowledged(false);
             }}
           />
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={acknowledged}
-              onChange={(event) => setAcknowledged(event.target.checked)}
-              disabled={busy}
-            />
-            I have read and acknowledge these requested usage rights and have
-            permission to submit this media. I consent to sending a reduced image or sampled video frames to Gemini for AI verification.
-          </label>
+          <p className="notice">By submitting, you acknowledge the requested usage rights, confirm permission to share this media, and consent to Gemini checking a reduced image or sampled video frames.</p>
           <button
             className="primary"
-            disabled={!file || !acknowledged || busy}
+            disabled={!file || busy}
             onClick={() => void upload()}
           >
             {busy ? `Uploading ${percent}%…` : image ? "Upload image" : "Upload video"}
@@ -230,15 +221,16 @@ export default function Upload({
               ? "Payment confirmed"
               : "No chain payment confirmed"}
           </p>
+          {submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
           {submission.review_reason && (
-            <p>Reviewer: {submission.review_reason}</p>
+            <p>Decision: {submission.review_reason}</p>
           )}
           <p className="muted">
             Review deadline:{" "}
             {new Date(submission.review_deadline).toLocaleString()}
           </p>
           {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check]) => <p key={key}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
-          {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Human review is still required.</p>}
+          {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Verification retries automatically; payment remains blocked until checks pass.</p>}
           {submission.findings.processing_error && (
             <p className="error">{submission.findings.processing_error}</p>
           )}

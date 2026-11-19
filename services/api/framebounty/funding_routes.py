@@ -31,10 +31,11 @@ def configured_rpc(db, job_id=None, reservation_id=None):
         rpc.close()
 
 
-def funding_rpc(request: Request, db: Session = Depends(session)):
+def funding_rpc(request: Request = None, db: Session = Depends(session)):
     # Only route identities select a deployment; query parameters cannot redirect
     # a reservation action to another collection's escrow.
-    yield from configured_rpc(db, request.path_params.get("job_id"), request.path_params.get("reservation_id"))
+    params = request.path_params if request is not None else {}
+    yield from configured_rpc(db, params.get("job_id"), params.get("reservation_id"))
 
 
 class FundingRequest(BaseModel):

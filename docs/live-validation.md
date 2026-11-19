@@ -48,10 +48,31 @@ No private videos were sent and application inference flags were not enabled.
 3. Contributor explicitly confirms a real funded task; allocator commits it on chain.
 4. Contributor uploads a lawful/consented physical-task clip and confirms its hash.
    Private-frame model evaluation requires separate consent before enabling media.
-5. Human reviewer watches the full video, checks completion/categories and signs
-   their decision. Verify the exact payout receipt, coverage, next batch and export.
+5. Automatic verification checks the post requirements. A confident failure rejects
+   with visible reasons; passing work waits for the buyer's final batch release.
+   Verify its exact payout receipt, automatic next batch, coverage and export.
 6. Perform a physical-phone check and record actual results before review/merge.
 
 Close/refund UI, fee replacement, automatic hashless recovery and unsigned pending
 allocation cancellation remain open. Local-EVM tests do not establish all Arc-native
 funding/payment behavior. Do not merge the draft PR merely because deployment passed.
+
+## V2 deployment and automatic verification (2026-11-18)
+
+- Contract: `0xea83a29db7486295b93318081447222481d0dbea`.
+- Transaction: `0xccf895f7185bcf4bcb6125affb3798b60ef708fa2fde8af9e8c2ed487e45ec0d`.
+- Chain: Arc testnet 5042002; successful receipt and exact canonical runtime verified.
+- Runtime keccak: `0x0f9cd999a6624e87be4b2895a1d91631d04ed20f16fa6135130cf3ede9595d33`.
+- Native gas cost: 34230105000000000 atoms (18 decimals), or **0.034230105 test USDC**.
+  The prepared maximum was 0.0991465 test USDC. No buyer escrow tokens moved.
+- Migration 0006 applied locally with existing monetary ledger rows unchanged.
+  All existing funded jobs retain their original contract binding.
+- The signed V2 deployment remains in ignored `.local/arc-deployment-v2.json`;
+  the original V1 signed record is preserved. An explicit previous-address guard
+  was required to switch the default after confirmation; no replacement deployment
+  or second broadcast was needed. New jobs default to V2; V1 funds stay at V1.
+- Live synthetic image verification returned failure at reported confidence 100.
+  This supports provider/schema connectivity, not a real-world accuracy claim.
+
+A user-funded V2 collection-to-batch-payout walkthrough and labeled real-task AI
+accuracy evaluation remain pending. Contract deployment alone is not that proof.

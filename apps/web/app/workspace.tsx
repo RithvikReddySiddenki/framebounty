@@ -260,7 +260,7 @@ export default function Workspace() {
             </details>
           </div>
           <p className="access-footer">
-            Testnet funds only · Human review before rewards
+            Testnet funds only · Buyer releases verified rewards
           </p>
         </section>
       </main>
@@ -361,7 +361,7 @@ export default function Workspace() {
           <p>
             Clear terms.
             <br />
-            Human-reviewed work.
+            AI-verified work.
             <br />
             Verified transactions.
           </p>
@@ -439,9 +439,9 @@ export default function Workspace() {
                     <small>Published and accepting work</small>
                   </button>
                   <button onClick={() => setView("collections")}>
-                    <span>Awaiting review</span>
+                    <span>Ready for release</span>
                     <strong>{overview?.awaiting_review ?? "—"}</strong>
-                    <small>Contributions that need your decision</small>
+                    <small>AI-verified rewards awaiting release</small>
                   </button>
                 </div>
                 {overviewError && (

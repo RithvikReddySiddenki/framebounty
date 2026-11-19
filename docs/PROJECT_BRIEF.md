@@ -182,3 +182,11 @@ Automatic post-specific AI observations require explicit contributor consent and
 operator enablement. The human reviewer remains the payment authority. Decision
 0009 and the test matrix record evidence and limits; the original robotics example
 is no longer the only supported post subject.
+
+User-authorized workflow update (2026-11-18): manual quality checks are removed.
+Default image/video posts use automatic verification; a mandatory failure at
+>=80% model-reported confidence rejects with contributor-visible reasons, while
+uncertain/provider failures retry and cannot pay. The buyer's sole required
+post-submission action is final batch funds release. New reservation upload
+windows are capped at twice estimated task minutes. Decision 0011 supersedes
+older manual-review requirements; signing-key and receipt/payment invariants remain.

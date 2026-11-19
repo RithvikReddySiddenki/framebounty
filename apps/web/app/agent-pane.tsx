@@ -280,7 +280,7 @@ export default function AgentPane({
       </p>
       <p className="muted">
         Get help with planning and tracking work. You confirm the terms before
-        committing; a human reviewer decides quality and authorizes rewards.
+        committing; AI verifies quality; the buyer makes the final funds-release decision.
       </p>
       {role === "contributor" && (
         <p className="notice">

@@ -79,7 +79,7 @@ export default function PostComposer({ token, onChanged, onView }: {
       {plan.media_type === "video" && <p>{plan.min_seconds}–{plan.max_seconds} seconds per video</p>}
       <ul>{plan.requirements.map(r => <li key={r.key}>{r.description} · at least {r.minimum}</li>)}</ul>
       <p><strong>Usage rights:</strong> {plan.rights_declaration}</p>
-      <p>{plan.review_hours}-hour human review. Your wallet is the authorized reviewer.</p>
+      <p>{plan.review_hours}-hour funds-release window. AI verifies submissions; your wallet makes the final payment decision.</p>
       {!saved && <>
         <details><summary>Edit post details</summary>
           <label>Post title<input value={plan.title} onChange={e => { setPlan({ ...plan, title: e.target.value });  }} /></label>

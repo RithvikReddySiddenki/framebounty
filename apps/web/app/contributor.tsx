@@ -86,7 +86,7 @@ export default function Contributor({
           <p className="eyebrow">CONTRIBUTOR WORKSPACE</p>
           <h1>Your submissions and rewards.</h1>
           <p className="intro">
-            Follow your work from reservation through human review. Pending
+            Follow your work from reservation through automatic verification. Pending
             rewards are not confirmed payments.
           </p>
           <h2>Your reservations</h2>

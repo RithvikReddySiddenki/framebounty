@@ -33,7 +33,7 @@ test("draft funding and review panels have distinct identities across post selec
   expect(errors.filter(error => /same key|unique.*key/i.test(error))).toEqual([]);
 });
 
-test("image request becomes a labeled post, private image submission, AI findings and human review", async ({ browser }) => {
+test("image request becomes a labeled post, automatic verification and final funds release", async ({ browser }) => {
   const buyerContext = await browser.newContext();
   const actorContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const buyer = await buyerContext.newPage();
@@ -78,25 +78,35 @@ test("image request becomes a labeled post, private image submission, AI finding
   await match.getByRole("button", { name: /Reserve for/ }).click();
   const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
-  await actor.getByLabel(/I have read and acknowledge/).check();
+  await expect(actor.getByRole("checkbox")).toHaveCount(0);
   await actor.getByRole("button", { name: "Upload image", exact: true }).click();
   await expect(actor.getByText("queued", { exact: true })).toBeVisible();
   const root = path.resolve(__dirname, "../../..");
   const worker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL }, encoding: "utf-8", timeout: 60000 });
   expect(worker.status, worker.stderr).toBe(0);
   await actor.getByRole("button", { name: "Refresh submission status" }).click();
-  await expect(actor.getByLabel("AI verification results")).toContainText("uncertain");
+  await expect(actor.getByLabel("AI verification results")).toContainText("pass");
   await buyer.getByRole("button", { name: "Refresh queue & coverage" }).click();
   await buyer.getByRole("button", { name: "View submitted image & AI checks" }).click();
   await expect(buyer.getByAltText("Submitted image")).toBeVisible();
-  await buyer.getByLabel("I inspected the full image.").check();
-  await buyer.getByLabel("The submission meets the task described in this post.").check();
-  await buyer.getByLabel("Clearly show a cat climbing a tree", { exact: true }).check();
-  await buyer.getByLabel("Decision reason").fill("Synthetic UI workflow only; this image does not demonstrate a cat.");
-  await buyer.getByRole("button", { name: "Accept fixture work" }).click();
+  await expect(buyer.getByRole("checkbox")).toHaveCount(0);
+  await buyer.getByRole("button", { name: "Release simulated funds", exact: true }).click();
   await expect(buyer.getByText(/FIXTURE SUBMISSION.*fixture accepted/)).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-submission-mobile.png"), fullPage: true });
   await buyer.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-post-desktop.png"), fullPage: true });
+  // A second fixture image fails automatically; the contributor sees rejection
+  // and its reason without a buyer quality decision or refresh click.
+  await actor.getByRole("button", { name: "Find work", exact: true }).click();
+  await actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i }).getByRole("button", { name: /Reserve for/ }).click();
+  await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-failure.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  const uploadResponse = actor.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/media?"));
+  await actor.getByRole("button", { name: "Upload image", exact: true }).click();
+  const uploaded = await (await uploadResponse).json();
+  const failedCard = actor.locator(".mine article.panel").filter({ hasText: uploaded.reservation_id.slice(0, 8) });
+  const failingWorker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL, FIXTURE_VERIFICATION_RESULT: "fail" }, encoding: "utf-8", timeout: 60000 });
+  expect(failingWorker.status, failingWorker.stderr).toBe(0);
+  await expect(failedCard).toContainText("verification rejected", { timeout: 10000 });
+  await expect(failedCard).toContainText("confidence 100%");
   await buyerContext.close(); await actorContext.close();
 });
 
@@ -288,7 +298,7 @@ test("wallet account changes invalidate access and reloading requires sign-in", 
   ).toBeVisible();
 });
 
-test("buyer plan → fixture funding → confirmed mobile upload → real decode → human review → coverage/export", async ({
+test("buyer plan → fixture funding → confirmed mobile upload → real decode → final funds release → coverage/export", async ({
   browser,
 }) => {
   const buyerContext = await browser.newContext();
@@ -327,9 +337,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await contributor
     .getByLabel("Choose a phone video")
     .setInputFiles(process.env.E2E_VIDEO!);
-  await contributor
-    .getByLabel(/I have read and acknowledge these requested usage rights/)
-    .check();
+  await expect(contributor.getByRole("checkbox")).toHaveCount(0);
   await contributor
     .getByRole("button", { name: "Upload video", exact: true })
     .click();
@@ -369,42 +377,16 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
     .locator("video")
     .evaluate((element) => (element as HTMLVideoElement).pause());
   await expect(buyer.locator(".sample-image")).toHaveCount(5);
-  await buyer.getByLabel("I watched the full video.").check();
-  await expect(
-    buyer.getByRole("button", { name: "Accept fixture work" }),
-  ).toBeDisabled();
-  await buyer
-    .getByLabel("The submission meets the task described in this post.")
-    .check();
-  await buyer
-    .getByLabel(/large bath towel/i)
-    .check();
-  await buyer
-    .getByLabel(/dark tabletop/i)
-    .check();
-  await buyer
-    .getByLabel("Decision reason")
-    .fill(
-      "Synthetic workflow test attestation; this is not a quality evaluation.",
-    );
-  await buyer.getByRole("button", { name: "Accept fixture work" }).click();
+  await expect(buyer.getByRole("checkbox")).toHaveCount(0);
+  await buyer.getByRole("button", { name: "Release simulated funds", exact: true }).click();
   await expect(buyer.locator(".nav-count")).toHaveCount(0);
   await expect(
-    buyer.getByText("FIXTURE SUBMISSION · fixture accepted"),
+    buyer.getByText(/FIXTURE SUBMISSION.*fixture accepted/),
   ).toBeVisible();
   await expect(
     buyer.getByText("accepted items", { exact: true }).locator(".."),
   ).toContainText("1");
-  await buyer.getByText("Ask the agent about this post", { exact: true }).click();
-  await buyer
-    .getByRole("textbox", { name: "Buyer message", exact: true })
-    .last()
-    .fill("Commission next batch");
-  await buyer
-    .getByRole("button", { name: "Send buyer message", exact: true })
-    .last()
-    .click();
-  await expect(buyer.getByText(/2 fixture slots published/)).toBeVisible();
+  await expect(buyer.locator(".post-card")).toContainText("3 available slots");
   const download = buyer.waitForEvent("download");
   await buyer.getByRole("button", { name: "Export accepted manifest" }).click();
   expect((await download).suggestedFilename()).toMatch(

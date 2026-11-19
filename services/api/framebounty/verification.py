@@ -143,7 +143,7 @@ class GeminiFrames:
             payload = "".join(p.get("text", "") for p in candidate["content"]["parts"])
             return payload
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
-            raise ProviderFailure("Gemini unavailable or invalid response; retry or use human review") from exc
+            raise ProviderFailure("Gemini unavailable or invalid response; verification must retry and no payment is authorized") from exc
 
 
 def fixture_assessment() -> Assessment:

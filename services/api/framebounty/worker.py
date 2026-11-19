@@ -28,7 +28,7 @@ def claim(db: Session) -> tuple[str, str] | None:
         old.state, old.lease_token, old.lease_until = "failed", None, None
         submission = db.get(Submission, old.submission_id)
         if submission.state in ("queued", "verifying"):
-            submission.state, submission.findings = "needs_review", {"decoded": False, "processing_error": "Worker lease exhausted after restart; manual infrastructure repair required"}
+            submission.state, submission.findings = "needs_review", {"decoded": False, "processing_error": "Worker lease exhausted after restart; no payment is authorized"}
     item = db.scalar(select(VerificationJob).where(
         VerificationJob.attempts < 3,
         or_((VerificationJob.state == "queued") & or_(VerificationJob.lease_until.is_(None), VerificationJob.lease_until <= now),
@@ -79,7 +79,7 @@ def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool, conten
                 raise ProviderFailure("Sending private media to Gemini requires explicit ALLOW_MODEL_MEDIA=true consent")
             adapter = GeminiFrames(os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", ""))
             samples = [(frame["timestamp_ms"], storage.path(frame["key"]).read_bytes()) for frame in frames]
-            assessment = adapter.assess(samples, str(rubric), duration_ms) if "media_type" not in rubric else adapter.assess_post(samples, rubric, duration_ms)
+            assessment = adapter.assess(samples, str(rubric), duration_ms) if "media_type" not in rubric and rubric.get("verification_policy") == "human" else adapter.assess_post(samples, rubric, duration_ms)
         findings["assessment"] = assessment.model_dump().get("checks", assessment.model_dump())
     except ProviderFailure as exc:
         findings["provider_error"] = str(exc)

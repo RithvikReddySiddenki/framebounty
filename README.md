@@ -34,7 +34,7 @@ with `ALLOW_MODEL_MEDIA=true`; only submissions whose contributor explicitly
 consents are sent as reduced JPEG samples to Gemini. Older uploads without that
 consent are not sent. AI findings are visible to contributors and reviewers;
 uncertainty/provider failures never become automatic acceptance or payment.
-Human inspection and a reviewer wallet signature remain required for payout.
+Default posts use automatic verification: a mandatory failure at >=80% model-reported confidence is rejected with reasons; uncertain/provider failures retry. Only AI-verified submissions can enter the final buyer funds-release batch. There are no required manual quality checkboxes. Confidence is a model estimate, not a calibrated probability.
 See [image/video posting decisions](docs/decisions/0009-image-video-agent-posts.md).
 
 In an owned collection's buyer conversation,
@@ -196,3 +196,16 @@ confirmation `GEMINI_FREE_TIER_CONFIRMED=true` that billing is disabled. It send
 only generated synthetic color cards in one request and checks the existing schema;
 it never uploads private task media or enables app inference. It is not an accuracy
 evaluation. Leave both flags false until the setup checks and consent are complete.
+
+Current automatic workflow: reservations last at most twice the task's estimated
+collection time (and never past the listing deadline). Submission starts the
+separate funds-release window. The buyer's final release pays verified work;
+failed work and expired commitments release automatically without paying.
+V2 is deployed at `0xea83a29db7486295b93318081447222481d0dbea` on Arc testnet.
+Migration 0006 preserves each original funded job's V1 escrow address; old funds
+are not moved. V1 final releases may require a wallet signature per submission.
+New V2 jobs support one atomic batch transaction. See decision 0011 and live evidence.
+
+Fixture AI outcomes are explicitly simulated. For a successful fixture workflow,
+set `FIXTURE_VERIFICATION_RESULT=pass` only in fixture mode; the default is uncertain.
+This flag cannot substitute simulated results in testnet mode.

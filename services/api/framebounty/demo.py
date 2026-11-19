@@ -13,9 +13,7 @@ from .models import Task
 
 
 def example_plan() -> Plan:
-    # Keep the historical explicit seed/API example reproducible. Chat-generated
-    # posts override this legacy policy with the current automatic policy.
-    return Plan(verification_policy="human", version=1, title="Towel-folding demonstrations", total=20, budget_atomic=20_000_000,
+    return Plan(version=1, title="Towel-folding demonstrations", total=20, budget_atomic=20_000_000,
         reward_atomic=1_000_000, min_seconds=10, max_seconds=30, review_hours=72,
         rights_declaration="Demo only: contributor must explicitly grant the buyer-approved dataset usage rights.",
         requirements=[{"key": "large_towel", "description": "Large bath towel matching a buyer-approved reference", "minimum": 5},

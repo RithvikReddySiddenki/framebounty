@@ -33,7 +33,7 @@ def main():
     env = {**os.environ, "DATABASE_URL": url, "APP_MODE": "fixture", "AUTH_ORIGIN": "http://127.0.0.1:3002",
            "NEXT_PUBLIC_API_URL": "http://127.0.0.1:8002", "NEXT_OUTPUT_DIR": ".next-e2e",
            "STORAGE_ROOT": str(run_root / "media"), "PYTHON_BIN": sys.executable,
-           "E2E_VIDEO": str(run_root / "synthetic.mp4"), "E2E_DATABASE_URL": url}
+           "FIXTURE_VERIFICATION_RESULT": "pass", "E2E_VIDEO": str(run_root / "synthetic.mp4"), "E2E_DATABASE_URL": url}
     env["PLAYWRIGHT_BROWSERS_PATH"] = os.getenv("PLAYWRIGHT_BROWSERS_PATH", str(root / ".local" / "browsers"))
     from framebounty.media import media_executable
     executable = media_executable("ffmpeg")

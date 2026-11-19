@@ -211,3 +211,17 @@ Validated unlimited-time fix: 150 backend passed / 14 separate-chain skips,
 Gemini confirmed explicit no-time-limit with cat and phone retained. Existing
 stored chats recover these preferences on the next message. No wallet action,
 funding change, migration or private media upload was performed.
+
+2026-11-18 automated verification/release (implementation lead): latest user request supersedes manual quality-review UI. Reject a mandatory requirement failure at model-reported confidence >=80%; uncertain/provider failures retry. Human action is final batch funds release only. Reservation window capped at twice task estimate. Owner here for schemas/state changes/ABI/migrations. Preserve old funded escrows; test new rejection and batch-payment authority on local chain before any deployment.
+
+Automatic verification/final release implemented and locally activated. Validation:
+158 backend passes / 19 separate-chain skips; chain/deployment gate 20 passes
+(19 chain plus one config guard); contract 19 passes; Chromium 7 passes / 1 separate
+funding-UI skip; production build passed. Includes 79/80 boundary, contributor-visible
+automatic rejection, bounded retry, automatic expiry, exact-once batch payment,
+reverted-batch retry and old funded-escrow preservation. V2 deployed and independently
+runtime/receipt verified at 0xea83a29db7486295b93318081447222481d0dbea; actual native
+fee 0.034230105 test USDC versus cap 0.0991465. Migration 0006 preserved existing
+balances and original funded-job bindings. New default collections use V2. Existing
+V1 release requires its original per-submission wallet approvals; verifier rejection
+budget releases at V1 timeout. Live smokes used generated media only; buyer keys never enter the backend.
