@@ -20,9 +20,23 @@ def check(result, confidence=90):
     return {"result": result, "confidence": confidence, "explanation": "synthetic", "timestamps_ms": []}
 
 
-def gemini_reply(checks):
-    text = json.dumps({"checks": checks})
-    return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": text}]}}]})
+def fake_gemini(overrides_per_call, calls):
+    """Answers 'pass' for every check the request's schema asks for, with per-call overrides."""
+    def handler(request):
+        body = json.loads(request.content)
+        calls.append(body)
+        keys = body["generationConfig"]["responseJsonSchema"]["properties"]["checks"]["required"]
+        checks = {k: check("pass") for k in keys} | overrides_per_call[len(calls) - 1]
+        text = json.dumps({"checks": checks})
+        return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": text}]}}]})
+    return GeminiFrames("test-key", "fake-model", transport=httpx.MockTransport(handler))
+
+
+def make_clips(folder, names):
+    folder.mkdir()
+    for name in names:
+        subprocess.run([media_executable("ffmpeg"), "-v", "error", "-nostdin", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15",
+                        "-t", "12", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(folder / name)], check=True, timeout=60)
 
 
 def test_decide_mirrors_the_app_policy():
@@ -34,37 +48,49 @@ def test_decide_mirrors_the_app_policy():
     assert evaluation.decide({**passing, "large_towel": check("fail", 50)}, mandatory) == "uncertain"
 
 
+def test_generic_rows_build_a_post_for_any_task():
+    base = evaluation_base_plan()
+    row = {"file": "pour.mp4", "task": "Pour water from a bottle into a glass",
+           "requirements": "clear_glass: The glass is transparent | full_glass: The glass ends at least half full",
+           "task_completion": "pass", "visibility": "pass", "expected": "clear_glass=pass; full_glass=fail"}
+    rubric, labels, mandatory = evaluation.clip_case(row, base)
+    assert rubric["title"] == "Pour water from a bottle into a glass"
+    assert [r["key"] for r in rubric["requirements"]] == ["clear_glass", "full_glass"]
+    assert mandatory == {"task_completion", "visibility", "clear_glass", "full_glass"}
+    assert evaluation.expected_decision(labels, mandatory) == "reject"
+    with pytest.raises(SystemExit, match="invalid task/requirements"):
+        evaluation.clip_case({**row, "requirements": "Bad Key: description here"}, base)
+
+
+def evaluation_base_plan():
+    from framebounty.demo import example_plan
+    return example_plan().model_dump(mode="json")
+
+
 @pytest.mark.skipif(not media_executable("ffmpeg"), reason="FFmpeg required")
-def test_eval_scores_clips_against_labels(tmp_path):
+def test_eval_scores_generic_and_towel_clips(tmp_path):
     clips = tmp_path / "clips"
-    clips.mkdir()
-    for name in ("good.mp4", "bad.mp4"):
-        subprocess.run([media_executable("ffmpeg"), "-v", "error", "-nostdin", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=15",
-                        "-t", "12", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(clips / name)], check=True, timeout=60)
+    make_clips(clips, ["pour.mp4", "stack.mp4", "towel.mp4"])
     (clips / "labels.csv").write_text(
-        "file,task_completion,visibility,large_towel,dark_surface,task_tags\n"
-        "good.mp4,pass,pass,pass,fail,large_towel\n"
-        "bad.mp4,fail,pass,pass,pass,\n"
-        "missing.mp4,pass,pass,pass,pass,\n")
-    keys = ["task_completion", "visibility", "large_towel", "dark_surface"]
-    replies = [
-        {k: check("pass") for k in keys} | {"dark_surface": check("fail", 85)},   # good: pay
-        {k: check("pass") for k in keys} | {"task_completion": check("fail", 95)},  # bad: reject
-    ]
+        "file,task,requirements,task_completion,visibility,expected,task_tags,large_towel,dark_surface\n"
+        'pour.mp4,Pour water from a bottle into a glass,clear_glass: The glass is transparent,pass,pass,clear_glass=pass,,,\n'
+        "stack.mp4,Stack three cups into a tower,,fail,pass,,,,\n"
+        "towel.mp4,,,pass,pass,,large_towel,pass,fail\n"
+        "missing.mp4,Open a drawer,,pass,pass,,,,\n")
     calls = []
-
-    def handler(request):
-        calls.append(json.loads(request.content))
-        return gemini_reply(replies[len(calls) - 1])
-
-    adapter = GeminiFrames("test-key", "fake-model", transport=httpx.MockTransport(handler))
+    adapter = fake_gemini([{}, {"task_completion": check("fail", 95)}, {"dark_surface": check("fail", 85)}], calls)
     out = tmp_path / "out"
     assert evaluation.main(["--clips", str(clips), "--labels", str(clips / "labels.csv"),
                             "--sleep", "0", "--out", str(out)], adapter=adapter) == 0
-    summary = json.loads((out / "results.json").read_text())["summary"]
-    assert summary["scored"] == 2 and summary["errors"] == 1
-    assert summary["correct"] == 2 and summary["false_pay"] == 0
-    # Frames really went to the (fake) model: 5 samples + labels per request.
-    images = [p for p in calls[0]["contents"][0]["parts"] if "inlineData" in p]
-    assert len(images) == 5
+    data = json.loads((out / "results.json").read_text())
+    summary = data["summary"]
+    assert summary["scored"] == 3 and summary["errors"] == 1
+    assert summary["correct"] == 3 and summary["false_pay"] == 0
+    by_file = {r["file"]: r for r in data["results"]}
+    assert by_file["pour.mp4"]["decision"] == "pay"
+    assert by_file["stack.mp4"]["decision"] == "reject"
+    assert by_file["towel.mp4"]["decision"] == "pay"  # dark_surface not required for a large_towel task
+    # Each request carries the clip's own task, and 5 frames.
+    assert "Pour water from a bottle into a glass" in json.dumps(calls[0]["contents"])
+    assert len([p for p in calls[0]["contents"][0]["parts"] if "inlineData" in p]) == 5
     assert "False pay" in (out / "report.md").read_text(encoding="utf-8")
