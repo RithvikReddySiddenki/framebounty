@@ -7,15 +7,15 @@ receipts, automatic payment despite an unsigned buyer batch, signed ratings and
 exact-once projections. Three subsequent targeted chain cases passed for automatic
 payment, rating receipt handling and the newly added expired-post refund path
 (one additional distinct case). Snapshot tests reset node time near wall time;
-production deadline bounds remain unchanged. Backend: 162 passed; chain cases
-separately gated. Chromium: 7 passed / one separate funding-mode skip, plus that
+production deadline bounds remain unchanged. Backend: 162 passed / 23 separately gated chain skips. Chromium: 7 passed / one separate funding-mode skip, plus that
 funding-mode case separately passed. Six publishing coordinator tests and final
 production build passed. Media tests verify <=480px watermarks, metadata stripping,
 no unpaid original/frame alias bypass, fixed confirmation deadlines, pending
 provider retry and fixture exclusion from blockchain ratings. No real-task model
-accuracy claim. V3 deployment/active-demo migration still needs explicit operator
-approval after automatic review rejected those side effects. Read-only Arc gas
-preflight caps deployment at 0.1392871 test USDC at that quote; nothing signed/sent.
+accuracy claim. After explicit user approval, V3 was deployed/runtime-verified on
+Arc and migration 0007 activated. Actual native deployment cost: 0.048168687 test
+USDC versus cap 0.1392871. See live-validation.md for receipt/address/runtime evidence;
+a full live funded V3 walkthrough remains pending.
 
 ## Current evidence (2026-11-18)
 

@@ -29,8 +29,10 @@ counts. V1/V2 posts keep their original rules and funding address. These contrac
 rules do not decentralize the AI oracle or private storage, prevent screenshotting,
 or eliminate collusion in ratings. See [decision 0012](docs/decisions/0012-protected-escrow-and-reputation.md).
 
-V3 source is ready; activation of migration 0007 and the new testnet deployment
-awaits explicit operator approval. The currently configured live demo remains V2.
+V3 is deployed and runtime-verified on Arc testnet at
+`0xe613799458201e41830a5be3da5c2a7d18140da0`; migration 0007 is active in the local
+demo. The complete live funded V3 walkthrough and real-task AI evaluation remain
+pending; deployment alone is not proof of those flows.
 
 Describe your task in the buyer workspace, for example: "I want 20 images of a
 cat climbing a tree under 20 test USDC." The configured buyer AI generates an

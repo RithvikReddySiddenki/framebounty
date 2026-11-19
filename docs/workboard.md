@@ -16,9 +16,12 @@ fixed-deadline confirmation, counterparty ratings UI/API and expired-budget refu
 Full chain gate 23 passed; three targeted cases subsequently passed including one
 new refund case. Backend 162 passed; browser 7 passed plus separate funding-mode
 case 1 passed; six publishing coordinator tests and final production build pass.
-Contract milestone b775e1b pushed. Activation requires explicit operator approval:
-automatic review rejected active migration/restart/V3 deployment; no part ran.
-Read-only Arc preflight caps deployment at 0.1392871 test USDC at its quote.
+Contract milestone b775e1b and integrated API/UI milestone b46154d pushed. After
+explicit approval resolved the initial auto-review rejection, migration 0007 was
+applied and V3 deployed/runtime-verified at 0xe613799458201e41830a5be3da5c2a7d18140da0.
+Actual native fee 0.048168687 test USDC versus cap 0.1392871. Owned preview services
+restarted successfully; fresh demo has zero posts, archive retains four jobs.
+The complete live funded V3 walkthrough and labeled AI evaluation remain pending.
 
 Owner: implementation lead (Codex), branch `feat/framebounty-prototype`.
 No concurrent editors have been identified. Shared interfaces are owned here until reassigned.

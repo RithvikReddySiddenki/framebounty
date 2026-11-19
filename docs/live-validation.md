@@ -1,21 +1,28 @@
 # Live validation evidence
 
-## Protected marketplace V3 activation pending (2026-11-18)
+## Protected marketplace V3 activated (2026-11-18)
 
-V3 source/artifact and API/UI are tested locally (decision 0012 and test matrix).
-Automatic approval review rejected pausing owned services, applying migration 0007
-to the active demo database and preparing/deploying V3 because explicit operator
-permission is required. The rejected command did not run. No V3 signed state,
-broadcast or deployment hash exists. Default remains V2 at
-0xea83a29db7486295b93318081447222481d0dbea. Existing V1/V2 funded jobs do not acquire
-V3 payment/reputation guarantees. Read-only preflight found zero fresh-demo jobs
-and no pending chain intents; original archived records remain preserved.
+After the initial automatic-review rejection, the user explicitly approved migration
+0007, the owned-service restart and V3 Arc testnet deployment. The original rejected
+command did not run. The subsequently approved deployment was signed once, saved
+in ignored `.local/arc-deployment-v3.json`, broadcast and independently reconciled.
 
-Read-only eth_estimateGas for exact V3 creation code: 2,313,119 gas; helper's bounded
-limit 2,785,742. At that quote maximum native fee is 0.1392871 test USDC
-(139287100000000000 native atoms, 18 decimals). No buyer budget is involved.
-Quotes may change; the fixed helper caps still apply. Await explicit activation
-approval before signing, migrating, restarting or changing the configured default.
+- Chain: 5042002; default escrow: `0xe613799458201e41830a5be3da5c2a7d18140da0`.
+- [Deployment transaction](https://explorer.testnet.arc.io/tx/0x5fa53fe2a9d61756daada30a42dcf9d5361682f73c8a03c6a2c23f6f7cc0477b).
+- Runtime keccak256: `0xcff7913f90ff88320b0fb0b5c13e0836cea8f5c96c0506f9cb14008a624032b3`.
+- Actual native fee: **0.048168687 test USDC** (48168687000000000 native atoms,
+  18 decimals); prepared maximum **0.1392871 test USDC**.
+- Migration 0007 applied only to the active demo database; zero demo jobs remain.
+  The original archived database still contains four jobs. Old escrow artifacts,
+  funded-job bindings and archived media remain preserved.
+- API and preview returned HTTP 200 after restarting owned API/chain/media/web
+  processes. Runtime validation independently identifies the default as V3.
+
+This verifies deployment and activation, not a complete live V3 buyer funding ->
+real contributor media -> AI verification -> one-hour settlement -> rating demo.
+Local-chain tests cover that state-machine behavior with synthetic observations;
+real-task model accuracy and the physical-phone walkthrough remain pending.
+Existing V1/V2 jobs retain their original contracts and do not acquire V3 promises.
 
 ## Arc testnet deployment
 
