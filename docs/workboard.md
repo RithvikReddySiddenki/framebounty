@@ -1,5 +1,15 @@
 # Workboard
 
+2026-11-18 protected marketplace (implementation lead, feat/framebounty-prototype):
+user authorizes fixed publication deadlines and locked budgets, immutable task
+terms, automatic settlement one hour after on-chain verification, paid-only
+originals and watermarked previews, and counterparty-only on-chain reputation.
+Own contract V3, ABI compatibility, API/worker projections, media authorization,
+rating UI and tests. Preserve V1/V2 funded contracts and archived demo records.
+Acceptance: no early refund/close on protected jobs, no unverified payment or
+buyer veto, exact-once permissionless settlement after deadline, no unpaid
+original/frame bypass, and one immutable vote per paid trade per participant.
+
 Owner: implementation lead (Codex), branch `feat/framebounty-prototype`.
 No concurrent editors have been identified. Shared interfaces are owned here until reassigned.
 

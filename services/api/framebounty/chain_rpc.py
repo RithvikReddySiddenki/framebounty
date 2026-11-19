@@ -45,8 +45,8 @@ def resource_id(value: str) -> bytes:
     return bytes.fromhex(value).rjust(32, b"\x00")
 
 
-def artifact(version: int = 2) -> dict:
-    name = "escrow_v1.json" if version == 1 else "escrow.json"
+def artifact(version: int = 3) -> dict:
+    name = {1: "escrow_v1.json", 2: "escrow_v2.json", 3: "escrow.json"}[version]
     return json.loads(files("framebounty").joinpath("contract_abi/" + name).read_text(encoding="utf-8"))
 
 
@@ -62,7 +62,7 @@ def escrow_call(name: str, arguments: list) -> str:
     return call_data(name + "(" + ",".join(types) + ")", types, arguments)
 
 
-def expected_runtime(token: str, version: int = 2) -> bytes:
+def expected_runtime(token: str, version: int = 3) -> bytes:
     compiled = artifact(version)
     result = bytearray(hex_bytes(compiled["runtime_bytecode"]))
     replacement = bytes.fromhex(address(token)[2:]).rjust(32, b"\x00")
@@ -143,6 +143,8 @@ class ChainRPC:
             raise ChainFailure("Unsupported token decimals")
         actual = hex_bytes(self.rpc("eth_getCode", [self.config.escrow, "latest"]))
         if actual == expected_runtime(self.config.token):
+            self.contract_version = 3
+        elif actual == expected_runtime(self.config.token, 2):
             self.contract_version = 2
         elif actual == expected_runtime(self.config.token, 1):
             self.contract_version = 1
@@ -240,7 +242,7 @@ class ChainRPC:
         required = {field["name"] for field in definition["inputs"]}
         supplied = set(expected["fields"])
         if "deadline_seconds" in expected:
-            supplied.add("reviewDeadline")
+            supplied.add(expected.get("deadline_field", "reviewDeadline"))
         if supplied != required:
             raise InvalidReceipt("Expected event must bind every field")
         topic = "0x" + keccak(text=definition["name"] + "(" + ",".join(field["type"] for field in definition["inputs"]) + ")").hex()
@@ -258,7 +260,7 @@ class ChainRPC:
                        for field, value in zip(fields, values)}
             if not all(decoded.get(key) == value for key, value in expected["fields"].items()):
                 continue
-            if "deadline_seconds" in expected and decoded.get("reviewDeadline") != block_time + expected["deadline_seconds"]:
+            if "deadline_seconds" in expected and decoded.get(expected.get("deadline_field", "reviewDeadline")) != block_time + expected["deadline_seconds"]:
                 continue
             return decoded
         raise InvalidReceipt("Successful receipt lacks the exact committed escrow event")
