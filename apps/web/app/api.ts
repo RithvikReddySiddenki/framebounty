@@ -15,6 +15,9 @@ export async function request<T>(
   body?: unknown,
 ): Promise<T> {
   let response: Response;
+  // Contributor chat may make two bounded 45-second model calls (intake and
+  // ranking). Do not abandon a healthy request at the normal API's 15s limit.
+  const agentMessage = body !== undefined && /^\/(chat-sessions|agent-sessions)\/[^/]+\/messages$/.test(path);
   try {
     response = await fetch(apiBase + path, {
       method: body === undefined ? "GET" : "POST",
@@ -23,9 +26,14 @@ export async function request<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(agentMessage ? 120000 : 15000),
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
+      throw new Error(agentMessage
+        ? "The AI is taking longer than expected. Your message is kept; retry the same message to check for its result."
+        : "FrameBounty took too long to respond. Please retry.");
+    }
     throw new Error(
       "Cannot reach FrameBounty. Check that the API is running and try again.",
     );

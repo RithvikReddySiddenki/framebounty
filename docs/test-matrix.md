@@ -1,5 +1,15 @@
 # Test matrix
 
+Buyer timeout regression (2026-11-19): `npm --prefix apps/web run test:publishing`
+passes nine Node tests (six wallet coordinator cases plus three API timeout/error
+cases); production build passes. `python scripts/test_e2e.py --grep 'buyer retries
+the same message'` passes one browser case: a simulated provider 503 retains the
+message/request ID, then a fixture-API response delayed 16 seconds reaches the
+post preview rather than the old 15-second network error. Live Gemini accepted
+the reported cat-image request with count=20, media_type=image and budget_atomic=
+20000000 in 10.11s after a transient provider failure. No post was saved/published;
+this validates text planning/connectivity, not collection or verification accuracy.
+
 Protected-marketplace evidence (2026-11-18, decision 0012): 27 contract tests pass
 (including two existing 256-run fuzz cases). Full local chain gate: 23 passed
 (22 chain cases + one config guard), including V1/V2 job binding, verification

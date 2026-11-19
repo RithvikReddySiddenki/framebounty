@@ -1,5 +1,22 @@
 # Workboard
 
+2026-11-19 buyer-agent timeout fix (implementation lead): API health succeeds but
+the browser uses a 15-second timeout for 45-second model requests (up to two calls
+for contributor ranking). Give agent-message calls a bounded longer timeout,
+distinguish timeout from network failure, retain same-message retry identity and
+remove incorrect instructions to change the message. Validate delayed browser
+response, request error classification and production build. No migration, wallet
+action, contract or funding changes.
+
+Completed: agent-message requests have a bounded 120-second browser window while
+ordinary calls remain at 15 seconds; timeout and network errors are distinct.
+Buyer composer shows a waiting state and no longer tells users to change their
+message. Nine Node tests and production build pass. Browser regression passed
+after a simulated provider failure and a real fixture-API response delayed 16s;
+the retry retained the same message/request ID. Live exact cat prompt returned a
+20-image, 20-USDC plan in 10.11s after one transient provider error; simple provider
+connectivity also succeeded. These probes saved no posts or media and moved no funds.
+
 2026-11-18 protected marketplace (implementation lead, feat/framebounty-prototype):
 user authorizes fixed publication deadlines and locked budgets, immutable task
 terms, automatic settlement one hour after on-chain verification, paid-only

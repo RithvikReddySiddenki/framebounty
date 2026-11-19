@@ -3,6 +3,33 @@ import { Wallet, getBytes } from "ethers";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+test("buyer retries the same message and waits beyond the old 15-second cutoff", async ({ page }) => {
+  await connect(page);
+  const bodies: { message: string; request_id: string }[] = [];
+  await page.route("**/chat-sessions/*/messages", async route => {
+    bodies.push(route.request().postDataJSON());
+    if (bodies.length === 1) {
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "AI provider temporarily unavailable" }) });
+      return;
+    }
+    // Reproduce real model latency against the actual fixture API, beyond the
+    // old browser timeout. No live model, wallet payment or fake post response.
+    await new Promise(resolve => setTimeout(resolve, 16000));
+    await route.continue();
+  });
+  const message = "I want 20 images of a cat climbing a tree, spend only 20 USDC.";
+  await page.getByLabel("Describe your task").fill(message);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.locator(".post-composer [role=alert]")).toHaveText("AI provider temporarily unavailable");
+  await expect(page.getByLabel("Describe your task")).toHaveValue(message);
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByText(/Preparing your post/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Generated post preview" })).toBeVisible({ timeout: 25000 });
+  expect(bodies).toHaveLength(2);
+  expect(bodies[1]).toEqual(bodies[0]);
+  await expect(page.locator(".post-composer [role=alert]")).toHaveCount(0);
+});
+
 test("draft funding and review panels have distinct identities across post selection", async ({ page }) => {
   test.skip(process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING !== "true", "Separate funding-UI regression gate; no wallet transactions");
   const errors: string[] = [];

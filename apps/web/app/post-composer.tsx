@@ -71,6 +71,7 @@ export default function PostComposer({ token, onChanged, onView }: {
         onChange={e => setMessage(e.target.value)} disabled={busy} />
       <button className="primary" disabled={busy || !message.trim()}>{busy ? "Working..." : "Send"}</button>
     </form>
+    {busy && <p role="status">Preparing your post. AI responses can take up to a minute; keep this page open.</p>}
     <p className="muted">Up to 20 items. Images: JPEG/PNG. Videos: MP4/MOV, 10–30 seconds. AI verifies submissions; protected posts pay automatically after their payment window.</p>
     {plan && <section className="post-preview" aria-label="Generated post preview">
       <div className="post-tags"><span className="tag">{plan.media_type === "image" ? "Image post" : "Video post"}</span><span className="post-status">{published ? chain ? "Open for contributors" : "Open - Simulated funding" : saved ? publishNow ? "Awaiting wallet funding" : "Draft - Not public" : "Preview - Not published"}</span></div>
@@ -100,6 +101,6 @@ export default function PostComposer({ token, onChanged, onView }: {
         <button onClick={onView}>View my posts & status</button>
       </>}
     </section>}
-    {error && <p className="error" role="alert">{error} If this was a failed saved request, change your message before retrying.</p>}
+    {error && <p className="error" role="alert">{error}</p>}
   </section>;
 }
