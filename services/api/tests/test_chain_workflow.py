@@ -15,7 +15,8 @@ from framebounty.funding import funding_step
 from framebounty.marketplace import prepare_confirmation, reserve
 from framebounty.media import LocalStorage
 from framebounty.models import Job, Reservation, Submission, Task, TransactionIntent, VerificationJob
-from framebounty.submissions import coverage, finalize_upload, review, submission_view
+from framebounty.submissions import (capture_token_hash, coverage, finalize_upload, issue_capture_session,
+                                     review, submission_view)
 from framebounty.planning import next_collection_batch
 from framebounty.submission_routes import export
 from framebounty.transactions import LocalUnlockedSigner, reconcile
@@ -59,7 +60,9 @@ def uploaded(db, rpc, accounts, rid, video):
     storage = LocalStorage()
     key = secrets.token_hex(16) + ".video"
     storage.path(key).write_bytes(video)
-    item = finalize_upload(db, accounts[2], rid, key, hashlib.sha256(video).hexdigest(), len(video), "video/mp4")
+    token, _ = issue_capture_session(db, accounts[2], rid)
+    item = finalize_upload(db, accounts[2], rid, key, hashlib.sha256(video).hexdigest(), len(video), "video/mp4",
+                           capture_hash=capture_token_hash(token))
     assert item.state == "chain_pending" and not item.fixture
     assert db.scalar(select(VerificationJob).where(VerificationJob.submission_id == item.id)) is None
     assert transact(db, rpc, accounts[2], rid, "submit")["reservation_state"] == "submitted"

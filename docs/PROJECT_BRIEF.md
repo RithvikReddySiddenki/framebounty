@@ -40,7 +40,11 @@ Contributor:
 1. Connect a wallet and authenticate with a server-issued signed nonce.
 2. Inspect the task, reward, immutable rubric version, funding status, reservation expiry, and approval authority.
 3. Tell the contributor agent your time, equipment, and preferences; receive recommendations grounded in actual funded task records and explanations of fit.
-4. Confirm a specific task and reward before the agent reserves it. Upload a video, acknowledge requested usage rights, and submit. Upload from a phone is required; in-browser recording is optional after upload works.
+4. Confirm a specific task and reward before the agent reserves it. For a video
+   task, acknowledge requested usage rights, explicitly open the camera, record and
+   review 10-30 seconds inside FrameBounty, and submit. Existing-video selection is
+   unavailable; image tasks retain their JPEG/PNG picker. Remote camera use requires
+   HTTPS. This workflow does not prove camera authenticity or liveness.
 5. See verification findings, review outcome, transaction state, and an explorer link after broadcast.
 6. Receive the promised reward if accepted. Do not revoke a valid reservation or reduce its reward because another submission filled the quota.
 Reviewer:
@@ -147,7 +151,7 @@ I12 reviewed clip tags update overlapping quotas once, and replanning accounts f
 
 Browser/E2E:
 E01 buyer plan and funding flow.
-E02 contributor search conversation, real task cards, confirmation, mobile video upload/playback, and status.
+E02 contributor search conversation, real task cards, confirmation, mobile in-app camera recording/review/playback, and status.
 E03 reviewer approval, transaction progression, and coverage update.
 E04 visible recovery from model/RPC errors.
 E05 complete two-agent flow with labeled deterministic fixtures plus a separately documented real-provider smoke test.
@@ -177,7 +181,8 @@ Create one real funded robotics request and several clearly labeled seeded task 
 Keep the product name FrameBounty. Do not rename it Groundtruth or copy the teammate proposal's automatic payout, mandatory liveness, embedded-wallet, x402, or provenance-proof claims. The current agreed scope is two agent roles, custom data work, a robotics-video demo, human quality approval, Arc, and USDC.
 Implemented extension (2026-11-17): the marketplace now supports image and video
 post types. The buyer agent generates the actual requested subject and observable
-criteria; contributors can submit still JPEG/PNG images or bounded MP4/MOV videos.
+criteria; contributors can submit still JPEG/PNG images or bounded camera recordings
+(browser-produced MP4 or WebM).
 Automatic post-specific AI observations require explicit contributor consent and
 operator enablement. The human reviewer remains the payment authority. Decision
 0009 and the test matrix record evidence and limits; the original robotics example
@@ -201,3 +206,12 @@ with automatic retry. Buyer originals and exports unlock after confirmed payment
 unpaid previews, including frame routes, are reduced and watermarked. Add mutual
 on-chain up/down reputation, restricted to counterparties on paid submissions.
 Decision 0012 records guarantees, oracle/availability trust and legacy compatibility.
+
+User-authorized camera-only workflow update (2026-11-20): after a contributor
+reserves a video task, the ordinary video file picker is unavailable. The contributor
+must explicitly open the browser camera, record 10-30 seconds without microphone
+access, review or retake, and submit with a short-lived reservation-bound capture
+token. Image selection is unchanged. MP4 and WebM browser output are accepted.
+This is workflow enforcement, not liveness or physical-camera provenance; virtual
+cameras, modified clients and direct API callers remain outside that guarantee.
+Decision 0013 records the boundary and secure-context requirement.

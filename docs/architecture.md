@@ -25,7 +25,31 @@ part of new immutable plan hashes. Typed upload paths share ownership, reservati
 content-hash, review and settlement rules. Still-image decoding and generic
 post-specific AI criteria complement the existing bounded video pipeline. Both
 operator enablement and per-submission consent gate external media verification.
-AI observations never grant acceptance or payment. No migration/ABI change.
+AI observations never grant acceptance or payment. Camera capture adds application
+migration 0008 but no contract/ABI change. See decision 0013.
+
+## Camera-only video capture (2026-11-20)
+
+After reserving a video task, the supported contributor UI exposes **Open camera**
+instead of a video file picker. It calls `getUserMedia` only from that explicit user
+action, requests the environment-facing camera when available, and does not request
+microphone access. `MediaRecorder` prefers MP4 where the browser supports it and
+otherwise records WebM. Contributors see a live muted preview, a bounded 10-30
+second timer, review and retake controls before submission. Image posts retain their
+existing JPEG/PNG picker.
+
+Migration 0008 adds short-lived capture sessions. The server stores only a SHA-256
+token digest bound to the reservation and wallet. A video upload must present the
+one-time `X-Capture-Token`, and validation/consumption occurs in the same transaction
+as immutable submission finalization. Exact retries remain idempotent. WebM receives
+EBML/MIME checks and bounded VP8/VP9/AV1 decoding; existing MP4/MOV decoding remains.
+
+This is a supported-workflow boundary, not camera authenticity or liveness proof.
+A modified client, direct API caller, virtual camera or screen-fed camera can still
+fabricate the origin. Remote camera capture also requires a browser secure context:
+use HTTPS on phones or other computers. Browser-treated localhost is suitable for
+local desktop development; an ordinary HTTP LAN address is not a supported remote
+camera setup.
 
 ## External verification log (2026-11-16)
 
@@ -76,7 +100,8 @@ nonce and five-minute expiry. PostgreSQL row locks serialize nonce consumption;
 eight-hour opaque sessions are stored by SHA-256 digest, kept in browser memory.
 Only EOA signatures are supported; ERC-1271 wallets, rate limiting and session
 revocation are not yet implemented. Configure AUTH_ORIGIN before remote hosting.
-Use HTTPS for any remote deployment; current setup is loopback development only.
+Use HTTPS for any remote deployment; camera access on non-local origins requires a
+secure context. Current setup is loopback development only.
 
 Job reads require buyer/reviewer ownership. Authenticated search returns task terms, not
 private records. Confirmation is bound to wallet/task/version/reward for five

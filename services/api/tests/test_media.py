@@ -31,6 +31,19 @@ def test_claimed_mime_is_not_content_validation(content):
         validate_container_header(content)
 
 
+def test_browser_webm_header_and_codecs_are_supported_without_mime_confusion():
+    webm = b"\x1aE\xdf\xa3" + b"\x00" * 8
+    validate_container_header(webm, "video/webm")
+    with pytest.raises(InvalidMedia):
+        validate_container_header(webm, "video/mp4")
+    mp4 = b"\x00\x00\x00\x18ftypisom"
+    validate_container_header(mp4, "video/mp4")
+    with pytest.raises(InvalidMedia):
+        validate_container_header(mp4, "video/webm")
+    for codec in ("vp8", "vp9", "av1"):
+        assert validate_probe(probe(codec_name=codec)).codec == codec
+
+
 @pytest.mark.parametrize("field,value", [("width", 100000), ("height", 1), ("codec_name", "unsupported"), ("avg_frame_rate", "1000/1"), ("avg_frame_rate", "1/0")])
 def test_probe_rejects_decoder_risks(field, value):
     with pytest.raises(InvalidMedia):

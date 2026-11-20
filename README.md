@@ -11,7 +11,7 @@ claim of production activation. Follow [Circle setup](docs/CIRCLE_SETUP.md).
 Implemented locally: signed EOA wallet login, buyer-owned versioned draft plans,
 database-backed filtered task search, explicit version/reward confirmation,
 atomic and idempotent fixture reservations, private reservation lists, strict
-money/coverage rules, private phone uploads, durable verification jobs, real
+money/coverage rules, private contributor media, durable verification jobs, real
 FFmpeg decoding and sampled frames, automatic verification, next-batch allocation, and
 accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
 security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
@@ -46,8 +46,11 @@ terms with one publishing action; the app guides the required MetaMask signature
 automatically shows your posts, their media type and whether they are actually
 open. Drafts are private until funding is verified. Contributors use their agent
 to search real funded listings, confirm a task and upload the required type.
-Images: still JPEG/PNG up to 20 MiB / 16 megapixels. Videos: MP4/MOV, 10-30 seconds,
-up to 100 MiB. The fixture planner offers fixed examples, not general inference.
+Images: still JPEG/PNG up to 20 MiB / 16 megapixels. Videos: 10-30 seconds,
+recorded inside FrameBounty with the camera after reservation, up to 100 MiB.
+The browser records MP4 when supported and otherwise WebM. Existing-video file
+selection is intentionally unavailable. The fixture planner offers fixed examples,
+not general inference.
 
 Automatic AI verification uses each post's actual criteria. Run the media worker
 with `ALLOW_MODEL_MEDIA=true`; only submissions whose contributor explicitly
@@ -108,8 +111,10 @@ redeemable. Re-running seed creates another
 fixture job; it never resets or deletes other users' data.
 
 Alternatively, describe the task in buyer chat and choose the clearly labeled
-Publish simulated post action to publish the first two fixture slots. The contributor can reserve, acknowledge
-the displayed usage rights, and upload a 10–30 second MP4/MOV. In another terminal,
+Publish simulated post action to publish the first two fixture slots. The contributor
+can reserve, acknowledge the displayed usage rights, open the camera, record and
+review a 10–30 second clip, then submit it. Camera access is requested only after
+the contributor selects **Open camera**; audio is not requested. In another terminal,
 set the same `DATABASE_URL` and `APP_MODE=fixture` and run:
 
 ```powershell
@@ -120,8 +125,10 @@ The reviewer loads their collections, watches the full video and timestamped fra
 confirms task completion and category definitions, and accepts/rejects with a reason.
 Acceptance updates the **simulated** ledger and overlapping coverage. It does not
 show a confirmed payment. Commission another fixture batch or export accepted media.
-For phone/LAN testing configure `AUTH_ORIGIN` and `NEXT_PUBLIC_API_URL` for that origin
-and use secure hosting for wallet/browser capabilities; actual phone testing is pending.
+For phone testing configure `AUTH_ORIGIN` and `NEXT_PUBLIC_API_URL` for the HTTPS
+origin. `getUserMedia` requires a secure context on remote devices, so an ordinary
+`http://192.168...` LAN URL is not a supported camera path. Local desktop testing on
+`http://localhost` is permitted by browsers; actual phone testing is pending.
 
 The optional `docker compose --profile worker up -d worker` imposes a 768 MiB
 memory limit and one CPU. Apply migrations first and configure `LOCAL_UID`/`LOCAL_GID`

@@ -1,8 +1,8 @@
 """Circle-owned wallet session bindings and durable public challenge recovery."""
 from alembic import op
 import sqlalchemy as sa
-revision = "0008"
-down_revision = "0007"
+revision = "0009"
+down_revision = "0008"
 
 def upgrade():
     op.add_column("jobs", sa.Column("chain_id", sa.Integer()))

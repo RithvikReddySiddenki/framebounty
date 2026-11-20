@@ -1,6 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import { Wallet, getBytes } from "ethers";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 test("buyer retries the same message and waits beyond the old 15-second cutoff", async ({ page }) => {
@@ -217,6 +218,48 @@ async function connect(page: Page) {
   ).toBeVisible();
 }
 
+async function installCamera(page: Page, videoPath: string, denyFirst = false) {
+  const base64 = readFileSync(videoPath).toString("base64");
+  await page.addInitScript(({ bytes, denyOnce }) => {
+    let attempts = 0;
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async (constraints: MediaStreamConstraints) => {
+          attempts += 1;
+          if (denyOnce && attempts === 1)
+            throw new DOMException("Camera permission denied for regression", "NotAllowedError");
+          if (constraints.audio !== false) throw new Error("Camera capture must not request audio");
+          return new MediaStream();
+        },
+      },
+    });
+    class FixtureRecorder {
+      static isTypeSupported(type: string) { return type === "video/mp4"; }
+      state: RecordingState = "inactive";
+      mimeType = "video/mp4";
+      ondataavailable: ((event: BlobEvent) => void) | null = null;
+      onstop: (() => void) | null = null;
+      onerror: ((event: Event) => void) | null = null;
+      constructor(_stream: MediaStream, options?: MediaRecorderOptions) {
+        this.mimeType = options?.mimeType || "video/mp4";
+      }
+      start() { this.state = "recording"; }
+      stop() {
+        this.state = "inactive";
+        const binary = atob(bytes);
+        const data = Uint8Array.from(binary, character => character.charCodeAt(0));
+        const blob = new Blob([data], { type: this.mimeType });
+        queueMicrotask(() => {
+          this.ondataavailable?.({ data: blob } as BlobEvent);
+          this.onstop?.();
+        });
+      }
+    }
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: FixtureRecorder });
+  }, { bytes: base64, denyOnce: denyFirst });
+}
+
 function expireToken(authorization: string) {
   const result = spawnSync(
     process.env.PYTHON_BIN!,
@@ -368,6 +411,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   });
   const buyer = await buyerContext.newPage();
   const contributor = await contributorContext.newPage();
+  await installCamera(contributor, process.env.E2E_VIDEO!, true);
   const authenticatedBuyer = buyer.waitForRequest((req) =>
     req.url().endsWith("/me/overview"),
   );
@@ -396,13 +440,26 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await contributor.getByRole("button", { name: "Send", exact: true }).click();
   await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Review reservation for/ }).click();
   await contributor.locator(".agent-task").filter({ hasText: /towel-folding demonstrations/i }).getByRole("button", { name: /Accept fixed terms for/ }).click();
-  await contributor
-    .getByLabel("Choose a phone video")
-    .setInputFiles(process.env.E2E_VIDEO!);
+  await expect(contributor.locator('input[type="file"]')).toHaveCount(0);
+  await contributor.getByRole("button", { name: "Open camera", exact: true }).click();
+  await expect(contributor.locator(".camera-capture").getByRole("alert")).toContainText("Allow camera access");
+  await contributor.getByRole("button", { name: "Open camera", exact: true }).click();
+  await expect(contributor.getByLabel("Live camera preview")).toBeVisible();
+  await contributor.getByRole("button", { name: "Start recording", exact: true }).click();
+  await contributor.waitForTimeout(300);
+  await contributor.getByRole("button", { name: "Stop recording", exact: true }).click();
+  await expect(contributor.locator(".camera-capture").getByRole("alert")).toContainText("under 10 seconds");
+  await expect(contributor.getByRole("button", { name: "Submit recording", exact: true })).toBeDisabled();
+  await contributor.getByRole("button", { name: "Retake recording", exact: true }).click();
+  await contributor.getByRole("button", { name: "Open camera", exact: true }).click();
+  await contributor.getByRole("button", { name: "Start recording", exact: true }).click();
+  await contributor.waitForTimeout(10100);
+  await contributor.getByRole("button", { name: "Stop recording", exact: true }).click();
+  await expect(contributor.getByLabel("Recorded video review")).toBeVisible();
   await expect(contributor.getByRole("checkbox")).toHaveCount(0);
-  await contributor
-    .getByRole("button", { name: "Upload video", exact: true })
-    .click();
+  const recordedUpload = contributor.waitForRequest(request => request.method() === "POST" && request.url().includes("/media?"));
+  await contributor.getByRole("button", { name: "Submit recording", exact: true }).click();
+  expect((await recordedUpload).headers()["x-capture-token"]).toBeTruthy();
   await expect(contributor.getByText("queued", { exact: true })).toBeVisible();
   const root = path.resolve(__dirname, "../../..");
   const worker = spawnSync(

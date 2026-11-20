@@ -209,3 +209,17 @@ Production build passed. V1 funded-job binding, V2 atomic batches, automatic
 non-paying rejection, deadline release, reverted-batch retry and restart projection
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
+
+## Camera-only contributor capture (2026-11-20)
+
+| Requirement | Evidence | Result / limit |
+| --- | --- | --- |
+| Video upload authorization | Real-PostgreSQL tests cover missing, foreign, expired, consumed and concurrent capture-token reuse plus unchanged image uploads | Full backend suite: 169 passed, 23 chain-gated skips; capture token is reservation/wallet bound and consumed transactionally |
+| Browser media validation | `tests/test_media.py` covers MP4/MOV and WebM headers/codecs and bounded decoder failures | 25 passed |
+| Camera helper behavior | `apps/web/tests/camera.cjs` plus existing publishing helpers | 14 of 14 web unit tests passed |
+| Contributor UI | Playwright `buyer plan` flow stubs `getUserMedia`/`MediaRecorder`; covers denial/retry, no video file input, short rejection, review, retake and `X-Capture-Token` | 1 affected Chromium flow passed |
+| Compilation | Web typecheck and Next production build | Passed; build required network access only for the existing Google Font fetch |
+
+These deterministic tests do not prove a physical camera, real phone-browser
+compatibility, camera authenticity, liveness, or remote HTTPS configuration. No Arc
+transaction, deployment or live model call occurred for this slice.

@@ -14,7 +14,7 @@ from framebounty.models import Job
 from framebounty.verification import GeminiFrames, ProviderFailure
 from framebounty.worker import run_once
 from test_postgres import pg
-from test_submission_flow import flow, video
+from test_submission_flow import flow, open_capture, video
 
 
 def image_bytes(fmt="PNG", size=(320, 240)):
@@ -126,8 +126,9 @@ def test_non_towel_video_uses_its_own_post_criteria(pg, flow, video):
     reservation = client.post("/reservations", headers=actor, json={"confirmation_id": confirmation["confirmation_id"],
         "task_id": task["task_id"], "version": task["version"], "reward_atomic": task["reward_atomic"],
         "confirmed": True, "idempotency_key": "general-video-reservation"}).json()
+    capture = open_capture(client, actor, reservation["id"]).json()["token"]
     uploaded = client.post(f"/reservations/{reservation['id']}/media?rights_ack=true", content=video,
-        headers={**actor, "Content-Type": "video/mp4"})
+        headers={**actor, "Content-Type": "video/mp4", "X-Capture-Token": capture})
     assert uploaded.status_code == 200
     assert run_once(pg)
     findings = client.get(f"/submissions/{uploaded.json()['id']}", headers=buyer).json()["findings"]

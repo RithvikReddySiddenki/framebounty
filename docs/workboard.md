@@ -22,6 +22,13 @@ isolated schemas. Existing running preview and database unchanged. Setup guide
 docs/CIRCLE_SETUP.md and decision 0013 explain user account setup and remaining
 live gates. Real Google/Circle login and real-USDC settlement remain unverified;
 mainnet spend is zero. Contract milestone already pushed as 2954a04.
+## Active slice: camera-only contributor capture (2026-11-20)
+
+Owner: Codex on `feat/in-app-camera`, based on `origin/main` at `4e30c64`.
+
+Approved behavior: video contributors open the camera after reservation, record 10–30 seconds inside FrameBounty, review/retake, and submit. The video file picker is removed. Image posts are unchanged. The backend requires a short-lived reservation-bound capture token and accepts browser WebM as well as MP4/MOV. This is not a liveness or physical-camera authenticity claim.
+
+Plan and acceptance criteria: `docs/plans/2026-11-20-in-app-camera.md`. No contract ABI or payment-rule change.
 
 2026-11-19 buyer-agent timeout fix (implementation lead): API health succeeds but
 the browser uses a 15-second timeout for 45-second model requests (up to two calls
@@ -288,3 +295,16 @@ fee 0.034230105 test USDC versus cap 0.0991465. Migration 0006 preserved existin
 balances and original funded-job bindings. New default collections use V2. Existing
 V1 release requires its original per-submission wallet approvals; verifier rejection
 budget releases at V1 timeout. Live smokes used generated media only; buyer keys never enter the backend.
+
+2026-11-20 camera-only contributor capture (implementation lead): video tasks now
+use explicit in-app camera recording after reservation, with live preview, 10-30
+second bounds, review/retake and no microphone request or existing-video picker.
+Migration 0008 stores only hashed, short-lived capture credentials bound to the
+reservation/wallet; video finalization consumes the credential transactionally.
+Images retain their JPEG/PNG picker. Browser MP4 and WebM are supported. This is a
+workflow boundary, not liveness or camera-provenance proof, and remote devices require
+HTTPS. Validation to date: full backend suite 169 passed with 23 chain-gated skips,
+25 media tests and the explicit concurrency regression passed, plus 14 web unit
+tests, web typecheck/build and one affected Chromium flow. Physical-phone validation
+and remote CI remain pending. No deployment, Arc
+transaction, payment-policy, contract or ABI change is part of this slice.

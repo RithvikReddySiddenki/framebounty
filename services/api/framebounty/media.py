@@ -46,11 +46,14 @@ class LocalStorage:
         return digest.hexdigest()
 
 
-def validate_container_header(header: bytes):
-    # MP4/MOV is the first supported upload family. Header detection is only an
-    # early rejection heuristic; ffprobe and full decode remain mandatory.
-    if len(header) < 12 or header[4:8] != b"ftyp":
-        raise InvalidMedia("Upload an MP4 or MOV video; file content did not match")
+def validate_container_header(header: bytes, expected_mime: str | None = None):
+    """Reject obvious container/MIME mismatches before bounded FFmpeg decode."""
+    is_mp4 = len(header) >= 12 and header[4:8] == b"ftyp"
+    is_webm = len(header) >= 4 and header[:4] == b"\x1aE\xdf\xa3"
+    expected_matches = ((expected_mime == "video/webm" and is_webm) or
+                        (expected_mime in {"video/mp4", "video/quicktime"} and is_mp4))
+    if not (expected_matches if expected_mime else is_mp4 or is_webm):
+        raise InvalidMedia("Upload an in-app MP4 or WebM recording; file content did not match")
 
 
 def validate_image_header(header: bytes):
@@ -119,8 +122,8 @@ def validate_probe(payload: dict) -> VideoMetadata:
         if min(width, height) < 240 or max(width, height) > 3840 or width * height > 3840 * 2160:
             raise InvalidMedia("Video dimensions are outside supported limits")
         codec = video["codec_name"]
-        if codec not in {"h264", "hevc", "mpeg4"}:
-            raise InvalidMedia("Unsupported video codec; use H.264 or HEVC in MP4/MOV")
+        if codec not in {"h264", "hevc", "mpeg4", "vp8", "vp9", "av1"}:
+            raise InvalidMedia("Unsupported video codec; use H.264/HEVC in MP4 or VP8/VP9/AV1 in WebM")
         rate = str(video.get("avg_frame_rate", "0/1"))
         numerator, denominator = rate.split("/")
         fps = Decimal(numerator) / Decimal(denominator)

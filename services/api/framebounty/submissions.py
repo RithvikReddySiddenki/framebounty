@@ -3,8 +3,10 @@
 Upload bytes are staged before locking budget rows. Finalization rechecks owner,
 reservation state and expiry atomically. Accepted fixture work is never called paid.
 """
+import hashlib
 import os
 from .networks import chain_enabled
+import secrets
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
@@ -13,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from .marketplace import audit, new_id
 from .media import LocalStorage
-from .models import Job, Reservation, Submission, Task, VerificationJob
+from .models import CaptureSession, Job, Reservation, Submission, Task, VerificationJob
+
+CAPTURE_TTL = timedelta(minutes=10)
 
 
 def owned_reservation(db: Session, reservation_id: str, wallet: str) -> Reservation:
@@ -23,10 +27,55 @@ def owned_reservation(db: Session, reservation_id: str, wallet: str) -> Reservat
     return item
 
 
-def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, digest: str, size: int, mime: str, model_ack: bool = False) -> Submission:
+def capture_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def issue_capture_session(db: Session, wallet: str, reservation_id: str) -> tuple[str, datetime]:
+    """Issue a one-use video-capture grant without claiming camera authenticity."""
+    reservation = owned_reservation(db, reservation_id, wallet)
+    job = db.get(Job, reservation.job_id)
+    now = datetime.now(UTC)
+    if job.plan.get("media_type", "video") != "video":
+        raise HTTPException(409, "This reservation does not require video capture")
+    if db.scalar(select(Submission.id).where(Submission.reservation_id == reservation_id)):
+        raise HTTPException(409, "This reservation already has a submission")
+    if reservation.state not in {"fixture_reserved", "reserved"} or reservation.expires_at <= now:
+        raise HTTPException(409, "Reservation no longer accepts camera capture")
+    token = secrets.token_urlsafe(32)
+    expires = min(reservation.expires_at, now + CAPTURE_TTL)
+    db.add(CaptureSession(token_hash=capture_token_hash(token), reservation_id=reservation.id,
+                          wallet=wallet, expires_at=expires, used=False))
+    audit(db, wallet, "contributor", "open_camera_capture", reservation.id, {"expires_at": expires.isoformat()})
+    db.commit()
+    return token, expires
+
+
+def validate_capture_session(db: Session, wallet: str, reservation_id: str, token_hash: str,
+                             lock: bool = False) -> CaptureSession:
+    query = select(CaptureSession).where(CaptureSession.token_hash == token_hash)
+    if lock:
+        query = query.with_for_update()
+    capture = db.scalar(query)
+    if capture is None or capture.wallet != wallet or capture.reservation_id != reservation_id:
+        raise HTTPException(422, "Open the camera for this reservation before submitting")
+    old = db.scalar(select(Submission.id).where(Submission.reservation_id == reservation_id))
+    # A consumed token may replay the exact bytes after an uncertain HTTP response.
+    if not old and (capture.used or capture.expires_at <= datetime.now(UTC)):
+        raise HTTPException(409, "Camera session expired or was already used; open the camera again")
+    return capture
+
+
+def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, digest: str, size: int, mime: str,
+                    model_ack: bool = False, capture_hash: str | None = None) -> Submission:
     reference = owned_reservation(db, reservation_id, wallet)
     job = db.scalar(select(Job).where(Job.id == reference.job_id).with_for_update().execution_options(populate_existing=True))
     reservation = db.scalar(select(Reservation).where(Reservation.id == reservation_id).with_for_update().execution_options(populate_existing=True))
+    capture = None
+    if mime.startswith("video/"):
+        if not capture_hash:
+            raise HTTPException(422, "Open the camera for this reservation before submitting")
+        capture = validate_capture_session(db, wallet, reservation_id, capture_hash, lock=True)
     old = db.scalar(select(Submission).where(Submission.reservation_id == reservation_id))
     if old:
         if old.sha256 != digest:
@@ -44,6 +93,8 @@ def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, dig
         state="queued" if fixture else "chain_pending", findings={"model_consent": model_ack, "protected": job.protection_version >= 3}, reviewed_tags=[],
         review_deadline=datetime.now(UTC) + timedelta(hours=job.plan["review_hours"]))
     db.add(item)
+    if capture is not None:
+        capture.used = True
     db.flush()  # The durable job FK is written in the same transaction as submission.
     if fixture:
         db.add(VerificationJob(id=new_id(), submission_id=item.id, state="queued", attempts=0))
