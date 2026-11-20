@@ -1,5 +1,17 @@
 # Workboard
 
+2026-11-20 user-approved permanent hosted content purge: after confirming zero
+live unsettled contributor obligations, stopped the owned API/workers, reset the
+new active post, deleted 21 conversations / 36 messages and all 23 private storage
+objects, and verified the bucket empty. Original post descriptions, usage-rights
+text, assessment content and audit detail payloads were scrubbed. Historical
+content is intentionally unavailable; original chain commitment hashes remain.
+Retained monetary terms, escrow bindings, 16 jobs, 8 reservations, 6 submission
+receipt records and 37 transaction intents for funds recovery/reconciliation.
+All posts archived and app sessions revoked. Restarted in a fresh container to
+discard the old ephemeral media cache. Operator manifest stays ignored; this
+operation changed hosted content only, not contract state or wallet balances.
+
 2026-11-20 draft removal follow-up: actual hosted draft has zero chain funding but
 an unbroadcast deposit intent with a Circle challenge. Inspect the signed-in
 owner's challenge before removal: FAILED/EXPIRED with no live correlated transfer
