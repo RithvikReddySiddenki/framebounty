@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { request, usdc } from "./api";
 import type { PlanProposal } from "./agent-pane";
 import Funding from "./funding";
-import { Icon, Lifecycle, Stat, JOB_STEPS } from "./ui";
+import { Icon, Lifecycle, Requirements, Stat, JOB_STEPS } from "./ui";
 
 type Plan = PlanProposal & { media_type: "image" | "video"; posting_hours?: number; expected_minutes?: number };
 
@@ -120,17 +120,14 @@ export default function PostComposer({ token, onChanged, onView }: {
       <h3>{plan.title}</h3>
       <Lifecycle steps={JOB_STEPS} progress={progress} label="Post lifecycle" />
       <div className="stat-row">
-        <Stat label="Items" value={plan.total} unit={unit} />
-        <Stat label="Reward / item" value={usdc(String(plan.reward_atomic))} unit="USDC" />
-        <Stat label="Total budget" value={usdc(String(plan.budget_atomic))} unit="USDC" />
+        <Stat icon="grid" label="Items" value={plan.total} unit={unit} />
+        <Stat icon="coins" tone="money" label={plan.media_type === "image" ? "Reward / image" : "Reward / clip"} value={usdc(String(plan.reward_atomic))} unit="USDC" />
+        <Stat icon="lock" tone="money" label="Total budget" value={usdc(String(plan.budget_atomic))} unit="USDC" />
         {plan.media_type === "video"
-          ? <Stat label="Clip length" value={`${plan.min_seconds}–${plan.max_seconds}`} unit="sec" />
-          : <Stat label="Open for" value={plan.posting_hours || 24} unit="hrs" />}
+          ? <Stat icon="clock" label="Clip length" value={`${plan.min_seconds}–${plan.max_seconds}`} unit="sec" />
+          : <Stat icon="clock" label="Open for" value={plan.posting_hours || 24} unit="hrs" />}
       </div>
-      <p className="section-label">Requirements (AI checks each one)</p>
-      <ul className="requirements">
-        {plan.requirements.map(r => <li key={r.key}><Icon name="check" /><span>{r.description}</span><span className="min">≥ {r.minimum}</span></li>)}
-      </ul>
+      <Requirements items={plan.requirements} />
       <details>
         <summary>Usage rights & payment terms</summary>
         <p className="muted"><strong>Usage rights:</strong> {plan.rights_declaration}</p>

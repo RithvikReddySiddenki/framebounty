@@ -5,7 +5,7 @@ import Funding from "./funding";
 import Reviews from "./reviews";
 import RefundUnused from "./refund-unused";
 import type { PlanProposal } from "./agent-pane";
-import { ExplorerLink, Icon, JOB_STEPS, Lifecycle, Stat, jobProgress, short } from "./ui";
+import { ExplorerLink, Icon, JOB_STEPS, Lifecycle, Requirements, Stat, jobProgress, short } from "./ui";
 
 type Post = { protection_version?: number; expires_at?: string | null; id: string; title: string; state: string; fixture: boolean; media_type: "image" | "video";
   publication_status: string; open_slots: number; plan: PlanProposal; plan_hash: string; deposited_atomic: string; paid_atomic: string; available_atomic?: string };
@@ -74,15 +74,14 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       </div>
       <Lifecycle steps={JOB_STEPS} progress={jobProgress(post)} label="Post lifecycle" />
       <div className="stat-row">
-        <Stat label="Items" value={post.plan.total} unit={unit} />
-        <Stat label="Reward / item" value={usdc(String(post.plan.reward_atomic))} unit="USDC" />
-        <Stat label="Funded" value={usdc(post.deposited_atomic)} unit="USDC" />
-        <Stat label="Paid" value={usdc(post.paid_atomic)} unit="USDC" />
-        <Stat label="Available slots" value={post.open_slots} />
+        <Stat icon="grid" label="Items" value={post.plan.total} unit={unit} />
+        <Stat icon="coins" tone="money" label={post.media_type === "image" ? "Reward / image" : "Reward / clip"} value={usdc(String(post.plan.reward_atomic))} unit="USDC" />
+        <Stat icon="lock" tone="money" label="Funded" value={usdc(post.deposited_atomic)} unit="USDC" />
+        <Stat icon="check" tone="money" label="Paid" value={usdc(post.paid_atomic)} unit="USDC" />
+        <Stat icon="search" label="Available slots" value={post.open_slots} />
       </div>
       {post.protection_version === 3 && <p className="notice">Protected budget locked until {post.expires_at ? new Date(post.expires_at).toLocaleString() : "publication expires"}. Requirements are fixed. Verified work pays automatically after one hour.</p>}
-      <p className="section-label">Requirements{post.media_type === "video" ? ` · ${post.plan.min_seconds}–${post.plan.max_seconds} seconds per video` : ""}</p>
-      <ul className="requirements">{post.plan.requirements.map(r => <li key={r.key}><Icon name="check" /><span>{r.description}</span><span className="min">≥ {r.minimum}</span></li>)}</ul>
+      <Requirements items={post.plan.requirements} note={post.media_type === "video" ? `${post.plan.min_seconds}–${post.plan.max_seconds} seconds per video · AI checks each one` : undefined} />
       <details><summary>Usage rights</summary><p className="muted">{post.plan.rights_declaration}</p></details>
       <Proof post={post} />
       {post.state === "draft" && <p className="notice">This post is saved privately. Complete funding to make tasks visible to contributors.</p>}

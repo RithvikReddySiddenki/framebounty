@@ -180,7 +180,6 @@ export default function Workspace() {
         <section className="hero-stage rise" style={delay(420)} aria-label="Illustrative example of a verified payout">
           <div className="float-card clip-card">
             <div className="clip-frame">
-              <span className="scan" aria-hidden="true" />
               <span className="play" aria-hidden="true">▶</span>
               <span className="clip-time mono">0:18</span>
             </div>

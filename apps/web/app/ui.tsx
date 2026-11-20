@@ -103,8 +103,28 @@ export function StatePill({ state }: { state: string }) {
   return <span className={`pill tone-${stateTone(state)}`}>{state.replaceAll("_", " ")}</span>;
 }
 
-export function Stat({ label, value, unit }: { label: string; value: React.ReactNode; unit?: string }) {
-  return <div className="stat"><span>{label}</span><strong>{value}{unit && <small>{unit}</small>}</strong></div>;
+/** A labelled figure. `icon` adds a soft tinted tile; `tone="money"` marks a
+ * USDC amount (green), per the color rules in globals.css. */
+export function Stat({ label, value, unit, icon, tone }: {
+  label: string; value: React.ReactNode; unit?: string; icon?: IconName; tone?: "money" | "chain";
+}) {
+  return <div className={`stat${tone ? ` stat-${tone}` : ""}`}>
+    {icon && <span className={`stat-icon${tone ? ` tile-${tone}` : ""}`}><Icon name={icon} /></span>}
+    <span className="stat-label">{label}</span>
+    <strong>{value}{unit && <small>{unit}</small>}</strong>
+  </div>;
+}
+
+/** Requirements as a checklist card: what AI verification will check. */
+export function Requirements({ items, title = "Requirements", note = "AI checks every submission against each one" }: {
+  items: { key: string; description: string; minimum?: number }[]; title?: string; note?: string;
+}) {
+  return <div className="req-card">
+    <div className="req-head"><strong>{title}</strong><span className="muted">{note}</span></div>
+    <ul className="requirements">
+      {items.map(r => <li key={r.key}><span className="req-tick"><Icon name="check" /></span><span>{r.description}</span>{r.minimum !== undefined && <span className="min">≥ {r.minimum}</span>}</li>)}
+    </ul>
+  </div>;
 }
 
 export const EXPLORER = "https://explorer.testnet.arc.io";

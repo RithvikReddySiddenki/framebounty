@@ -309,7 +309,6 @@ details[open] > summary { margin-bottom: 10px; }
   background: repeating-linear-gradient(135deg, #1f1f1f 0 14px, #1b1b1b 14px 28px);
   display: grid; place-items: center;
 }
-.scan { position: absolute; left: 0; right: 0; height: 2px; background: var(--money); opacity: 0.8; animation: scan 2.6s ease-in-out infinite; }
 .play { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 15px; padding-left: 3px; }
 .clip-time { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #d0d0d0; background: rgba(0, 0, 0, 0.5); padding: 1px 6px; border-radius: 6px; }
 .clip-meta { padding: 12px 4px 4px; display: grid; gap: 8px; text-align: left; }
@@ -384,17 +383,16 @@ details[open] > summary { margin-bottom: 10px; }
 .who-chain { color: var(--chain); }
 .who-contributor { color: var(--warn); }
 
-/* Motion: entrance, gentle float, scan, sequential checks, travelling dot. */
+/* Motion: entrance, gentle float, sequential checks, travelling dot. */
 .rise { animation: rise 0.8s cubic-bezier(.2,.7,.2,1) var(--d, 0ms) backwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(16px); } }
 @keyframes reveal { from { opacity: 0; transform: translateY(8px); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
-@keyframes scan { 0% { top: 6%; } 50% { top: 92%; } 100% { top: 6%; } }
 @keyframes blinkout { from { opacity: 1; } to { opacity: 0; } }
 @keyframes fill { from { width: 0; } }
 @keyframes travel { 0% { left: 0; } 50% { left: calc(100% - 8px); } 100% { left: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .rise, .float-card, .receipt-card, .scan, .chk-pass, .confidence i, .steps-track i { animation: none !important; }
+  .rise, .float-card, .receipt-card, .chk-pass, .confidence i, .steps-track i { animation: none !important; }
   .chk-pending { display: none; }
   .step:hover, .way:hover { transform: none; }
 }
@@ -544,16 +542,39 @@ details[open] > summary { margin-bottom: 10px; }
 .post-status { font-family: var(--mono); font-size: 11px; color: var(--warn); }
 .post-status.is-open { color: var(--money); }
 .post-preview h3, .post-detail h2 { margin-bottom: 4px; }
-.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 11px; overflow: hidden; margin: 16px 0; }
-.stat { background: var(--surface); padding: 11px 14px; }
-.post-preview .stat { background: var(--bg-2); }
-.stat span { display: block; font-size: 11px; color: var(--muted); }
-.stat strong { display: block; font-family: var(--mono); font-size: 16px; font-weight: 500; margin-top: 2px; }
-.stat strong small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+/* Figures as separate soft tiles: grey on white cards, white on grey cards. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 18px 0; }
+.stat { background: var(--surface); border-radius: 12px; padding: 14px; display: grid; gap: 2px; align-content: start; }
+.panel .stat, .post-detail .stat { background: var(--surface-2); border: 1px solid var(--line); }
+.panel .post-preview .stat { background: var(--surface); border-color: transparent; }
+.stat-icon {
+  width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; margin-bottom: 10px;
+  background: var(--surface-3); color: var(--text-2); border: 1px solid transparent;
+}
+.stat-icon .icon { width: 15px; height: 15px; }
+.stat-icon.tile-money { background: var(--money-soft); color: var(--money); border-color: var(--money-line); }
+.stat-icon.tile-chain { background: var(--chain-soft); color: var(--chain); border-color: var(--chain-line); }
+.stat-label { font-size: 12px; color: var(--muted); }
+.stat strong { display: block; font-family: var(--mono); font-size: 20px; font-weight: 500; letter-spacing: -0.02em; margin-top: 2px; }
+.stat strong small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; letter-spacing: 0; }
+.stat-money strong { color: var(--money); }
+.stat-chain strong { color: var(--chain); }
+/* Contributor summary tiles predate the Stat component (plain spans). */
+.stat > span:not(.stat-icon):not(.stat-label) { display: block; font-size: 12px; color: var(--muted); }
+
+/* Requirements checklist */
+.req-card { margin-top: 4px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface-2); }
+.req-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.req-head strong { font-size: 13px; font-weight: 600; }
+.req-card .requirements { margin: 0; gap: 0; }
+.req-card .requirements li { padding: 12px 16px; align-items: center; }
+.req-card .requirements li + li { border-top: 1px solid var(--line); }
 .requirements { list-style: none; padding: 0; display: grid; gap: 8px; margin-top: 8px; }
-.requirements li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text-2); }
-.requirements li .icon { color: var(--text-2); margin-top: 2px; }
-.requirements li .min { margin-left: auto; font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.requirements li { display: flex; gap: 12px; align-items: flex-start; font-size: 13.5px; color: var(--text); }
+.requirements li > .icon { color: var(--text-2); margin-top: 2px; }
+.req-tick { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); }
+.req-tick .icon { width: 13px; height: 13px; }
+.requirements li .min { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; background: var(--surface); border-radius: 6px; padding: 2px 8px; }
 .section-label { font-size: 12px; font-weight: 500; color: var(--text); margin-top: 16px; }
 .post-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .post-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text-2); }
