@@ -319,17 +319,20 @@ details[open] > summary { margin-bottom: 10px; }
 .signin-help p, .signin-help li { color: var(--text-2); font-size: 13px; }
 .signin-help ol { padding-left: 18px; margin: 0; display: grid; gap: 6px; }
 
-/* ---------- Landing phone: one contributor journey on a 12s loop ---------- */
+/* ---------- Landing browser window: one contributor journey on a 12s loop ---------- */
 .hero-phone { position: relative; display: grid; justify-items: center; padding: 10px 0 34px; }
 .phone {
-  position: relative; width: 290px; height: 590px; border-radius: 46px; padding: 12px;
+  position: relative; width: 100%; max-width: 500px; border-radius: 16px; overflow: hidden;
   background: #1a1a1a; border: 1px solid #2e2e2e;
-  box-shadow: 0 0 0 6px #0d0d0d, 0 40px 90px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
   animation: float 8s ease-in-out infinite;
 }
-.phone-notch { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 92px; height: 26px; border-radius: 999px; background: #000; z-index: 3; }
-.phone-screen { position: relative; height: 100%; border-radius: 36px; overflow: hidden; background: #ffffff; color: #141414; }
-.ps { position: absolute; inset: 0; padding: 64px 20px 24px; display: flex; flex-direction: column; gap: 14px; opacity: 0; animation: screen 12s infinite; }
+.browser-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; }
+.browser-bar .dots { display: inline-flex; gap: 6px; }
+.browser-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a3a3a; }
+.browser-bar .url { flex: 1; text-align: center; font-size: 11.5px; color: #8a8a8a; background: #0f0f0f; border-radius: 7px; padding: 4px 10px; margin-right: 46px; }
+.phone-screen { position: relative; height: 360px; overflow: hidden; background: #ffffff; color: #141414; }
+.ps { position: absolute; inset: 0; padding: 26px 28px; display: flex; flex-direction: column; gap: 12px; opacity: 0; animation: screen 12s infinite; }
 .ps-task { animation-delay: 0s; }
 .ps-record { animation-delay: 3s; }
 .ps-check { animation-delay: 6s; }
@@ -340,28 +343,30 @@ details[open] > summary { margin-bottom: 10px; }
   25%, 100% { opacity: 0; transform: translateY(-8px); }
 }
 .ps-kicker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6e6e6e; font-weight: 500; }
-.ps-card { background: #f4f4f4; border-radius: 18px; padding: 16px; display: grid; gap: 8px; }
+.ps-card { background: #f4f4f4; border-radius: 16px; padding: 16px 18px; display: grid; gap: 6px; grid-template-columns: 1fr auto; align-items: start; }
+.ps-card .tag, .ps-card strong, .ps-card ul { grid-column: 1; }
+.ps-card .ps-reward { grid-column: 2; grid-row: 1 / span 2; }
 .ps-card .tag { justify-self: start; background: #fff; border-color: #e6e6e6; color: #3d3d3d; }
 .ps-card strong { font-size: 18px; letter-spacing: -0.02em; }
 .ps-reward { font-size: 30px; font-weight: 600; color: #0e9f6e; letter-spacing: -0.03em; }
 .ps-card ul { list-style: none; padding: 0; display: grid; gap: 6px; font-size: 12.5px; color: #3d3d3d; }
 .ps-card li { display: flex; align-items: center; gap: 6px; }
 .ps-card li .icon { width: 13px; height: 13px; color: #0e9f6e; }
-.ps-button { margin-top: auto; text-align: center; background: #6142ff; color: #fff; font-weight: 600; border-radius: 14px; padding: 13px; font-size: 14px; }
+.ps-button { margin-top: auto; align-self: flex-end; padding-left: 28px !important; padding-right: 28px !important; text-align: center; background: #6142ff; color: #fff; font-weight: 600; border-radius: 14px; padding: 13px; font-size: 14px; }
 .ps-record { background: #0b0b0b; padding: 0; }
 .ps-frame {
   position: absolute; inset: 0;
   background: radial-gradient(120% 70% at 50% 60%, #3a3a3a 0, #161616 70%);
 }
 .ps-frame::after { /* framing guide */
-  content: ""; position: absolute; inset: 120px 28px 170px; border: 2px dashed rgba(255, 255, 255, 0.35); border-radius: 18px;
+  content: ""; position: absolute; inset: 44px 70px 84px; border: 2px dashed rgba(255, 255, 255, 0.35); border-radius: 18px;
 }
-.ps-rec { position: absolute; top: 62px; left: 20px; display: inline-flex; align-items: center; gap: 6px; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+.ps-rec { position: absolute; top: 16px; left: 18px; display: inline-flex; align-items: center; gap: 6px; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
 .ps-rec i { width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d; animation: blink 1s infinite; }
-.ps-timer { position: absolute; top: 60px; right: 20px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 8px; }
-.ps-shutter { position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%); width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff; display: grid; place-items: center; }
+.ps-timer { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 8px; }
+.ps-shutter { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; border-radius: 50%; border: 4px solid #fff; display: grid; place-items: center; }
 .ps-shutter::after { content: ""; width: 26px; height: 26px; border-radius: 7px; background: #ff4d4d; }
-.ps-line { display: flex; justify-content: space-between; align-items: center; background: #f4f4f4; border-radius: 14px; padding: 13px 14px; font-size: 14px; font-weight: 500; }
+.ps-line { display: flex; justify-content: space-between; align-items: center; background: #f4f4f4; border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 500; }
 .ps-pass { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #0e9f6e; color: #fff; opacity: 0; animation: tick 12s infinite; animation-delay: calc(6.6s + var(--i) * 0.55s); }
 .ps-pass .icon { width: 13px; height: 13px; }
 @keyframes tick { 0% { opacity: 0; transform: scale(0.4); } 2%, 18% { opacity: 1; transform: none; } 21%, 100% { opacity: 0; } }
@@ -377,9 +382,9 @@ details[open] > summary { margin-bottom: 10px; }
   box-shadow: var(--shadow-float); animation: float 7s ease-in-out infinite;
 }
 .float-chip .icon { width: 15px; height: 15px; }
-.chip-verified { left: -4%; top: 34%; animation-delay: -2s; }
+.chip-verified { left: -6%; top: 70%; animation-delay: -2s; }
 .chip-verified .icon { color: var(--money); }
-.chip-paid { right: -2%; top: 64%; background: #ffffff; color: #0e9f6e; border-color: transparent; animation-delay: -4.5s; }
+.chip-paid { right: -4%; top: 3%; background: #ffffff; color: #0e9f6e; border-color: transparent; animation-delay: -4.5s; }
 .stage-caption { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 11.5px; color: var(--muted); }
 
 /* Trust strip */
@@ -833,6 +838,36 @@ details[open] > summary { margin-bottom: 10px; }
 .camera-capture [role="timer"] { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .camera-capture [role="timer"]::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: blink 1s infinite; }
 
+/* ---------- Buyer progress ---------- */
+.cov-total { display: flex; align-items: center; gap: 22px; }
+.cov-ring { position: relative; width: 120px; height: 120px; flex: none; }
+.cov-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: var(--surface-3); stroke-width: 10; }
+.ring-fill { fill: none; stroke: var(--money); stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray 0.8s cubic-bezier(.2,.7,.2,1); animation: ring 1.2s cubic-bezier(.2,.7,.2,1) backwards; }
+@keyframes ring { from { stroke-dasharray: 0 100; } }
+.ring-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+.cov-count .cov-number { font-size: 56px; }
+.recordings-head { margin-top: 26px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.recordings-head h3 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.count-badge { font-size: 12px; font-weight: 500; background: var(--surface-3); color: var(--text-2); border-radius: 999px; padding: 1px 8px; }
+.glance { display: flex; flex-wrap: wrap; gap: 6px; }
+.glance-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid; border-radius: 999px; padding: 3px 9px 3px 7px; font-size: 11.5px; animation: pop 0.4s cubic-bezier(.2,.7,.2,1) backwards; }
+.glance-chip .icon { width: 12px; height: 12px; }
+.review-toolbar button.primary .icon { width: 15px; height: 15px; transform: rotate(180deg); }
+/* Releasing money is the buyer's one decision: make it a clear pay card. */
+.release-card, .panel .notice.release-card { margin-top: 18px; border: 0; border-left: 0; background: #0b0b0b; color: #f5f5f5; border-radius: 18px; padding: 22px 24px; display: grid; gap: 10px; }
+.release-card h3 { color: #f5f5f5; font-size: 18px; }
+.release-card > p { color: #a3a3a3; font-size: 13px; }
+.release-card button.primary { justify-self: start; padding: 12px 20px; font-size: 14px; border-radius: 12px; }
+.release-card [role="status"] { color: #3ddc97; font-weight: 500; }
+.proof h4 { text-transform: none; }
+@media (max-width: 900px) {
+  .cov-total { gap: 16px; }
+  .cov-ring { width: 96px; height: 96px; }
+  .ring-pct { font-size: 18px; }
+  .cov-count .cov-number { font-size: 44px; }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .how-it-works .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -846,9 +881,8 @@ details[open] > summary { margin-bottom: 10px; }
   .hero-sub { font-size: 15.5px; }
   .hero-cta { max-width: none; }
   .nav-right .environment-badge { display: none; }
-  .phone { width: 250px; height: 510px; }
-  .chip-verified { left: 0; top: 56%; }
-  .chip-paid { right: 0; top: 70%; }
+  .phone-screen { height: 330px; }
+  .float-chip { display: none; }
   .trust { grid-template-columns: 1fr; margin-top: 48px; }
   .trust > div + div { border-left: 0; border-top: 1px solid var(--line); }
   .earnings-card { grid-template-columns: 1fr; padding: 22px; }

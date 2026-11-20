@@ -171,7 +171,7 @@ export default function Workspace() {
           <div className="hero-copy">
             <p className="motto rise" style={delay(60)}>{MOTTO}</p>
             <h1 className="rise" style={delay(140)}>Film a task.<br /><span>Get paid in minutes.</span></h1>
-            <p className="hero-sub rise" style={delay(220)}>Pick a short task, record it on your phone, and get paid as soon as AI confirms it&apos;s done. Teams building AI get real-world data they can trust.</p>
+            <p className="hero-sub rise" style={delay(220)}>Pick a short task, record it with your camera right in the browser, and get paid as soon as AI confirms it&apos;s done. Teams building AI get real-world data they can trust.</p>
             <section id="signin" className="hero-cta rise" style={delay(300)} aria-label="Sign in">
               <CircleLogin authenticated={authenticated => { attemptRef.current += 1; sessionRef.current = authenticated; setSession(authenticated); setAuthError(""); }} />
               <div className="or-divider"><span>or</span></div>
@@ -194,11 +194,11 @@ export default function Workspace() {
             </section>
           </div>
 
-          {/* A phone playing one contributor's journey on a loop: static
-              illustration, not live data, and labelled as such. */}
+          {/* A browser window playing one contributor's journey on a loop:
+              static illustration, not live data, and labelled as such. */}
           <div className="hero-phone rise" style={delay(380)} aria-label="Illustrative example of a contributor getting paid">
             <div className="phone">
-              <div className="phone-notch" />
+              <div className="browser-bar"><span className="dots"><i /><i /><i /></span><span className="url mono">framebounty.app</span></div>
               <div className="phone-screen">
                 <div className="ps ps-task">
                   <p className="ps-kicker">Task for you</p>
