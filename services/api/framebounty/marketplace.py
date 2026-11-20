@@ -37,24 +37,39 @@ def create_job(db: Session, wallet: str, plan: Plan) -> Job:
     return job
 
 
-def search_tasks(db: Session, equipment: set[str], minutes: int | None) -> list[dict]:
-    now = datetime.now(UTC)
-    rows = db.execute(select(Task, Job).join(Job, Task.job_id == Job.id).where(
-        Job.state == "open", Task.state == "open", Task.deadline > now,
-        Job.fixture == (os.getenv("APP_MODE", "fixture") == "fixture"),
-        *([] if os.getenv("APP_MODE", "fixture") == "fixture" else [Job.chain_id == active_network().chain_id]),
-        Task.equipment.contained_by(sorted(equipment)),
-        Task.claimed < Task.slots, *([] if minutes is None else [Task.minutes <= minutes]),
+def _open_rows(db: Session, *conditions, limit: int) -> list:
+    """Open, unexpired, funded tasks with free slots in the current mode/network."""
+    fixture = os.getenv("APP_MODE", "fixture") == "fixture"
+    return db.execute(select(Task, Job).join(Job, Task.job_id == Job.id).where(
+        Job.state == "open", Task.state == "open", Task.deadline > datetime.now(UTC),
+        Job.fixture == fixture, *([] if fixture else [Job.chain_id == active_network().chain_id]),
+        Task.claimed < Task.slots,
         Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic >= Task.reward_atomic,
-    ).order_by(Task.deadline, Task.id).limit(100)).all()
+        *conditions,
+    ).order_by(Task.deadline, Task.id).limit(limit)).all()
+
+
+def _listing(t: Task, j: Job, explanation: str) -> dict:
+    return dict(task_id=t.id, job_id=j.id, title=j.plan["title"], version=t.version,
+                media_type=j.plan.get("media_type", "video"), reward_atomic=str(t.reward_atomic), tags=t.tags, equipment=t.equipment,
+                minutes=t.minutes, deadline=t.deadline, fixture=j.fixture,
+                requirements=j.plan["requirements"], min_seconds=j.plan["min_seconds"], max_seconds=j.plan["max_seconds"],
+                rubric_hash=j.plan_hash, rights_declaration=j.plan["rights_declaration"],
+                review_hours=j.plan["review_hours"], reviewer=j.reviewer, explanation=explanation)
+
+
+def open_tasks(db: Session, limit: int = 25) -> list[dict]:
+    """Every open task, for contributor chat. Matching only orders this list; it never hides a task."""
+    return [_listing(t, j, "Open to anyone. Check the requirements below to see if it fits.")
+            for t, j in _open_rows(db, limit=limit)]
+
+
+def search_tasks(db: Session, equipment: set[str], minutes: int | None) -> list[dict]:
+    rows = _open_rows(db, Task.equipment.contained_by(sorted(equipment)),
+                      *([] if minutes is None else [Task.minutes <= minutes]), limit=100)
     # Equipment filtering stays deterministic. Do not infer undeclared tools from prose.
-    return [dict(task_id=t.id, job_id=j.id, title=j.plan["title"], version=t.version,
-                 media_type=j.plan.get("media_type", "video"), reward_atomic=str(t.reward_atomic), tags=t.tags, equipment=t.equipment,
-                 minutes=t.minutes, deadline=t.deadline, fixture=j.fixture,
-                 requirements=j.plan["requirements"], min_seconds=j.plan["min_seconds"], max_seconds=j.plan["max_seconds"],
-                 rubric_hash=j.plan_hash, rights_declaration=j.plan["rights_declaration"],
-                 review_hours=j.plan["review_hours"], reviewer=j.reviewer,
-                 explanation=f"Requires {', '.join(t.equipment)}; estimated {t.minutes} minutes" + ("; no time filter requested." if minutes is None else ", within your declared availability."))
+    return [_listing(t, j, f"Requires {', '.join(t.equipment) or 'no special equipment'}; estimated {t.minutes} minutes"
+                     + ("; no time filter requested." if minutes is None else ", within your declared availability."))
             for t, j in rows if set(t.equipment) <= equipment]
 
 

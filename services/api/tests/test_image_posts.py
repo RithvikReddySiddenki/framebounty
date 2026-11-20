@@ -41,7 +41,7 @@ def reserve_image(client, buyer, actor):
     listing = next(p for p in client.get("/me/jobs", headers=buyer).json()["jobs"] if p["id"] == job["id"])
     assert listing["publication_status"] == "open" and listing["open_slots"] == 2
     task = next(t for t in client.get("/tasks?equipment=phone", headers=actor).json()["tasks"] if t["job_id"] == job["id"])
-    assert task["media_type"] == "image" and task["equipment"] == ["phone"]
+    assert task["media_type"] == "image" and task["equipment"] == []  # The browser camera records; no phone required.
     confirmation = client.post(f"/tasks/{task['task_id']}/confirmation", headers=actor).json()
     reserved = client.post("/reservations", headers=actor, json={
         "confirmation_id": confirmation["confirmation_id"], "task_id": task["task_id"], "version": task["version"],

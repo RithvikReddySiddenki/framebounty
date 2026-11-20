@@ -29,7 +29,8 @@ def locked_owned_fixture(db: Session, wallet: str, job_id: str) -> Job:
 def create_batch(db: Session, job: Job, count: int, tags: list[str]) -> list[str]:
     if count == 0 or (job.expires_at and job.expires_at <= datetime.now(UTC)):
         return []
-    equipment = ["phone"]
+    # Work is recorded with the in-app browser camera, so the recording device is never a requirement.
+    equipment = []
     if "large_towel" in {r["key"] for r in job.plan["requirements"]}:
         equipment += ["towel"] + (["dark_table"] if "dark_surface" in tags else [])
     task = Task(id=new_id(), job_id=job.id, version=job.plan["version"],
