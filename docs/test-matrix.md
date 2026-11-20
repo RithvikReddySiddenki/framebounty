@@ -250,6 +250,17 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Google-only / actual testnet activation (2026-11-20)
+
+Backend: 220 passed / 24 separate-chain skips. Web typecheck/build passed.
+Chromium regression: 8 passed / 5 gated skips. New `circle.spec.ts`: 1 passed,
+using the actual Circle SDK with an invalid OAuth state; safe code and retry are
+visible. No successful Google sign-in is claimed. Live Gemini synthetic image
+smokes correctly passed a requested red circle and failed a blue circle against
+the red-circle request, both with model-reported confidence 100. Canonical V4
+deployment receipt/runtime reconciled on real Arc testnet; hosted end-to-end
+testnet payments remain a separate outstanding gate.
+
 ## Camera-only contributor capture (2026-11-20)
 
 | Requirement | Evidence | Result / limit |

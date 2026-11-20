@@ -286,6 +286,9 @@ details[open] > summary { margin-bottom: 10px; }
 .hero h1 span { color: #8f8f8f; }
 .hero-sub { margin: 22px auto 0; max-width: 560px; color: var(--text-2); font-size: 17px; }
 .hero-cta { margin-top: 34px; display: grid; justify-items: center; gap: 12px; }
+.circle-signin { width: min(100%, 380px); display: grid; justify-items: stretch; gap: 12px; }
+.circle-signin .signature-note { justify-content: center; text-align: center; margin: 0; }
+.circle-signin [role="status"] { text-align: center; overflow-wrap: anywhere; color: var(--danger); }
 .hero-actions { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: center; }
 .signin-button { padding: 13px 20px; font-size: 15px; border-radius: 10px; }
 .signin-button .icon:last-child { transition: transform 0.2s; }

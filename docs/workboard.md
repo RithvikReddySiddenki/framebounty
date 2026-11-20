@@ -1,5 +1,30 @@
 # Workboard
 
+2026-11-20 Google-only milestone validated: backend 220 passed / 24 separately
+gated skips; web typecheck and production build passed; existing Chromium suite
+8 passed / 5 gated skips. Additional real-Circle-SDK invalid-state callback test
+passed and exposes safe error code 155140 with retry enabled. This is failure
+handling evidence, not a successful Google account sign-in. Actual Gemini returned
+pass/100 for a generated red circle matching its request and fail/100 for a blue
+circle against that same request. Synthetic examples are not an accuracy benchmark.
+Dedicated hosted V4 escrow deployed and receipt/runtime independently reconciled
+on Arc testnet at 0xfe1cc1f7d94c5ce0344c507384f270bf9eea844b, transaction
+0xebf1d66b33c6a8f52a75fbdb2c7adb35cd6a49723a42e779f45347bde9003d60.
+Fee: 0.048178158 test USDC. Signed deployment state is confirmed; the CLI's final
+local .env update failed because this isolated worktree has no .env. No second
+deployment was sent. Hosted configuration is being updated separately. Full
+hosted image/video testnet payouts and successful Google login remain pending.
+
+2026-11-20 active Google-only / actual-AI testnet fix: user reports sign-in failure,
+requests removing wallet connect and testing real Arc testnet rather than fixture.
+Default frontend hides all legacy wallet UI; explicit local regression flag keeps
+historical browser-wallet suites runnable. Hosted auth will reject legacy login
+and sessions. Add safe SDK/provider error-code diagnostics to reproduce the full
+failed Google callback, not merely its outbound redirect. Real Gemini planner
+smokes correctly extracted seven photos/14 USDC and left unstated counts/budget
+missing. Read-only Arc preflight verified the deployed V3 escrow and funded
+testnet operator. No mainnet work authorized by this update.
+
 2026-11-20 hosted two-account UI gate passed: distinct buyer/contributor wallet
 identities and sessions; buyer-chat plan/publish; contributor-chat exact-job
 discovery/reservation; buyer private editor denied to contributor. Typecheck

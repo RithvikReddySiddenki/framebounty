@@ -31,6 +31,7 @@ def main():
     run_root.mkdir(parents=True)
     url = make_url(database_url).update_query_dict({"options": f"-csearch_path={schema}"}).render_as_string(hide_password=False)
     env = {**os.environ, "DATABASE_URL": url, "APP_MODE": "fixture", "AUTH_ORIGIN": "http://127.0.0.1:3002",
+           "NEXT_PUBLIC_ENABLE_LEGACY_WALLET_LOGIN": "true", "GOOGLE_ONLY_AUTH": "false",
            "NEXT_PUBLIC_API_URL": "http://127.0.0.1:8002", "NEXT_OUTPUT_DIR": ".next-e2e",
            "STORAGE_ROOT": str(run_root / "media"), "PYTHON_BIN": sys.executable,
            "FIXTURE_VERIFICATION_RESULT": "pass", "E2E_VIDEO": str(run_root / "synthetic.mp4"), "E2E_DATABASE_URL": url}

@@ -21,6 +21,7 @@ export default function CircleLogin({ authenticated }: { authenticated: (session
   const [config, setConfig] = useState<Configuration>();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
   const [readyToVerify, setReadyToVerify] = useState(false);
   const [message, setMessage] = useState("");
   const sdkRef = useRef<W3SSdk | undefined>(undefined);
@@ -49,11 +50,16 @@ export default function CircleLogin({ authenticated }: { authenticated: (session
           google: { clientId: next.google_client_id, redirectUri: window.location.origin, selectAccountPrompt: true } } } : {}) },
         (error, result) => {
           if (!active.current || cancelled) return;
-          if (error || !result) { setBusy(false); setMessage("Circle sign-in was not completed. Please try again."); return; }
+          if (error || !result) {
+            const code = String(error?.code || "");
+            const safeCode = /^[a-zA-Z0-9_-]{1,40}$/.test(code) ? ` (${code})` : "";
+            setBusy(false); setMessage(`Google sign-in did not complete${safeCode}. Please try again.`); return;
+          }
           void finish(result, sdk);
         });
       sdkRef.current = sdk;
-    }).catch(() => { if (active.current) setMessage("Email sign-in configuration is unavailable. You can use an existing wallet below."); });
+      setReady(true);
+    }).catch(() => { if (active.current) setMessage("Google sign-in is temporarily unavailable. Please try again shortly."); });
     return () => { cancelled = true; active.current = false; };
   }, []);
 
@@ -122,11 +128,11 @@ export default function CircleLogin({ authenticated }: { authenticated: (session
   return <div className="circle-signin">
     {config?.circle_enabled ? <>
       {config.circle_login_method === "email" && <label>Email address<input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>}
-      <button className="primary signin-button" disabled={busy || (config.circle_login_method === "email" && !email)}
+      <button className="primary signin-button" disabled={!ready || busy || (config.circle_login_method === "email" && !email)}
         onClick={() => readyToVerify ? sdkRef.current?.verifyOtp() : void begin()}>
         {busy ? "Signing in with Circle…" : readyToVerify ? "Enter email code" : config.circle_login_method === "google" ? "Continue with Google" : "Continue with email"}
       </button><p className="signature-note">Powered by Circle. No wallet extension required.</p>
-    </> : <p className="signature-note">Circle email sign-in is being configured. Existing-wallet sign-in is available below.</p>}
+    </> : <p className="signature-note">Google sign-in is being configured. Please try again shortly.</p>}
     {message && <p role="status">{message}</p>}
   </div>;
 }

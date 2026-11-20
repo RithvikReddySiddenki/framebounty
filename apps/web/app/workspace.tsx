@@ -20,6 +20,9 @@ type View = "overview" | "collections";
 
 /** Public escrow address, display-only (never a secret). Optional. */
 const ESCROW = process.env.NEXT_PUBLIC_ARC_ESCROW_ADDRESS || "";
+// Legacy wallet login exists only for explicit local regression environments.
+// Hosted users authenticate through Circle/Google exclusively.
+const LEGACY_LOGIN = process.env.NEXT_PUBLIC_ENABLE_LEGACY_WALLET_LOGIN === "true";
 
 /** The end-to-end flow, shown on the landing page and the buyer overview so a
  * first-time viewer understands who does what before touching anything. */
@@ -155,9 +158,10 @@ export default function Workspace() {
         <section className="hero">
           <p className="motto rise" style={delay(60)}>{MOTTO}</p>
           <h1 className="rise" style={delay(140)}>Agents buy verified data.<br /><span>Contributors get paid in USDC.</span></h1>
-          <p className="hero-sub rise" style={delay(220)}>Describe the dataset you need. People capture it, AI checks every clip, and escrow pays the moment it passes.</p>
+          <p className="hero-sub rise" style={delay(220)}>Describe the dataset you need. People capture it, AI checks each submission, and verified work enters its payment window.</p>
           <section className="hero-cta rise" style={delay(300)} aria-label="Sign in">
             <CircleLogin authenticated={authenticated => { attemptRef.current += 1; sessionRef.current = authenticated; setSession(authenticated); setAuthError(""); }} />
+            {LEGACY_LOGIN && <>
             <div className="hero-actions">
               <button className="primary signin-button" onClick={() => void connect()} disabled={connecting}>
                 <Icon name="wallet" />{connecting ? "Check your wallet to sign…" : "Connect wallet & sign in"}<Icon name="arrow" />
@@ -177,6 +181,8 @@ export default function Workspace() {
                 <li>Have several wallet extensions? Disable all but one so they don&apos;t fight over the page.</li>
               </ol>
             </details>
+            </>}
+            {!LEGACY_LOGIN && <a className="ghost-link" href="#how">See how it works</a>}
           </section>
         </section>
 

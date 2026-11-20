@@ -82,6 +82,8 @@ def current_wallet(credentials: HTTPAuthorizationCredentials | None = Depends(be
     item = db.get(AuthSession, hashlib.sha256(credentials.credentials.encode()).hexdigest())
     if item is None or item.expires_at <= datetime.now(UTC) or item.chain_id != active_network().chain_id:
         raise HTTPException(401, "Session expired")
+    if os.getenv("GOOGLE_ONLY_AUTH") == "true" and not item.circle_wallet_id:
+        raise HTTPException(401, "Sign in with Google to continue")
     return item.wallet
 
 
@@ -92,6 +94,8 @@ def require_service_auth(request: Request, credentials: HTTPAuthorizationCredent
     Only the exact sign-in endpoints and minimal liveness are public. Ownership
     remains enforced by each service; authentication alone grants no buyer powers.
     """
+    if os.getenv("GOOGLE_ONLY_AUTH") == "true" and request.url.path in {"/auth/challenge", "/auth/login"}:
+        raise HTTPException(403, "Wallet login is disabled; sign in with Google")
     public = {("POST", "/auth/challenge"), ("POST", "/auth/login"), ("GET", "/health")}
     public |= {("GET", "/auth/config"), *(("POST", "/auth/circle/" + name) for name in ("otp", "initialize", "wallets", "login"))}
     if (request.method, request.url.path) not in public:

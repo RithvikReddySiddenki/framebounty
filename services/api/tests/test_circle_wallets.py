@@ -21,6 +21,29 @@ WALLET_ID = "10000000-0000-4000-8000-000000000001"
 USER_TOKEN = "private-user-token-never-log-this"
 
 
+def test_google_only_rejects_legacy_login_and_sessions(pg, monkeypatch):
+    from fastapi.testclient import TestClient
+    from framebounty.main import app
+    from framebounty.db import session
+    from framebounty.auth import create_session
+    monkeypatch.setenv("APP_MODE", "fixture")
+    monkeypatch.setenv("ARC_CHAIN_ID", "5042002")
+    monkeypatch.setenv("GOOGLE_ONLY_AUTH", "true")
+    def request_session():
+        with Session(pg) as db: yield db
+    app.dependency_overrides[session] = request_session
+    try:
+        with Session(pg) as db:
+            legacy = create_session(db, WALLET)
+            circle = create_session(db, WALLET, WALLET_ID)
+        with TestClient(app) as client:
+            assert client.post("/auth/challenge", json={"wallet": WALLET}).status_code == 403
+            assert client.post("/auth/login", json={}).status_code == 403
+            assert client.get("/me/overview", headers={"Authorization": "Bearer " + legacy}).status_code == 401
+            assert client.get("/me/overview", headers={"Authorization": "Bearer " + circle}).status_code == 200
+    finally: app.dependency_overrides.clear()
+
+
 def test_initialized_user_can_create_a_wallet_on_the_selected_network(configured):
     from framebounty.circle_wallets import Initialize, initialize
     calls = []

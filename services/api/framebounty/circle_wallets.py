@@ -7,6 +7,7 @@ existing transaction-intent challenge. This is not a general signing proxy.
 import hashlib
 import hmac
 import os
+import logging
 import re
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse, parse_qs
@@ -26,6 +27,7 @@ from .models import AuthSession, AuthRateBucket, CircleChallenge, TransactionInt
 from .networks import active_network, chain_enabled
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class AlreadyInitialized(Exception):
@@ -46,6 +48,13 @@ class CircleAPI:
             with httpx.Client(base_url="https://api.circle.com", timeout=20, transport=self.transport,
                               follow_redirects=False) as client:
                 response = client.request(method, path, headers=headers, json=body, params=params)
+            if response.status_code >= 400:
+                try: code = response.json().get("code")
+                except (ValueError, AttributeError): code = None
+                # Provider codes/route names support diagnosis without tokens,
+                # upstream messages, user bodies or private identity payloads.
+                logger.warning("circle_request_failed method=%s path=%s http=%s code=%s",
+                    method, path, response.status_code, code if isinstance(code, int) else None)
             if response.status_code in {401, 403}:
                 raise HTTPException(401, "Circle session expired or access is unavailable; sign in again")
             if response.status_code == 429: raise HTTPException(429, "Too many Circle requests; wait before retrying")
