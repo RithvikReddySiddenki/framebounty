@@ -227,6 +227,14 @@ export default function Reviews({
   const releasable = items.filter(item => ["verified", "release_pending", "accept_pending"].includes(item.state));
   const fixtureJob = jobFixture ?? jobs.find((job) => job.id === selected)?.fixture ?? items[0]?.fixture ?? false;
   const pct = (value: number, of?: number) => `${Math.min(100, of ? (value / of) * 100 : value > 0 ? 100 : 0)}%`;
+  // Display-only coverage summary derived from data already loaded above.
+  const total = rubric?.total || 0;
+  const accepted = coverage?.accepted_total || 0;
+  const inFlight = coverage?.pending_total || 0;
+  const remaining = Math.max(0, total - accepted - inFlight);
+  const percent = total ? Math.min(100, Math.round((accepted / total) * 100)) : 0;
+  const requirementRows = (rubric?.requirements || []).map(r => ({ ...r, value: coverage?.accepted_categories[r.key] || 0 }));
+  const met = requirementRows.filter(r => r.minimum !== undefined && r.value >= r.minimum).length;
   return (
     <section className="panel reviews">
       <p className="eyebrow">Automatic verification & funds release</p>
@@ -246,29 +254,53 @@ export default function Reviews({
               {jobs.map((job) => <option key={job.id} value={job.id}>{job.title} · {job.fixture ? "fixture" : job.state}</option>)}
             </select>
           </>}
+          {selected && <section className="coverage-card" aria-label="Coverage">
+            <div className="cov-head">
+              <div>
+                <p className="eyebrow">Dataset coverage</p>
+                <h3>How close is this dataset to done?</h3>
+              </div>
+              <button disabled={busy} onClick={() => void load()}>Refresh queue & coverage</button>
+            </div>
+            {coverage ? <>
+              <div className="cov-hero">
+                <div className="cov-total">
+                  {/* The label shares a parent with the count (E2E reads the count via the label's parent). */}
+                  <p className="cov-number mono">{accepted}<small>/ {total || "—"}</small></p>
+                  <span className="cov-caption">accepted items</span>
+                  <span className="cov-caption"> · {percent}% complete</span>
+                </div>
+                <dl className="cov-facts">
+                  <div><dt>In progress</dt><dd className={`mono ${inFlight ? "tone-text-warn" : ""}`}>{inFlight}</dd><span>reserved or verifying</span></div>
+                  <div><dt>Still needed</dt><dd className="mono">{remaining}</dd><span>open for contributors</span></div>
+                  <div><dt>Requirements met</dt><dd className={`mono ${requirementRows.length && met === requirementRows.length ? "tone-text-money" : ""}`}>{met}<small>/ {requirementRows.length}</small></dd><span>minimums reached</span></div>
+                </dl>
+              </div>
+              <div className="cov-bar" role="img" aria-label={`${accepted} accepted and ${inFlight} in progress out of ${total}`}>
+                <i className="cov-accepted" style={{ width: pct(accepted, total) }} />
+                <i className="cov-pending" style={{ width: pct(inFlight, total) }} />
+              </div>
+              <div className="cov-legend"><span><i className="cov-accepted" />Accepted</span><span><i className="cov-pending" />In progress</span><span><i />Remaining</span></div>
+              <div className="cov-rows">
+                {requirementRows.map(r => {
+                  const done = r.minimum !== undefined && r.value >= r.minimum;
+                  return <div className="cov-row" key={r.key}>
+                    <span className="cov-label" title={r.description}>{r.description}</span>
+                    <div className="bar"><i style={{ width: pct(r.value, r.minimum) }} /></div>
+                    <strong className="mono">{r.value}{r.minimum !== undefined ? ` / ${r.minimum}` : ""}</strong>
+                    {r.minimum !== undefined && <span className={`pill ${done ? "tone-ok" : "tone-warn"}`}>{done ? "Met" : `${r.minimum - r.value} to go`}</span>}
+                  </div>;
+                })}
+              </div>
+              <p className="muted cov-note">One clip can count toward several requirements, so requirement totals can add up to more than the accepted count.</p>
+            </> : <p className="muted">Loading coverage…</p>}
+          </section>}
           {selected && <div className="review-toolbar">
-            <button disabled={busy} onClick={() => void load()}>Refresh queue & coverage</button>
             <button onClick={() => void exportManifest()}>Export accepted manifest</button>
             <button onClick={() => void exportDataset()}>Download dataset ZIP</button>
             <button disabled={busy} onClick={() => void nextBatch()}><Icon name="spark" />{fixtureJob ? "Commission next fixture batch" : "Commission next testnet batch"}</button>
           </div>}
           {batchMessage && <p className="notice" role="status">{batchMessage}</p>}
-          {coverage && <div className="metrics" aria-label="Coverage">
-            <div className="coverage-row">
-              <span>Total accepted</span>
-              <div className="bar"><i style={{ width: pct(coverage.accepted_total, rubric?.total) }} /></div>
-              <strong>{coverage.accepted_total}{rubric?.total ? ` / ${rubric.total}` : ""} <span>accepted items</span></strong>
-            </div>
-            {Object.entries(coverage.accepted_categories).map(([key, value]) => {
-              const requirement = rubric?.requirements.find(r => r.key === key);
-              return <div className="coverage-row" key={key}>
-                <span title={requirement?.description}>{requirement?.description || key.replaceAll("_", " ")}</span>
-                <div className="bar"><i style={{ width: pct(value, requirement?.minimum) }} /></div>
-                <strong>{value}{requirement?.minimum ? ` / ${requirement.minimum}` : ""}</strong>
-              </div>;
-            })}
-            <p className="muted">{coverage.pending_total} pending commitment{coverage.pending_total === 1 ? "" : "s"} (reserved or verifying). One clip can count toward several requirements.</p>
-          </div>}
           {selected && (
             <details><summary>Ask the agent about this collection</summary>
               <AgentPane key={selected} role="buyer" token={token} jobId={selected} />
