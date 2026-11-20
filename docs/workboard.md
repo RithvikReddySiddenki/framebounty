@@ -273,3 +273,16 @@ fee 0.034230105 test USDC versus cap 0.0991465. Migration 0006 preserved existin
 balances and original funded-job bindings. New default collections use V2. Existing
 V1 release requires its original per-submission wallet approvals; verifier rejection
 budget releases at V1 timeout. Live smokes used generated media only; buyer keys never enter the backend.
+
+2026-11-20 camera-only contributor capture (implementation lead): video tasks now
+use explicit in-app camera recording after reservation, with live preview, 10-30
+second bounds, review/retake and no microphone request or existing-video picker.
+Migration 0008 stores only hashed, short-lived capture credentials bound to the
+reservation/wallet; video finalization consumes the credential transactionally.
+Images retain their JPEG/PNG picker. Browser MP4 and WebM are supported. This is a
+workflow boundary, not liveness or camera-provenance proof, and remote devices require
+HTTPS. Validation to date: full backend suite 169 passed with 23 chain-gated skips,
+25 media tests and the explicit concurrency regression passed, plus 14 web unit
+tests, web typecheck/build and one affected Chromium flow. Physical-phone validation
+and remote CI remain pending. No deployment, Arc
+transaction, payment-policy, contract or ABI change is part of this slice.

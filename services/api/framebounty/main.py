@@ -36,7 +36,9 @@ app.include_router(payouts_router)
 app.include_router(reputation_router)
 app.include_router(refunds_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
-                   allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
+                   allow_methods=["GET", "POST"],
+                   allow_headers=["Authorization", "Content-Type", "X-Capture-Token"],
+                   expose_headers=["X-Data-Bytes"])
 
 
 @app.exception_handler(OperationalError)

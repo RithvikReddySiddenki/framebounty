@@ -2,6 +2,7 @@
 
 These prove orchestration and format handling, never towel-fold quality or Arc payout.
 """
+import hashlib
 import subprocess
 from datetime import UTC, datetime, timedelta
 
@@ -16,7 +17,7 @@ from framebounty.db import session
 from framebounty.main import app
 from framebounty.marketplace import prepare_confirmation, reserve
 from framebounty.media import InvalidMedia, LocalStorage, inspect_video, media_executable
-from framebounty.models import Job, Submission, VerificationJob
+from framebounty.models import CaptureSession, Job, Submission, VerificationJob
 from framebounty.worker import claim, finish, run_once
 from test_postgres import pg, seeded
 
@@ -62,21 +63,32 @@ def flow(pg, tmp_path, monkeypatch):
         app.dependency_overrides.clear()
 
 
-def upload(client, auth, reservation, content, rights=True):
+def open_capture(client, auth, reservation):
+    return client.post(f"/reservations/{reservation}/capture-sessions", headers=auth)
+
+
+def upload(client, auth, reservation, content, rights=True, capture=None, mime="video/mp4"):
+    if rights and capture is None:
+        opened = open_capture(client, auth, reservation)
+        if opened.status_code != 200:
+            return opened
+        capture = opened.json()["token"]
     return client.post(f"/reservations/{reservation}/video?rights_ack={str(rights).lower()}",
-                       content=content, headers={**auth, "Content-Type": "video/mp4"})
+                       content=content, headers={**auth, "Content-Type": mime,
+                                                **({"X-Capture-Token": capture} if capture else {})})
 
 
 def test_upload_decode_review_coverage_export_and_retry(pg, flow, video):
     client, buyer, contributor, stranger, job_id, reservation = flow
     assert upload(client, contributor, reservation, video, rights=False).status_code == 422
     assert upload(client, stranger, reservation, video).status_code == 404
-    uploaded = upload(client, contributor, reservation, video)
+    capture = open_capture(client, contributor, reservation).json()["token"]
+    uploaded = upload(client, contributor, reservation, video, capture=capture)
     assert uploaded.status_code == 200, uploaded.text
     item = uploaded.json()
     submission_id = item["id"]
     assert item["state"] == "queued" and not item["payment_confirmed"]
-    assert upload(client, contributor, reservation, video).json()["id"] == submission_id
+    assert upload(client, contributor, reservation, video, capture=capture).json()["id"] == submission_id
     assert client.get(f"/submissions/{submission_id}/video", headers=stranger).status_code == 404
     assert client.get(f"/submissions/{submission_id}/video", headers=contributor).content == video
     assert run_once(pg)
@@ -169,8 +181,10 @@ def test_real_metadata_and_full_decode_are_bounded(tmp_path, video):
 def test_upload_bounds_and_submitted_obligation_survive_original_expiry(pg, flow, video):
     from framebounty.models import Reservation
     client, buyer, contributor, _, job_id, reservation = flow
+    capture = open_capture(client, contributor, reservation).json()["token"]
     response = client.post(f"/reservations/{reservation}/video?rights_ack=true", content=b"small",
-        headers={**contributor, "Content-Type": "video/mp4", "Content-Length": str(101 * 1024 * 1024)})
+        headers={**contributor, "Content-Type": "video/mp4", "X-Capture-Token": capture,
+                 "Content-Length": str(101 * 1024 * 1024)})
     assert response.status_code == 413
     response = client.post(f"/reservations/{reservation}/video?rights_ack=true", content=video,
         headers={**contributor, "Content-Type": "image/jpeg"})
@@ -195,6 +209,68 @@ def test_upload_bounds_and_submitted_obligation_survive_original_expiry(pg, flow
     assert client.post(f"/reservations/{reservation}/release-expired", headers=buyer).status_code == 200
     with Session(pg) as db:
         assert db.get(Job, job_id).committed_atomic == 0
+
+
+def test_video_upload_requires_bound_unexpired_one_use_capture(pg, flow, video):
+    client, _, contributor, stranger, _, reservation = flow
+    endpoint = f"/reservations/{reservation}/video?rights_ack=true"
+    assert client.post(endpoint, headers={**contributor, "Content-Type": "video/mp4"}, content=video).status_code == 422
+    assert open_capture(client, stranger, reservation).status_code == 404
+
+    opened = open_capture(client, contributor, reservation)
+    assert opened.status_code == 200
+    token = opened.json()["token"]
+    with Session(pg) as db:
+        capture = db.get(CaptureSession, hashlib.sha256(token.encode()).hexdigest())
+        capture.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    assert upload(client, contributor, reservation, video, capture=token).status_code == 409
+
+    token = open_capture(client, contributor, reservation).json()["token"]
+    first = upload(client, contributor, reservation, video, capture=token)
+    assert first.status_code == 200
+    assert upload(client, contributor, reservation, video, capture=token).json()["id"] == first.json()["id"]
+    changed = bytearray(video)
+    changed[-1] ^= 1
+    assert upload(client, contributor, reservation, bytes(changed), capture=token).status_code == 409
+    assert open_capture(client, contributor, reservation).status_code == 409
+
+
+def test_concurrent_reuse_of_capture_token_and_video_creates_one_submission(pg, flow, video):
+    """An uncertain HTTP retry cannot race one capture grant into two submissions."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    client, _, contributor, _, _, reservation = flow
+    opened = open_capture(client, contributor, reservation)
+    assert opened.status_code == 200
+    token = opened.json()["token"]
+    ready = Barrier(2)
+
+    def attempt():
+        # Separate clients provide independent requests while reusing the exact
+        # same authenticated capture grant, reservation and captured bytes.
+        with TestClient(app) as retry_client:
+            ready.wait(timeout=10)
+            response = upload(retry_client, contributor, reservation, video, capture=token)
+            assert response.status_code == 200, response.text
+            return response.json()["id"]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        submission_ids = list(pool.map(lambda _: attempt(), range(2)))
+
+    assert len(set(submission_ids)) == 1
+    with Session(pg) as db:
+        submissions = db.scalars(select(Submission)).all()
+        verification_jobs = db.scalars(select(VerificationJob)).all()
+        capture = db.get(CaptureSession, hashlib.sha256(token.encode()).hexdigest())
+        assert [item.id for item in submissions] == [submission_ids[0]]
+        assert len(verification_jobs) == 1
+        assert verification_jobs[0].submission_id == submission_ids[0]
+        assert capture.used
+        object_key = submissions[0].object_key
+    # The losing staged copy is deleted rather than becoming an orphan object.
+    assert sorted(path.name for path in LocalStorage().root.iterdir()) == [object_key]
 
 
 def test_stale_worker_cannot_resurrect_timed_out_review(pg, flow, video):
