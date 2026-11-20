@@ -10,6 +10,8 @@ Validation: full backend 252 passed / 24 gated chain skips; targeted Circle/draf
 suite 27 passed; frontend units 16 passed; removal Chromium flow and production
 build/typecheck passed. Failed/expired and active challenge cases are distinct.
 Removal progress/error now appears next to its button rather than below all media.
+Also handle COMPLETE challenges whose correlated transactions all definitively
+FAILED/CANCELLED; approval completion with no transaction evidence remains blocked.
 
 2026-11-20 remove-unfunded-post feature: owner-only reversible archival of draft
 posts, including awaiting escrow creation/allowance. Refuse published/funded posts,

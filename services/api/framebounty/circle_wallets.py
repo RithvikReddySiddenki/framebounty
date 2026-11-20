@@ -261,12 +261,17 @@ def transaction(body: CircleTransaction, wallet: str = Depends(current_wallet),
 
 
 def challenge_is_dead(api, token: str, challenge_id: str, wallet_id: str) -> bool:
-    """True only if the PIN challenge failed/expired and no transaction it created is still live."""
+    """True only for a dead approval with no live or uncertain resulting transfer."""
     data, _ = api.call("GET", "/v1/w3s/user/challenges/" + challenge_id, token)
     item = data.get("challenge", data)
-    if item.get("status") not in {"FAILED", "EXPIRED"}:
+    if item.get("status") not in {"FAILED", "EXPIRED", "COMPLETE"}:
         return False
-    for tid in item.get("correlationIds", []):
+    correlations = item.get("correlationIds", [])
+    # A completed approval can still produce a failed transaction (for example,
+    # insufficient gas). Completion alone cannot prove either payment or failure.
+    if not isinstance(correlations, list) or (item.get("status") == "COMPLETE" and not correlations):
+        return False
+    for tid in correlations:
         try: tid = str(UUID(tid))
         except ValueError: return False
         record, _ = api.call("GET", "/v1/w3s/transactions/" + tid, token)

@@ -88,8 +88,9 @@ def test_removal_serializes_against_new_deposit_intentions(pg, flow):
         with pytest.raises(ChainFailure, match="Archived"):
             create_intent(db, rpc, action)
 
-@pytest.mark.parametrize("challenge_state,expected", [("FAILED", 200), ("EXPIRED", 200), ("PENDING", 409), ("COMPLETE", 409)])
-def test_circle_dead_deposit_approval_can_be_removed_but_live_approval_cannot(pg, flow, monkeypatch, challenge_state, expected):
+@pytest.mark.parametrize("challenge_state,tx_state,expected", [("FAILED", None, 200), ("EXPIRED", None, 200),
+    ("PENDING", None, 409), ("COMPLETE", None, 409), ("COMPLETE", "FAILED", 200), ("COMPLETE", "SENT", 409)])
+def test_circle_dead_deposit_approval_can_be_removed_but_live_approval_cannot(pg, flow, monkeypatch, challenge_state, tx_state, expected):
     from framebounty import circle_wallets
     from framebounty.models import CircleChallenge
     client, buyer, _, _, _, _ = flow
@@ -108,8 +109,11 @@ def test_circle_dead_deposit_approval_can_be_removed_but_live_approval_cannot(pg
             assert token == "test-private-token"
             return [{"id": wallet_id, "address": owner}]
         def call(self, method, path, token):
-            assert method == "GET" and "/challenges/" in path
-            return {"challenge": {"status": challenge_state, "correlationIds": []}}, {}
+            assert method == "GET"
+            if "/challenges/" in path:
+                return {"challenge": {"status": challenge_state, "correlationIds": ["30000000-0000-4000-8000-000000000001"] if tx_state else []}}, {}
+            assert "/transactions/" in path
+            return {"transaction": {"walletId": wallet_id, "state": tx_state}}, {}
     monkeypatch.setattr(circle_wallets, "CircleAPI", API)
     response = client.post(f"/jobs/{jid}/remove", headers=buyer, json={"user_token": "test-private-token"})
     assert response.status_code == expected
