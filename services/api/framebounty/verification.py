@@ -127,15 +127,15 @@ class GeminiFrames:
         except (ValidationError, ValueError) as exc:
             raise ProviderFailure("Model returned invalid post verification; human review is required") from exc
 
-    def structured_text(self, prompt: str, schema: dict, instruction: str) -> str:
+    def structured_text(self, prompt: str, schema: dict, instruction: str, timeout: float = 45) -> str:
         """Shared adapter for role-scoped planning; schemas come from server code."""
         if not 1 <= len(prompt) <= 20000:
             raise ValueError("Agent context exceeds its input limit")
-        return self.generate([{"text": prompt}], schema, instruction)
+        return self.generate([{"text": prompt}], schema, instruction, timeout)
 
-    def generate(self, parts: list[dict], schema: dict, instruction: str) -> str:
+    def generate(self, parts: list[dict], schema: dict, instruction: str, timeout: float = 45) -> str:
         try:
-            with httpx.Client(timeout=httpx.Timeout(45, connect=10), transport=self.transport) as client:
+            with httpx.Client(timeout=httpx.Timeout(timeout, connect=10), transport=self.transport) as client:
                 response = client.post(f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
                     headers={"x-goog-api-key": self.api_key}, json={"systemInstruction": {"parts": [{"text": instruction}]},
                     "contents": [{"role": "user", "parts": parts}],

@@ -5,12 +5,12 @@ import { request, usdc } from "./api";
 import { BuyerReputation } from "./reputation";
 import { Icon } from "./ui";
 
-const STARTERS = ["I have a phone and 30 minutes. What can I do?", "I have towels, a dark table and a phone.", "I have a phone and a cat."];
+const STARTERS = ["I have a cup and a kitchen table.", "I have a phone and a cat.", "Show me what's open."];
 
 type Task = { job_id: string; task_id: string; title: string; media_type: string; version: number; reward_atomic: string;
   minutes: number; deadline: string; fixture: boolean; requirements: { key: string; description: string }[];
   rights_declaration: string; review_hours: number; reviewer: string; explanation: string };
-type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[]; minutes?: number; no_time_limit?: boolean }; tasks?: Task[] } };
+type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[] }; tasks?: Task[]; ranked?: boolean } };
 type Entry = { id: string; message: string; result: Reply };
 
 /** Chat collects explicit capabilities; only a displayed task click reserves work. */
@@ -81,14 +81,15 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
       <span className="agent-avatar contributor"><Icon name="bot" /></span>
       <div>
         <p className="eyebrow" style={{ marginBottom: 2 }}>Your work agent</p>
-        <p>Tell me what you have and how much time you&apos;ve got. I&apos;ll ask for anything missing and find matching funded tasks.</p>
+        <p>Tell me what you have on hand. I&apos;ll show every open task, best match first.</p>
       </div>
     </div>
     <div ref={log} className="conversation-log" aria-live="polite">
       {entries.map(entry => <article className="conversation-entry" key={entry.id}>
         <p className="bubble me"><span className="who">You</span>{entry.message}</p>
         <p className="bubble agent"><span className="who">Agent</span>{entry.result.reply}
-          {entry.result.provider_mode === "fixture" && <small>Fixture conversation · Listings come from the database; no live AI interpretation.</small>}</p>
+          {entry.result.provider_mode === "fixture" && <small>Fixture conversation · Tasks in default order, no AI ranking.</small>}
+          {entry.result.provider_mode !== "fixture" && entry.result.data.ranked === false && !!entry.result.data.tasks?.length && <small>Couldn&apos;t rank right now, so here&apos;s everything that&apos;s open.</small>}</p>
       </article>)}
       {pending && <article className="conversation-entry">
         <p className="bubble me"><span className="who">You</span>{pending}</p>
@@ -98,7 +99,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
     {entries.length === 0 && !loading && !busy && <div className="suggestions" aria-label="Example messages">
       {STARTERS.map(text => <button type="button" key={text} className="chip" onClick={() => setMessage(text)}>{text}</button>)}
     </div>}
-    {latest?.data.facts.equipment && <p className="muted chat-meta">Using: {latest.data.facts.equipment.join(", ") || "no equipment"}{latest.data.facts.no_time_limit ? " · no time filter" : latest.data.facts.minutes ? ` · ${latest.data.facts.minutes} minutes` : ""}. Tell me if this changes.</p>}
+    {latest?.data.facts.equipment && <p className="muted chat-meta">Matching on: {latest.data.facts.equipment.map(item => item.replaceAll("_", " ")).join(", ") || "nothing specific"}. Tell me if this changes.</p>}
     {latest?.data.tasks?.map(task => <article className="panel agent-task" key={task.task_id}>
       <div className="spread">
         <div>
@@ -119,7 +120,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
     <form className="chat-form" onSubmit={e => { e.preventDefault(); void send(); }}>
       <label htmlFor="work-message">Message your work agent</label>
       <div className="chat-input">
-        <textarea id="work-message" value={message} rows={2} maxLength={4000} placeholder="I have a phone and a cat. What tasks can I do?" onChange={e => setMessage(e.target.value)} disabled={busy || loading}
+        <textarea id="work-message" value={message} rows={2} maxLength={4000} placeholder="I have a cup and a kitchen table." onChange={e => setMessage(e.target.value)} disabled={busy || loading}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
         <button className="primary" disabled={busy || loading || !message.trim()}>{loading ? "Restoring chat…" : busy ? "Working…" : <><Icon name="send" />Send</>}</button>
       </div>
