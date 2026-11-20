@@ -1,5 +1,11 @@
 # Test matrix
 
+Additional live hosted gate: `playwright test e2e/hosted.spec.ts --grep
+'hosted two accounts'` passed (1 test), with buyer creation/publication entirely
+through buyer chat UI and a distinct contributor discovering/reserving through
+work chat. Exact job/task/identity bindings and private-editor denial verified;
+typecheck passed. No live model or chain transaction, and no Google credentials.
+
 2026-11-20 live hosted fixture gate: PNG, JPEG and actual in-app MediaRecorder
 capture with Chromium synthetic camera all passed (3 tests, ~1.5 minutes) against
 public Vercel frontend, Railway API/worker and private Supabase DB/storage.

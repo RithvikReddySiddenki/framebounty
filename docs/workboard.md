@@ -1,5 +1,11 @@
 # Workboard
 
+2026-11-20 hosted two-account UI gate passed: distinct buyer/contributor wallet
+identities and sessions; buyer-chat plan/publish; contributor-chat exact-job
+discovery/reservation; buyer private editor denied to contributor. Typecheck
+passed. Tests pin job, reviewer and persisted task ID to avoid confusing posts
+with equal titles. Google account interaction remains a separate human check.
+
 2026-11-20 Circle Google activation: user confirmed production OAuth origin and
 redirect saved. Backend credentials configured through private stdin and Circle
 enabled on Railway. Public config verified circle_enabled=true, method=google,

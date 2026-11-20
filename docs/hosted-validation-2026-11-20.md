@@ -1,5 +1,21 @@
 # Hosted demo validation — 2026-11-20
 
+## Separate buyer/contributor chat check
+
+An additional hosted browser test passed after Circle activation: two distinct
+ephemeral test-wallet accounts with separate browser contexts and session tokens.
+The buyer described an image collection in the buyer chat and published through
+the actual UI. The contributor prompted their work agent, received a task from
+that exact job and reserved it through the UI. A matching title alone is not
+used as evidence: the test checks the returned job ID, buyer identity and
+persisted reservation task ID. Contributor access to the buyer's private job
+editor returned 404. Typecheck passed. Run with the same hosted environment
+variables below and `--grep 'hosted two accounts'`.
+
+This proves the deployed role/discovery flow using existing-wallet authentication;
+it does not substitute for interactive Google account sign-in. The test used
+fixture planning and funding, with no real-money authorization.
+
 ## Circle activation update
 
 After the submission tests below, the user confirmed that the live Vercel origin

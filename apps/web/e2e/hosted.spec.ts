@@ -120,3 +120,59 @@ for (const format of ["PNG", "JPEG", "video"] as const) {
     } finally { await buyerContext.close(); await actorContext.close(); }
   });
 }
+
+test("hosted two accounts: buyer publishes through chat and contributor discovers through chat", async ({ browser }, info) => {
+  const buyerContext = await browser.newContext();
+  const actorContext = await browser.newContext();
+  const buyer = await buyerContext.newPage(), actor = await actorContext.newPage();
+  try {
+    const buyerChallenge = buyer.waitForRequest(r => r.url() === api + "/auth/challenge");
+    const buyerHeaders = await login(buyer);
+    const buyerWallet = (await buyerChallenge).postDataJSON().wallet as string;
+    const actorChallenge = actor.waitForRequest(r => r.url() === api + "/auth/challenge");
+    const actorHeaders = await login(actor);
+    const actorWallet = (await actorChallenge).postDataJSON().wallet as string;
+    expect(actorWallet.toLowerCase()).not.toBe(buyerWallet.toLowerCase());
+    expect(actorHeaders.Authorization).not.toBe(buyerHeaders.Authorization);
+
+    await buyer.getByLabel("Describe your task").filter({ visible: true }).fill(
+      "I want 20 images of a cat climbing a tree, spend only 20 USDC.");
+    await buyer.getByRole("button", { name: "Send", exact: true }).click();
+    await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible({ timeout: 30000 });
+    const creation = buyer.waitForResponse(r => r.url() === api + "/jobs" && r.request().method() === "POST");
+    await buyer.getByRole("button", { name: "Publish simulated post", exact: true }).click();
+    const created = await creation;
+    expect(created.ok()).toBeTruthy();
+    const { id } = await created.json();
+    await expect(buyer.getByText("Open - Simulated funding", { exact: true })).toBeVisible();
+    const post = await (await buyer.request.get(`${api}/jobs/${id}`, { headers: buyerHeaders })).json();
+    expect(post.state).toBe("open");
+    expect(post.fixture).toBe(true);
+    // Contributor discovery does not grant access to the buyer's private editor.
+    expect((await actor.request.get(`${api}/jobs/${id}`, { headers: actorHeaders })).status()).toBe(404);
+
+    await actor.getByRole("button", { name: "Contributor workspace" }).click();
+    await actor.getByLabel("Message your work agent").fill("I have a cat and a phone. I have 20 minutes. Find image tasks for me.");
+    const recommendation = actor.waitForResponse(r => r.request().method() === "POST" && /\/chat-sessions\/[^/]+\/messages$/.test(r.url()));
+    await actor.getByRole("button", { name: "Send", exact: true }).click();
+    const result = await (await recommendation).json();
+    const exactTask = result.data.tasks.find((t: { job_id: string }) => t.job_id === id);
+    expect(exactTask).toBeTruthy();
+    // Other synthetic or user posts can have the same title. Bind the UI match
+    // to this buyer, then verify the persisted task ID from this exact job.
+    const match = actor.locator(".agent-task").filter({ hasText: post.plan.title })
+      .filter({ hasText: new RegExp(buyerWallet, "i") });
+    await expect(match).toBeVisible({ timeout: 30000 });
+    await expect(match.getByText("Image post", { exact: true })).toBeVisible();
+    await match.getByRole("button", { name: /Review reservation for/ }).click();
+    await match.getByRole("button", { name: /Accept fixed terms for/ }).click();
+    await expect(actor.getByLabel("Choose an image")).toBeVisible();
+    const reservations = await (await actor.request.get(api + "/me/reservations", { headers: actorHeaders })).json();
+    expect(reservations.reservations.some((r: { task_id: string }) => r.task_id === exactTask.task_id)).toBe(true);
+    await buyer.screenshot({ path: info.outputPath("buyer-created-post.png"), fullPage: true });
+    await actor.screenshot({ path: info.outputPath("contributor-found-post.png"), fullPage: true });
+    await info.attach("two-account-result", { body: JSON.stringify({ job: id, distinct_accounts: true,
+      buyer_chat_published: true, contributor_chat_discovered: true, contributor_reserved: true, fixture: true }),
+      contentType: "application/json" });
+  } finally { await buyerContext.close(); await actorContext.close(); }
+});
