@@ -241,11 +241,11 @@ export default function Upload({
               ? "Payment confirmed"
               : "No chain payment confirmed"}
           </p>
-          {["queued", "verifying"].includes(submission.state) && <p className="notice">Checking your {image ? "image" : "video"} with AI (usually under a minute). This status updates automatically; failed attempts retry on their own.</p>}
+          {["queued", "verifying"].includes(submission.state) && <p className="notice checking-note">Checking your {image ? "image" : "video"} with AI (usually under a minute). This status updates automatically; failed attempts retry on their own.</p>}
           {submission.payment_confirmed
-            ? <p className="notice">Reward paid.</p>
+            ? <p className="notice paid-note">Reward paid.</p>
             : submission.fixture && submission.state === "fixture_accepted"
-              ? <p className="notice">Simulated reward released; no blockchain payment occurred.</p>
+              ? <p className="notice paid-note">Simulated reward released; no blockchain payment occurred.</p>
               : submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
           {submission.payment_due_at && !submission.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(submission.payment_due_at).toLocaleString()}. Your reserved reward remains locked; the buyer may release it sooner.</p>}
           {submission.payment_confirmed && <Reputation token={token} submissionId={submission.id} />}
@@ -256,7 +256,7 @@ export default function Upload({
             Review deadline:{" "}
             {new Date(submission.review_deadline).toLocaleString()}
           </p>}
-          {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check]) => <p key={key}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
+          {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check], index) => <p key={key} className={`check-line check-${check.result}`} style={{ "--i": index } as React.CSSProperties}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
           {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Verification remains pending; no payment is authorized.</p>}
           {submission.findings.processing_error && (submission.findings.verification?.decision === "retry" || ["queued", "verifying", "verification_pending"].includes(submission.state)
             ? <p className="notice">Last attempt failed: {submission.findings.processing_error} Verification remains pending; no payment is authorized.</p>

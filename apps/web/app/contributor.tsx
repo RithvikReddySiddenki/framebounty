@@ -83,8 +83,8 @@ export default function Contributor({
         <div className="page-heading">
           <div>
             <p className="eyebrow">Contributor workspace</p>
-            <h1>Find work that fits.</h1>
-            <p>Every task shown is already funded in escrow. Reserve one, capture it, upload, and get paid when AI verification passes.</p>
+            <h1>Find a task. Get paid.</h1>
+            <p>Tell your agent what you have: a phone, a pet, ten free minutes. Every task it shows already has its reward set aside.</p>
           </div>
         </div>
         <div className="panel">
@@ -96,27 +96,34 @@ export default function Contributor({
           <div className="page-heading">
             <div>
               <p className="eyebrow">Contributor workspace</p>
-              <h1>Your submissions and rewards.</h1>
-              <p className="intro">Follow your work from reservation through automatic verification. Pending rewards are not confirmed payments.</p>
+              <h1>Your earnings</h1>
+              <p className="intro">Record each task you accepted, then watch it get checked and paid. A reward counts as paid only once the payment is confirmed.</p>
             </div>
             <button disabled={busy} onClick={() => void run(refreshMine)}>Refresh my work</button>
           </div>
-          {reservations.length > 0 && <div className="stat-row" style={{ margin: 0 }}>
-            <div className="stat"><span>Reservations</span><strong>{reservations.length}</strong></div>
-            <div className="stat"><span>{anyFixture ? "Released (simulated)" : "Paid"}</span><strong>{usdc(earned.toString())}<small>USDC</small></strong></div>
-            <div className="stat"><span>Locked for you</span><strong>{usdc(reservations.reduce((sum, r) => sum + BigInt(r.reward_atomic), 0n) - earned + "")}<small>USDC</small></strong></div>
+          {reservations.length > 0 && <div className="earnings-card">
+            <div className="earn-main">
+              <span className="earn-label"><Icon name="coins" />{anyFixture ? "Released (simulated)" : "Paid"}</span>
+              <strong className="earn-total mono">{usdc(earned.toString())}<small>USDC</small></strong>
+            </div>
+            <div className="earn-meta">
+              <div><span>Locked for you</span><strong className="mono">{usdc(reservations.reduce((sum, r) => sum + BigInt(r.reward_atomic), 0n) - earned + "")}<small>USDC</small></strong></div>
+              <div><span>Reservations</span><strong className="mono">{reservations.length}</strong></div>
+            </div>
           </div>}
           <h2 hidden>Your reservations</h2>
           {!busy && reservations.length === 0 && <div className="empty"><Icon name="search" /><p>No reservations yet. Ask your work agent to find a funded task.</p></div>}
           {reservations.map((r) => {
             const submission = submissions[r.id];
-            return <article className="panel" key={r.id}>
+            const paid = Boolean(submission?.payment_confirmed) || ["fixture_accepted", "accepted", "paid"].includes(submission?.state || r.state);
+            return <article className={`panel${paid ? " is-paid" : ""}`} key={r.id}>
               <div className="reservation-summary">
                 <div>
                   <p className="eyebrow">Reservation <span className="mono">{r.id.slice(0, 8)}</span> · {r.media_type}</p>
                   <h3 className="status-tag">{r.state.replaceAll("_", " ")}</h3>
                 </div>
                 <div className="task-reward">
+                  {paid && <span className="paid-chip"><Icon name="check" />Paid</span>}
                   {usdc(r.reward_atomic)}
                   <small>{moneyUnit(r.fixture)} fixed reward</small>
                 </div>
