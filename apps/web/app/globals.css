@@ -1,74 +1,33 @@
 /* FrameBounty design system.
- * Revio-style light app with a black hero: violet = clickable action, green = USDC/paid,
+ * One dark theme everywhere (landing and app). Lime = clickable action, mint green = USDC/paid,
  * cyan = on-chain, amber = pending, red = failed. Monospace marks machine facts (amounts, hashes,
  * raw states) so the UI doubles as visible proof of what the backend recorded. */
 :root {
-  /* Light app theme (Revio-style): white page, #F4F4F4 borderless cards,
-   * white floating cards with a soft shadow. */
-  color-scheme: light;
-  --bg: #ffffff;
-  --bg-2: #fafafa;
-  --surface: #f4f4f4;
-  --surface-2: #ffffff;
-  --surface-3: #ececec;
-  --line: #e6e6e6;
-  --line-2: #d9d9d9;
-  --text: #141414;
-  --text-2: #3d3d3d;
-  --muted: #6e6e6e;
-  --placeholder: #9a9a9a;
-  --hover-line: #c9c9c9;
-  /* Violet: clickable primary actions and focus only. */
-  --accent: #6142ff;
-  --accent-hover: #5232f2;
-  --accent-ink: #ffffff;
-  --accent-soft: rgba(97, 66, 255, 0.08);
-  /* Green: USDC amounts and paid/met states (darker shade for contrast on white). */
-  --money: #0e9f6e;
-  --money-soft: rgba(14, 159, 110, 0.1);
-  --money-line: rgba(14, 159, 110, 0.3);
-  --money-ink: #ffffff;
-  /* Cyan: on-chain links, hashes, escrow. */
-  --chain: #0a87ab;
-  --chain-soft: rgba(10, 135, 171, 0.07);
-  --chain-line: rgba(10, 135, 171, 0.25);
-  --warn: #b26b00;
-  --warn-soft: rgba(245, 166, 35, 0.12);
-  --warn-line: rgba(178, 107, 0, 0.3);
-  --danger: #d92d20;
-  --danger-soft: rgba(217, 45, 32, 0.07);
-  --danger-line: rgba(217, 45, 32, 0.3);
-  --danger-ink: #b42318;
-  --step-line: #cfcfcf;
-  --step-done: #8a8a8a;
-  --shadow-float: 0 1px 2px rgba(20, 20, 20, 0.04), 0 10px 30px rgba(20, 20, 20, 0.07);
-  --radius: 16px;
-  --radius-sm: 10px;
-  --sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
-}
-
-/* Black hero scope (sign-in page), like the Revio hero. Bright green/cyan read
- * well on black, so the original brand shades are used here. */
-.theme-dark {
   color-scheme: dark;
+  /* Surfaces step up from pure black: page, card, card-in-card, hover. */
   --bg: #000000;
-  --bg-2: #0b0b0b;
-  --surface: #141414;
-  --surface-2: #1c1c1c;
-  --surface-3: #262626;
-  --line: #262626;
-  --line-2: #333333;
+  --bg-2: #0a0a0a;
+  --surface: #121212;
+  --surface-2: #1a1a1a;
+  --surface-3: #242424;
+  --line: #222222;
+  --line-2: #2e2e2e;
   --text: #f5f5f5;
   --text-2: #bdbdbd;
   --muted: #8a8a8a;
-  --placeholder: #666666;
-  --hover-line: #4a4a4a;
-  --accent-soft: rgba(97, 66, 255, 0.18);
+  --placeholder: #5f5f5f;
+  --hover-line: #474747;
+  /* Lime: clickable primary actions and focus only (dark text on lime). */
+  --accent: #c8f25a;
+  --accent-hover: #d6f87a;
+  --accent-ink: #0b0b0b;
+  --accent-soft: rgba(200, 242, 90, 0.12);
+  /* Mint green: USDC amounts and paid/met states. */
   --money: #3ddc97;
   --money-soft: rgba(61, 220, 151, 0.12);
   --money-line: rgba(61, 220, 151, 0.3);
   --money-ink: #06140d;
+  /* Cyan: on-chain links, hashes, escrow. */
   --chain: #5ec8e5;
   --chain-soft: rgba(94, 200, 229, 0.1);
   --chain-line: rgba(94, 200, 229, 0.3);
@@ -79,10 +38,17 @@
   --danger-soft: rgba(255, 107, 107, 0.12);
   --danger-line: rgba(255, 107, 107, 0.3);
   --danger-ink: #ffb3b3;
-  --shadow-float: 0 20px 50px rgba(0, 0, 0, 0.5);
-  background: var(--bg);
-  color: var(--text);
+  --step-line: #333333;
+  --step-done: #7a7a7a;
+  --shadow-float: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 50px rgba(0, 0, 0, 0.55);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
+
+/* The landing page used to be the only dark scope; it now shares :root. */
+.theme-dark { background: var(--bg); color: var(--text); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
@@ -271,75 +237,132 @@ details[open] > summary { margin-bottom: 10px; }
 .lifecycle li.done .step-label, .lifecycle li.current .step-label { color: var(--text); }
 .lifecycle li.failed .step-label { color: var(--danger); }
 
-/* ---------- Sign-in / landing (black hero, Revio-style) ---------- */
-.signin-page { min-height: 100vh; background: var(--bg); padding: 0 32px 40px; overflow-x: hidden; }
+/* ---------- Sign-in / landing (black hero, consumer-first) ---------- */
+.signin-page { min-height: 100vh; background: var(--bg); padding: 0 32px 40px; overflow-x: hidden; scroll-behavior: smooth; }
 .landing-nav { max-width: 1160px; margin: 0 auto; height: 84px; display: flex; align-items: center; justify-content: space-between; }
-.hero { max-width: 1060px; margin: 0 auto; padding: 64px 0 0; text-align: center; }
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.nav-cta {
+  color: var(--text); font-size: 13.5px; font-weight: 600; padding: 8px 16px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line-2); transition: background 0.15s, border-color 0.15s;
+}
+.nav-cta:hover { text-decoration: none; background: var(--surface-3); border-color: var(--hover-line); }
+
+/* Split hero: promise + sign-in on the left, the product playing on the right. */
+.hero {
+  max-width: 1160px; margin: 0 auto; padding: 56px 0 0;
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 56px; align-items: center;
+}
+.hero-copy { min-width: 0; }
 .hero h1, .steps h2 { text-wrap: balance; }
 .motto {
   display: inline-flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 500; color: var(--text-2);
   border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 14px 6px 10px;
 }
-.motto::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--money); }
-.hero h1 { font-size: 68px; line-height: 1.08; letter-spacing: -0.03em; font-weight: 600; margin-top: 26px; }
+.motto::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--money); box-shadow: 0 0 0 0 var(--money); animation: ping 2.4s ease-out infinite; }
+.hero h1 { font-size: 72px; line-height: 1.02; letter-spacing: -0.04em; font-weight: 600; margin-top: 24px; }
 .hero h1 span { color: #8f8f8f; }
-.hero-sub { margin: 22px auto 0; max-width: 560px; color: var(--text-2); font-size: 17px; }
-.hero-cta { margin-top: 34px; display: grid; justify-items: center; gap: 12px; }
-.hero-actions { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: center; }
-.signin-button { padding: 13px 20px; font-size: 15px; border-radius: 10px; }
+.hero-sub { margin-top: 22px; max-width: 520px; color: var(--text-2); font-size: 17.5px; line-height: 1.6; }
+
+.hero-cta { margin-top: 32px; display: grid; gap: 12px; max-width: 420px; }
+.circle-signin { display: grid; gap: 10px; }
+.circle-signin label { margin: 0; color: var(--text-2); font-size: 12.5px; }
+.circle-signin input { margin-top: 6px; padding: 13px 14px; font-size: 15px; background: var(--surface); border-color: var(--line-2); }
+.circle-signin input:focus { border-color: var(--accent); outline: none; }
+.circle-signin [role="status"] { font-size: 13px; color: var(--text-2); }
+.signin-button { width: 100%; padding: 14px 20px; font-size: 15px; border-radius: 12px; }
 .signin-button .icon:last-child { transition: transform 0.2s; }
 .signin-button:hover:not(:disabled) .icon:last-child { transform: translateX(3px); }
-.ghost-link { color: var(--text-2); font-size: 15px; font-weight: 500; }
-.ghost-link:hover { color: var(--text); text-decoration: none; }
+.wallet-button { background: transparent; border-color: var(--line-2); color: var(--text); font-weight: 500; }
+.wallet-button:hover:not(:disabled) { background: var(--surface); }
+.or-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; }
+.or-divider::before, .or-divider::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }
 .signature-note { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12.5px; }
 .signature-note .icon { color: var(--money); }
-.hero-cta .notice, .hero-cta .error { max-width: 460px; text-align: left; }
-.signin-help { max-width: 460px; text-align: left; margin-top: 2px; }
-.signin-help summary { text-align: center; color: var(--muted); }
+.hero-cta .notice, .hero-cta .error { text-align: left; }
+.signin-help { text-align: left; margin-top: 2px; }
+.signin-help summary { color: var(--muted); }
 .signin-help p, .signin-help li { color: var(--text-2); font-size: 13px; }
 .signin-help ol { padding-left: 18px; margin: 0; display: grid; gap: 6px; }
 
-/* Floating example cards */
-.hero-stage { position: relative; max-width: 1000px; height: 345px; margin: 60px auto 0; }
-.float-card { position: absolute; border-radius: 18px; box-shadow: var(--shadow-float); animation: float 7s ease-in-out infinite; }
-.clip-card { left: 2%; top: 40px; width: 330px; background: var(--surface); border: 1px solid var(--line); padding: 12px; }
-.clip-frame {
-  position: relative; height: 190px; border-radius: 12px; overflow: hidden;
-  background: repeating-linear-gradient(135deg, #1f1f1f 0 14px, #1b1b1b 14px 28px);
-  display: grid; place-items: center;
+/* ---------- Landing browser window: one contributor journey on a 12s loop ---------- */
+.hero-phone { position: relative; display: grid; justify-items: center; padding: 10px 0 34px; }
+.phone {
+  position: relative; width: 100%; max-width: 500px; border-radius: 16px; overflow: hidden;
+  background: #1a1a1a; border: 1px solid #2e2e2e;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
+  animation: float 8s ease-in-out infinite;
 }
-.play { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 15px; padding-left: 3px; }
-.clip-time { position: absolute; right: 10px; bottom: 8px; font-size: 11px; color: #d0d0d0; background: rgba(0, 0, 0, 0.5); padding: 1px 6px; border-radius: 6px; }
-.clip-meta { padding: 12px 4px 4px; display: grid; gap: 8px; text-align: left; }
-.clip-meta strong { font-size: 12.5px; font-weight: 500; }
-.check-card { left: 37%; top: 0; width: 280px; background: var(--surface-2); border: 1px solid var(--line-2); padding: 16px; text-align: left; animation-delay: -2.3s; z-index: 2; }
-.card-kicker { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
-.check-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 8px 0; border-top: 1px solid var(--line); }
-.check-state { display: grid; justify-items: end; }
-.check-state > span { grid-area: 1 / 1; font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; }
-.chk-pending { color: var(--warn); opacity: 0; animation: blinkout var(--t) steps(1, end) both; }
-.chk-pass { color: var(--money); animation: reveal 0.35s ease-out var(--t) backwards; }
-.chk-pass .icon { width: 12px; height: 12px; }
-.confidence { height: 5px; border-radius: 999px; background: var(--surface-3); overflow: hidden; margin-top: 12px; }
-.confidence i { display: block; height: 100%; width: 96%; background: var(--money); border-radius: inherit; animation: fill 1.4s cubic-bezier(.2,.7,.2,1) 2.7s backwards; }
-.card-foot { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
-/* The receipt is the one light card on black, echoing Revio's account card. */
-.receipt-card {
-  right: 2%; top: 70px; width: 290px; background: #ffffff; color: #141414; overflow: hidden; text-align: left;
-  animation: float 7s ease-in-out -4.6s infinite, reveal 0.6s cubic-bezier(.2,.7,.2,1) 3.4s backwards;
+.browser-bar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a; }
+.browser-bar .dots { display: inline-flex; gap: 6px; }
+.browser-bar .dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a3a3a; }
+.browser-bar .url { flex: 1; text-align: center; font-size: 11.5px; color: #8a8a8a; background: #0f0f0f; border-radius: 7px; padding: 4px 10px; margin-right: 46px; }
+.phone-screen { position: relative; height: 360px; overflow: hidden; background: #0e0e0e; color: #f5f5f5; }
+.ps { position: absolute; inset: 0; padding: 26px 28px; display: flex; flex-direction: column; gap: 12px; opacity: 0; animation: screen 12s infinite; }
+.ps-task { animation-delay: 0s; }
+.ps-record { animation-delay: 3s; }
+.ps-check { animation-delay: 6s; }
+.ps-paid { animation-delay: 9s; }
+@keyframes screen {
+  0% { opacity: 0; transform: translateY(14px); }
+  3%, 22% { opacity: 1; transform: none; }
+  25%, 100% { opacity: 0; transform: translateY(-8px); }
 }
-.receipt-head { display: flex; gap: 12px; align-items: center; padding: 14px 16px; background: #f3f0ff; }
-.receipt-head strong { display: block; font-size: 14px; }
-.receipt-head span { font-size: 12px; color: #6e6e6e; }
-.receipt-icon { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: #6142ff; color: #fff; }
-.receipt-body { padding: 14px 16px 16px; }
-.verified-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: #0e9f6e; background: rgba(14, 159, 110, 0.1); border-radius: 999px; padding: 3px 9px; }
-.verified-chip .icon { width: 12px; height: 12px; }
-.receipt-amount { font-size: 30px; font-weight: 600; color: #0e9f6e; margin-top: 8px; letter-spacing: -0.02em; }
-.receipt-amount small { font-size: 13px; color: #6e6e6e; font-weight: 500; }
-.receipt-card .card-foot { color: #6e6e6e; }
-.stage-caption { position: absolute; left: 0; right: 0; bottom: -6px; text-align: center; font-size: 11.5px; color: var(--muted); }
+.ps-kicker { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8a8a8a; font-weight: 500; }
+.ps-card { background: #1a1a1a; border-radius: 16px; padding: 16px 18px; display: grid; gap: 6px; grid-template-columns: 1fr auto; align-items: start; }
+.ps-card .tag, .ps-card strong, .ps-card ul { grid-column: 1; }
+.ps-card .ps-reward { grid-column: 2; grid-row: 1 / span 2; }
+.ps-card .tag { justify-self: start; }
+.ps-card strong { font-size: 18px; letter-spacing: -0.02em; }
+.ps-reward { font-size: 30px; font-weight: 600; color: var(--money); letter-spacing: -0.03em; }
+.ps-card ul { list-style: none; padding: 0; display: grid; gap: 6px; font-size: 12.5px; color: #bdbdbd; }
+.ps-card li { display: flex; align-items: center; gap: 6px; }
+.ps-card li .icon { width: 13px; height: 13px; color: var(--money); }
+.ps-button { margin-top: auto; align-self: flex-end; padding-left: 28px !important; padding-right: 28px !important; text-align: center; background: var(--accent); color: var(--accent-ink); font-weight: 600; border-radius: 14px; padding: 13px; font-size: 14px; }
+.ps-record { background: #0b0b0b; padding: 0; }
+.ps-frame {
+  position: absolute; inset: 0;
+  background: radial-gradient(120% 70% at 50% 60%, #3a3a3a 0, #161616 70%);
+}
+.ps-frame::after { /* framing guide */
+  content: ""; position: absolute; inset: 44px 70px 84px; border: 2px dashed rgba(255, 255, 255, 0.35); border-radius: 18px;
+}
+.ps-rec { position: absolute; top: 16px; left: 18px; display: inline-flex; align-items: center; gap: 6px; color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+.ps-rec i { width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d; animation: blink 1s infinite; }
+.ps-timer { position: absolute; top: 14px; right: 18px; color: #fff; font-size: 13px; background: rgba(0, 0, 0, 0.45); padding: 2px 8px; border-radius: 8px; }
+.ps-shutter { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; border-radius: 50%; border: 4px solid #fff; display: grid; place-items: center; }
+.ps-shutter::after { content: ""; width: 26px; height: 26px; border-radius: 7px; background: #ff4d4d; }
+.ps-line { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; border-radius: 12px; padding: 12px 14px; font-size: 14px; font-weight: 500; }
+.ps-pass { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--money); color: var(--money-ink); opacity: 0; animation: tick 12s infinite; animation-delay: calc(6.6s + var(--i) * 0.55s); }
+.ps-pass .icon { width: 13px; height: 13px; }
+@keyframes tick { 0% { opacity: 0; transform: scale(0.4); } 2%, 18% { opacity: 1; transform: none; } 21%, 100% { opacity: 0; } }
+.ps-paid { align-items: center; justify-content: center; text-align: center; gap: 8px; }
+.ps-coin { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--money); color: var(--money-ink); box-shadow: 0 0 0 10px rgba(61, 220, 151, 0.12), 0 0 0 22px rgba(61, 220, 151, 0.05); margin-bottom: 10px; }
+.ps-coin .icon { width: 32px; height: 32px; }
+.ps-amount { font-size: 44px; font-weight: 600; color: var(--money); letter-spacing: -0.04em; }
+.ps-sub { font-size: 12.5px; color: #8a8a8a; }
+.float-chip {
+  position: absolute; display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; padding: 10px 14px; border-radius: 14px;
+  background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text);
+  box-shadow: var(--shadow-float); animation: float 7s ease-in-out infinite;
+}
+.float-chip .icon { width: 15px; height: 15px; }
+.chip-verified { left: -6%; top: 70%; animation-delay: -2s; }
+.chip-verified .icon { color: var(--money); }
+.chip-paid { right: -4%; top: 3%; color: var(--money); border-color: var(--money-line); animation-delay: -4.5s; }
+.stage-caption { position: absolute; left: 0; right: 0; bottom: 0; text-align: center; font-size: 11.5px; color: var(--muted); }
+
+/* Trust strip */
+.trust {
+  max-width: 1160px; margin: 72px auto 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.trust > div { display: flex; gap: 14px; align-items: flex-start; padding: 24px 20px; }
+.trust > div + div { border-left: 1px solid var(--line); }
+.trust-icon { width: 36px; height: 36px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--surface); color: var(--money); border: 1px solid var(--line-2); }
+.trust strong { font-size: 14.5px; font-weight: 600; }
+.trust p { color: var(--muted); font-size: 13px; margin-top: 2px; }
 
 /* How it works */
 .steps { max-width: 1000px; margin: 110px auto 0; text-align: center; position: relative; }
@@ -368,7 +391,14 @@ details[open] > summary { margin-bottom: 10px; }
 .way ul { list-style: none; padding: 0; display: grid; gap: 9px; color: var(--text-2); font-size: 14px; }
 .way li { display: flex; gap: 9px; align-items: center; }
 .way li .icon { color: var(--money); }
-.way button { margin-top: 4px; }
+.way-link { margin-top: 4px; display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; font-size: 14px; }
+.way-link .icon { transition: transform 0.2s; }
+.way-link:hover { text-decoration: none; }
+.way-link:hover .icon { transform: translateX(3px); }
+/* Earning is the consumer story, so its card leads in the brand colour. */
+.way-earn { background: var(--accent); color: var(--accent-ink); }
+.way-earn ul, .way-earn .way-link, .way-earn li .icon { color: var(--accent-ink); }
+.way-earn .tile { background: rgba(0, 0, 0, 0.08); color: var(--accent-ink); border-color: rgba(0, 0, 0, 0.15); }
 .landing-foot { max-width: 1000px; margin: 64px auto 0; padding-top: 22px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; }
 .landing-foot span:first-child { color: var(--text-2); font-weight: 500; }
 
@@ -391,9 +421,14 @@ details[open] > summary { margin-bottom: 10px; }
 @keyframes blinkout { from { opacity: 1; } to { opacity: 0; } }
 @keyframes fill { from { width: 0; } }
 @keyframes travel { 0% { left: 0; } 50% { left: calc(100% - 8px); } 100% { left: 0; } }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.55); } 80%, 100% { box-shadow: 0 0 0 9px rgba(61, 220, 151, 0); } }
+@keyframes pop { 0% { opacity: 0; transform: scale(0.6); } 60% { transform: scale(1.08); } 100% { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .rise, .float-card, .receipt-card, .chk-pass, .confidence i, .steps-track i { animation: none !important; }
-  .chk-pending { display: none; }
+  .rise, .phone, .float-chip, .steps-track i, .motto::before, .check-line, .paid-chip, .paid-note, .earn-total { animation: none !important; }
+  /* The phone shows its final "paid" screen instead of cycling. */
+  .ps { animation: none !important; opacity: 0; }
+  .ps-paid { opacity: 1; }
   .step:hover, .way:hover { transform: none; }
 }
 
@@ -702,6 +737,161 @@ details[open] > summary { margin-bottom: 10px; }
 .agent-pane, .buyer-edit, .confirmation, .conversation-options { margin-top: 12px; }
 .agent-pane form, .work-chat form { margin-top: 12px; }
 
+/* ---------- Consumer moments (contributor) ---------- */
+/* Earnings: one big figure, the way consumer finance apps lead. */
+.earnings-card {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 20px; align-items: end;
+  background: var(--surface); border: 1px solid var(--line-2); color: var(--text); border-radius: 20px; padding: 26px 28px;
+}
+.earn-label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.earn-label .icon { color: var(--money); }
+.earn-total { display: block; margin-top: 10px; font-size: 54px; line-height: 1; font-weight: 600; letter-spacing: -0.04em; color: var(--money); animation: pop 0.6s cubic-bezier(.2,.7,.2,1) both; }
+.earn-total small { font-size: 16px; color: var(--muted); margin-left: 8px; font-weight: 500; letter-spacing: 0; }
+.earn-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.earn-meta > div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.earn-meta span { display: block; font-size: 12px; color: var(--muted); }
+.earn-meta strong { display: block; margin-top: 4px; font-size: 20px; font-weight: 500; color: var(--text); }
+.earn-meta small { font-size: 11px; color: var(--muted); margin-left: 4px; }
+
+/* A paid reservation card turns green at the edge and shows a Paid stamp. */
+.mine > article.panel { transition: box-shadow 0.3s; }
+.mine > article.panel.is-paid { box-shadow: inset 3px 0 0 var(--money); }
+.paid-chip {
+  display: inline-flex; align-items: center; gap: 4px; margin-bottom: 6px;
+  font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: var(--money-ink);
+  background: var(--money); border-radius: 999px; padding: 3px 9px;
+  animation: pop 0.5s cubic-bezier(.2,.7,.2,1) both;
+}
+.paid-chip .icon { width: 12px; height: 12px; }
+.task-reward .paid-chip { display: flex; width: fit-content; margin-left: auto; }
+.task-reward small { letter-spacing: 0; }
+.paid-note {
+  border-left-color: var(--money); background: var(--money-soft); border-color: var(--money-line);
+  color: var(--text); font-weight: 500; animation: pop 0.5s cubic-bezier(.2,.7,.2,1) both;
+}
+/* While AI checks: a small spinner instead of a static note. */
+.checking-note { display: flex; gap: 10px; align-items: flex-start; border-left-color: var(--warn); }
+.checking-note::before {
+  content: ""; flex: none; width: 14px; height: 14px; margin-top: 2px; border-radius: 50%;
+  border: 2px solid var(--warn-line); border-top-color: var(--warn); animation: spin 0.8s linear infinite;
+}
+/* Each AI check slides in after the previous one, with a pass/fail mark. */
+.check-line { position: relative; padding-left: 38px !important; animation: reveal 0.4s cubic-bezier(.2,.7,.2,1) calc(var(--i, 0) * 140ms) backwards; }
+.check-line::before {
+  content: ""; position: absolute; left: 11px; top: 10px; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--surface-3) center / 11px no-repeat;
+}
+.check-line.check-pass::before {
+  background-color: var(--money);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4L19 6'/%3E%3C/svg%3E");
+}
+.check-line.check-fail::before {
+  background-color: var(--danger);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E");
+}
+.check-line strong { text-transform: capitalize; color: var(--text); }
+
+/* Task match cards read like an offer: reward first, one clear action. */
+.agent-task { border-radius: 18px; transition: transform 0.2s, box-shadow 0.2s; }
+.agent-task:hover { transform: translateY(-2px); }
+.agent-task .task-reward { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; }
+.agent-task > button.primary { width: 100%; padding: 12px 16px; font-size: 14px; border-radius: 12px; }
+
+/* Camera: a large rounded viewfinder with a live red recording dot. */
+.camera-preview { width: min(100%, 560px); border-radius: 18px; border: 0; box-shadow: var(--shadow-float); }
+.camera-capture > button.primary { padding: 12px 18px; font-size: 14px; border-radius: 12px; }
+.camera-capture [role="timer"] { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.camera-capture [role="timer"]::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: blink 1s infinite; }
+
+/* ---------- Buyer progress ---------- */
+.cov-total { display: flex; align-items: center; gap: 22px; }
+.cov-ring { position: relative; width: 120px; height: 120px; flex: none; }
+.cov-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track { fill: none; stroke: var(--surface-3); stroke-width: 10; }
+.ring-fill { fill: none; stroke: var(--money); stroke-width: 10; stroke-linecap: round; transition: stroke-dasharray 0.8s cubic-bezier(.2,.7,.2,1); animation: ring 1.2s cubic-bezier(.2,.7,.2,1) backwards; }
+@keyframes ring { from { stroke-dasharray: 0 100; } }
+.ring-pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+.cov-count .cov-number { font-size: 56px; }
+.recordings-head { margin-top: 26px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.recordings-head h3 { font-size: 18px; display: flex; align-items: center; gap: 8px; }
+.count-badge { font-size: 12px; font-weight: 500; background: var(--surface-3); color: var(--text-2); border-radius: 999px; padding: 1px 8px; }
+.glance { display: flex; flex-wrap: wrap; gap: 6px; }
+.glance-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid; border-radius: 999px; padding: 3px 9px 3px 7px; font-size: 11.5px; animation: pop 0.4s cubic-bezier(.2,.7,.2,1) backwards; }
+.glance-chip .icon { width: 12px; height: 12px; }
+.review-toolbar button.primary .icon { width: 15px; height: 15px; transform: rotate(180deg); }
+/* Releasing money is the buyer's one decision: make it a clear pay card. */
+.release-card, .panel .notice.release-card { margin-top: 18px; border: 1px solid var(--line-2); border-left: 3px solid var(--accent); background: var(--surface-2); color: var(--text); border-radius: 18px; padding: 22px 24px; display: grid; gap: 10px; }
+.release-card h3 { color: var(--text); font-size: 18px; }
+.release-card > p { color: var(--text-2); font-size: 13px; }
+.release-card button.primary { justify-self: start; padding: 12px 20px; font-size: 14px; border-radius: 12px; }
+.release-card [role="status"] { color: var(--money); font-weight: 500; }
+.proof h4 { text-transform: none; }
+@media (max-width: 900px) {
+  .cov-total { gap: 16px; }
+  .cov-ring { width: 96px; height: 96px; }
+  .ring-pct { font-size: 18px; }
+  .cov-count .cov-number { font-size: 44px; }
+}
+
+/* ---------- Buyer overview ---------- */
+/* The request box is the page's one job: a white floating card, big input. */
+.panel.post-composer { background: var(--surface-2); border: 1px solid var(--line); box-shadow: var(--shadow-float); padding: 28px; }
+.post-composer .chat-head h2 { font-size: 22px; }
+.post-composer .agent-avatar { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); width: 40px; height: 40px; }
+.post-composer .chat-input { padding: 8px; border-radius: 14px; background: var(--bg-2); }
+.post-composer .chat-input textarea { min-height: 76px; font-size: 15px; }
+.post-composer .chat-input button.primary { padding: 10px 16px; border-radius: 10px; }
+.post-composer .bubble.agent { background: var(--surface); border-color: transparent; }
+.starters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.starter {
+  display: grid; justify-items: start; align-content: start; gap: 8px; text-align: left;
+  padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid transparent;
+  font-weight: 400; color: var(--text-2); transition: transform 0.2s, border-color 0.2s, background 0.2s;
+}
+.starter:hover:not(:disabled) { transform: translateY(-2px); background: var(--surface-2); border-color: var(--accent); }
+.starter-kind { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.starter-kind .icon { width: 14px; height: 14px; }
+.starter-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* The drafted plan reads as an offer: title left, total budget right. */
+.panel .post-composer .post-preview, .post-composer .post-preview {
+  background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: none; border-radius: 18px; padding: 24px;
+  animation: reveal 0.5s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.offer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.offer-head h3 { font-size: 22px; letter-spacing: -0.03em; }
+.offer-total { text-align: right; display: grid; gap: 2px; }
+.offer-total > span { font-size: 12px; color: var(--muted); }
+.offer-total strong { font-size: 36px; font-weight: 600; color: var(--money); letter-spacing: -0.04em; line-height: 1.05; }
+.offer-total strong small { font-size: 14px; color: var(--muted); margin-left: 6px; font-weight: 500; letter-spacing: 0; }
+.post-composer .post-actions { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 18px; }
+.post-composer .post-actions button.primary { padding: 12px 20px; font-size: 14px; border-radius: 12px; }
+
+/* Overview stats: compact tiles with a tinted icon. */
+.overview-stats button { grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; padding: 16px; transition: transform 0.2s, background 0.2s; }
+.overview-stats button:hover:not(:disabled) { transform: translateY(-2px); background: var(--surface-3); }
+.ov-icon { grid-row: span 3; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); font-style: normal; }
+.ov-icon .icon { width: 18px; height: 18px; }
+.ov-open { color: var(--money); background: var(--money-soft); }
+.ov-updates { color: var(--accent); background: var(--accent-soft); }
+.overview-stats strong { font-size: 26px; }
+
+/* ---------- Final touches: receipt, camera, offers ---------- */
+.receipt-line { font-size: 12.5px; color: var(--text-2); }
+.receipt-line a { color: var(--chain); font-weight: 500; }
+/* When the camera is open, the recorder becomes a dark, focused panel. */
+.camera-capture:has(video) {
+  background: var(--bg-2); border: 1px solid var(--line-2); color: var(--text); border-radius: 20px; padding: 18px; justify-items: center; text-align: center;
+}
+.camera-capture:has(video) .camera-preview { width: 100%; max-width: 640px; box-shadow: none; }
+.camera-capture:has(video) .muted { color: #a3a3a3; }
+.camera-capture:has(video) [role="timer"] { color: #ff6b6b; font-size: 15px; }
+.camera-capture:has(video) button:not(.primary) { background: var(--surface-2); color: var(--text); border-color: var(--line-2); }
+.camera-capture:has(video) button { min-width: 180px; padding: 12px 18px; border-radius: 999px; font-size: 14px; }
+.agent-task .requirements { margin-top: 6px; }
+.agent-task .requirements li > .icon { color: var(--money); }
+.agent-task .tag { margin-bottom: 2px; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .how-it-works .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -710,13 +900,38 @@ details[open] > summary { margin-bottom: 10px; }
   .check { grid-template-columns: auto 1fr; }
   .check-conf { grid-column: 1 / -1; }
   .signin-page { padding: 0 18px 32px; }
-  .hero { padding-top: 36px; }
-  .hero h1 { font-size: 40px; }
+  .hero { grid-template-columns: 1fr; gap: 40px; padding-top: 28px; }
+  .hero h1 { font-size: 46px; }
   .hero-sub { font-size: 15.5px; }
-  .hero-stage { height: auto; display: grid; gap: 14px; margin-top: 44px; }
-  .float-card { position: static; width: auto !important; animation: none; }
-  .receipt-card { animation: reveal 0.6s cubic-bezier(.2,.7,.2,1) 3.4s backwards; }
-  .stage-caption { position: static; }
+  .hero-cta { max-width: none; }
+  .nav-right .environment-badge { display: none; }
+  .phone-screen { height: 330px; }
+  .float-chip { display: none; }
+  .trust { grid-template-columns: 1fr; margin-top: 48px; }
+  .trust > div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .earnings-card { grid-template-columns: 1fr; padding: 22px; }
+  .starters { grid-template-columns: 1fr; }
+  .panel.post-composer { padding: 20px; }
+  .offer-total { text-align: left; }
+  .overview-stats button { grid-template-columns: auto 1fr auto; }
+  .ov-icon { grid-row: span 2; }
+  .earn-total { font-size: 44px; }
+  /* App-style bottom tab bar on phones. */
+  .side-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0;
+    display: flex; justify-content: space-around; gap: 0; overflow: visible;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: rgba(10, 10, 10, 0.94); border-top: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+  }
+  .side-nav button {
+    flex: 1; flex-direction: column; gap: 3px; padding: 7px 4px; font-size: 11px; white-space: normal;
+    line-height: 1.2; text-align: center; color: var(--muted); position: relative;
+  }
+  .side-nav button .icon { width: 20px; height: 20px; }
+  .side-nav button[aria-current="page"] { background: transparent; color: var(--accent); }
+  .side-nav .nav-count { position: absolute; top: 2px; right: calc(50% - 22px); margin: 0; font-size: 10px; padding: 0 5px; }
+  .app-main { padding-bottom: 78px; }
   .steps { margin-top: 64px; }
   .steps h2, .ways h2 { font-size: 28px; }
   .steps-track { display: none; }
@@ -734,13 +949,11 @@ details[open] > summary { margin-bottom: 10px; }
   .sidebar-account > div { display: none; }
   .workspace-switch { order: 3; width: 100%; }
   .nav-label, .sidebar-proof { display: none; }
-  .side-nav { order: 4; width: 100%; display: flex; overflow-x: auto; gap: 4px; }
-  .side-nav button { white-space: nowrap; flex: none; }
   .workspace-header { position: static; padding: 12px 16px; }
   .workspace-content { padding: 18px 16px 32px; }
   .overview-stats { grid-template-columns: 1fr; }
-  .overview-stats button { grid-template-columns: 1fr auto; align-items: center; }
-  .overview-stats strong { grid-row: span 2; grid-column: 2; font-size: 24px; }
+  .overview-stats button { grid-template-columns: auto 1fr auto; align-items: center; }
+  .overview-stats strong { grid-row: 1 / span 2; grid-column: 3; font-size: 24px; }
   .how-it-works .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bubble { max-width: 92%; }
   .agent-task .task-reward { text-align: left; }

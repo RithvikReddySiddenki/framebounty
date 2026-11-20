@@ -38,11 +38,23 @@ const MOTTO = "Pay for proof, not promises.";
 /** Staggered entrance delay for the landing page's rise-in animation. */
 const delay = (ms: number) => ({ "--d": `${ms}ms` }) as React.CSSProperties;
 
+/** Consumer-first explanation: the contributor's three steps, in plain words.
+ * The blockchain is named only where it earns trust (money set aside, payout). */
 const STEPS: { icon: IconName; tone: "chain" | "ai" | "money"; title: string; body: string }[] = [
-  { icon: "lock", tone: "chain", title: "Fund", body: "Your agent drafts the job and the budget is locked in USDC escrow on Arc." },
-  { icon: "eye", tone: "ai", title: "Verify", body: "Contributors record and upload. AI checks every clip against each requirement." },
-  { icon: "coins", tone: "money", title: "Paid", body: "Work that passes is paid from escrow automatically, straight to the contributor." },
+  { icon: "search", tone: "chain", title: "Pick a task", body: "Tell your agent what you have, like a phone, a towel or ten minutes. It finds paid tasks that fit." },
+  { icon: "eye", tone: "ai", title: "Record it", body: "Film the task right in the app. AI checks it against each requirement, usually in under a minute." },
+  { icon: "coins", tone: "money", title: "Get paid", body: "Pass the check and the reward is yours, paid in USDC from money that was set aside before you started." },
 ];
+
+/** Trust strip under the hero: what makes the money safe, in one line each. */
+const TRUST: { icon: IconName; title: string; body: string }[] = [
+  { icon: "lock", title: "Money set aside first", body: "Every task is funded before you can accept it." },
+  { icon: "shield", title: "Checked by AI, not a person", body: "Clear pass/fail reasons for every requirement." },
+  { icon: "coins", title: "Paid in digital dollars", body: "USDC on Arc, with sign-in powered by Circle." },
+];
+
+/** The contributor journey the landing phone plays on a loop (illustrative). */
+const PHONE_CHECKS = ["Hands visible", "Towel folded", "Dark surface"];
 
 function Pipeline() {
   return <div className="pipeline">
@@ -149,77 +161,79 @@ export default function Workspace() {
       <main className="signin-page theme-dark">
         <header className="landing-nav rise" style={delay(0)}>
           <div className="brand"><span className="mark">F</span>FrameBounty</div>
-          <span className="environment-badge"><i />{networkName()}</span>
+          <div className="nav-right">
+            <span className="environment-badge"><i />{networkName()}</span>
+            <a className="nav-cta" href="#signin">Sign in</a>
+          </div>
         </header>
 
         <section className="hero">
-          <p className="motto rise" style={delay(60)}>{MOTTO}</p>
-          <h1 className="rise" style={delay(140)}>Agents buy verified data.<br /><span>Contributors get paid in USDC.</span></h1>
-          <p className="hero-sub rise" style={delay(220)}>Describe the dataset you need. People capture it, AI checks every clip, and escrow pays the moment it passes.</p>
-          <section className="hero-cta rise" style={delay(300)} aria-label="Sign in">
-            <CircleLogin authenticated={authenticated => { attemptRef.current += 1; sessionRef.current = authenticated; setSession(authenticated); setAuthError(""); }} />
-            <div className="hero-actions">
-              <button className="primary signin-button" onClick={() => void connect()} disabled={connecting}>
+          <div className="hero-copy">
+            <p className="motto rise" style={delay(60)}>{MOTTO}</p>
+            <h1 className="rise" style={delay(140)}>Film a task.<br /><span>Get paid in minutes.</span></h1>
+            <p className="hero-sub rise" style={delay(220)}>Pick a short task, record it with your camera right in the browser, and get paid as soon as AI confirms it&apos;s done. Teams building AI get real-world data they can trust.</p>
+            <section id="signin" className="hero-cta rise" style={delay(300)} aria-label="Sign in">
+              <CircleLogin authenticated={authenticated => { attemptRef.current += 1; sessionRef.current = authenticated; setSession(authenticated); setAuthError(""); }} />
+              <div className="or-divider"><span>or</span></div>
+              <button className="signin-button wallet-button" onClick={() => void connect()} disabled={connecting}>
                 <Icon name="wallet" />{connecting ? "Check your wallet to sign…" : "Connect wallet & sign in"}<Icon name="arrow" />
               </button>
-              <a className="ghost-link" href="#how">See how it works</a>
+              <p className="signature-note"><Icon name="check" />Wallet sign-in is one message signature. No gas, no payment authority.</p>
+              {connecting && <p className="signature-note"><Icon name="info" />Don&apos;t see a popup? Click the MetaMask icon in your browser toolbar; the request may be waiting there.</p>}
+              {!hasWallet && <p className="notice">Prefer an existing wallet? Install <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, then reload this page.</p>}
+              {authError && <p role="alert" aria-label="Sign-in error" className="error">{authError}</p>}
+              <details className="signin-help">
+                <summary>First time here?</summary>
+                <ol>
+                  <li>Sign in with your email. Circle creates your account and wallet for you; there&apos;s nothing to install.</li>
+                  <li>Already use MetaMask? Choose &ldquo;Connect wallet&rdquo; and we&apos;ll switch you to {networkName()}.</li>
+                  <li>Approve the &ldquo;FrameBounty wallet sign-in&rdquo; message. No gas, no funds.</li>
+                  <li>Have several wallet extensions? Disable all but one so they don&apos;t fight over the page.</li>
+                </ol>
+              </details>
+            </section>
+          </div>
+
+          {/* A browser window playing one contributor's journey on a loop:
+              static illustration, not live data, and labelled as such. */}
+          <div className="hero-phone rise" style={delay(380)} aria-label="Illustrative example of a contributor getting paid">
+            <div className="phone">
+              <div className="browser-bar"><span className="dots"><i /><i /><i /></span><span className="url mono">framebounty.app</span></div>
+              <div className="phone-screen">
+                <div className="ps ps-task">
+                  <p className="ps-kicker">Task for you</p>
+                  <div className="ps-card">
+                    <span className="tag">Video · 15s</span>
+                    <strong>Fold a large towel</strong>
+                    <span className="ps-reward mono">$0.50</span>
+                    <ul>{PHONE_CHECKS.map(c => <li key={c}><Icon name="check" />{c}</li>)}</ul>
+                  </div>
+                  <span className="ps-button">Accept task</span>
+                </div>
+                <div className="ps ps-record">
+                  <div className="ps-frame"><span className="ps-rec"><i />REC</span><span className="ps-timer mono">0:12</span></div>
+                  <span className="ps-shutter" />
+                </div>
+                <div className="ps ps-check">
+                  <p className="ps-kicker"><Icon name="eye" />AI is checking</p>
+                  {PHONE_CHECKS.map((c, i) => <div className="ps-line" key={c} style={{ "--i": i } as React.CSSProperties}><span>{c}</span><span className="ps-pass"><Icon name="check" /></span></div>)}
+                </div>
+                <div className="ps ps-paid">
+                  <span className="ps-coin"><Icon name="check" /></span>
+                  <p className="ps-kicker">You got paid</p>
+                  <p className="ps-amount mono">+$0.50</p>
+                  <p className="ps-sub">USDC · sent to your account</p>
+                </div>
+              </div>
             </div>
-            <p className="signature-note"><Icon name="check" />One message signature. No gas, no payment authority.</p>
-            {connecting && <p className="signature-note"><Icon name="info" />Don&apos;t see a popup? Click the MetaMask icon in your browser toolbar; the request may be waiting there.</p>}
-            {!hasWallet && <p className="notice">Prefer an existing wallet? Install <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, then reload this page.</p>}
-            {authError && <p role="alert" aria-label="Sign-in error" className="error">{authError}</p>}
-            <details className="signin-help">
-              <summary>First time here?</summary>
-              <ol>
-                <li>Install MetaMask (or another EVM browser wallet) and unlock it.</li>
-                <li>Click sign in. We&apos;ll ask your wallet to add and switch to {networkName()}.</li>
-                <li>Approve the &ldquo;FrameBounty wallet sign-in&rdquo; message. That&apos;s it: no gas, no funds.</li>
-                <li>Have several wallet extensions? Disable all but one so they don&apos;t fight over the page.</li>
-              </ol>
-            </details>
-          </section>
+            <div className="float-chip chip-verified"><Icon name="shield" />Verified by AI</div>
+            <div className="float-chip chip-paid"><Icon name="coins" /><span className="mono">+0.50 USDC</span></div>
+            <p className="stage-caption">Illustrative example</p>
+          </div>
         </section>
 
-        {/* Illustration of one submission's journey; static example, not live data. */}
-        <section className="hero-stage rise" style={delay(420)} aria-label="Illustrative example of a verified payout">
-          <div className="float-card clip-card">
-            <div className="clip-frame">
-              <span className="play" aria-hidden="true">▶</span>
-              <span className="clip-time mono">0:18</span>
-            </div>
-            <div className="clip-meta">
-              <strong className="mono">towel_fold_014.mp4</strong>
-              <div className="row"><span className="tag">Large towel</span><span className="tag">Dark surface</span></div>
-            </div>
-          </div>
-
-          <div className="float-card check-card">
-            <p className="card-kicker"><Icon name="eye" />AI verification</p>
-            {[["Both hands visible", 1200], ["Fold completed", 1900], ["Large towel", 2600]].map(([label, t]) => (
-              <div className="check-row" key={label as string} style={{ "--t": `${t}ms` } as React.CSSProperties}>
-                <span>{label}</span>
-                <span className="check-state">
-                  <span className="chk-pending mono">checking…</span>
-                  <span className="chk-pass mono"><Icon name="check" />pass</span>
-                </span>
-              </div>
-            ))}
-            <div className="confidence"><i /></div>
-            <p className="card-foot mono">model-reported confidence 96%</p>
-          </div>
-
-          <div className="float-card receipt-card">
-            <div className="receipt-head">
-              <span className="receipt-icon"><Icon name="coins" /></span>
-              <div><strong>Escrow payout</strong><span>{networkName()}</span></div>
-            </div>
-            <div className="receipt-body">
-              <span className="verified-chip"><Icon name="check" />Verified</span>
-              <p className="receipt-amount mono">+0.50 <small>USDC</small></p>
-              <p className="card-foot">Paid from escrow to the contributor</p>
-            </div>
-          </div>
-          <p className="stage-caption">Illustrative example</p>
+        <section className="trust rise" style={delay(460)} aria-label="Why the money is safe">
+          {TRUST.map(t => <div key={t.title}><span className="trust-icon"><Icon name={t.icon} /></span><div><strong>{t.title}</strong><p>{t.body}</p></div></div>)}
         </section>
 
         <section id="how" className="steps" aria-label="How FrameBounty works">
@@ -237,31 +251,31 @@ export default function Workspace() {
         </section>
 
         <section className="ways" aria-label="Two ways to use FrameBounty">
+          <article className="way way-earn">
+            <span className="tile tile-money"><Icon name="coins" /></span>
+            <h3>I want to earn</h3>
+            <ul>
+              <li><Icon name="check" />Tasks that fit what you have and your free time</li>
+              <li><Icon name="check" />A fixed reward you see before you accept</li>
+              <li><Icon name="check" />Paid when your recording passes the AI check</li>
+            </ul>
+            <a className="way-link" href="#signin">Start earning<Icon name="arrow" /></a>
+          </article>
           <article className="way">
             <span className="tile tile-chain"><Icon name="bot" /></span>
             <h3>I need data</h3>
             <ul>
-              <li><Icon name="check" />Describe the dataset in plain English</li>
-              <li><Icon name="check" />Lock one fixed USDC budget in escrow</li>
-              <li><Icon name="check" />Pay only for clips that pass verification</li>
+              <li><Icon name="check" />Describe the photos or videos you need in plain English</li>
+              <li><Icon name="check" />Set one budget; it&apos;s held safely until work is verified</li>
+              <li><Icon name="check" />Pay only for recordings that pass every requirement</li>
             </ul>
-            <button onClick={() => void connect()} disabled={connecting}>Start as a buyer<Icon name="arrow" /></button>
-          </article>
-          <article className="way">
-            <span className="tile tile-money"><Icon name="coins" /></span>
-            <h3>I want to earn</h3>
-            <ul>
-              <li><Icon name="check" />Tell the agent what gear and time you have</li>
-              <li><Icon name="check" />Reserve a funded task at a fixed reward</li>
-              <li><Icon name="check" />Get paid in USDC when your clip passes</li>
-            </ul>
-            <button onClick={() => void connect()} disabled={connecting}>Start earning<Icon name="arrow" /></button>
+            <a className="way-link" href="#signin">Request data<Icon name="arrow" /></a>
           </article>
         </section>
 
         <footer className="landing-foot">
           <span>{MOTTO}</span>
-          <span>AI assists. People collect. Escrow pays. · Testnet funds only</span>
+          <span>AI assists. People collect. Escrow pays. · {networkName()}</span>
         </footer>
       </main>
     );
@@ -329,18 +343,18 @@ export default function Workspace() {
               <div className="page-heading">
                 <div>
                   <p className="eyebrow">Buyer workspace</p>
-                  <h1>Commission a dataset</h1>
-                  <p>Tell your agent what you need. It drafts the post; you approve the budget once.</p>
+                  <h1>What do you need recorded?</h1>
+                  <p>Describe the photos or videos you need. Your agent drafts the request; you approve one budget, held safely until work is verified.</p>
                 </div>
                 <button className="quiet" onClick={() => void refreshOverview()}>Refresh overview</button>
               </div>
-              <div className="overview-stats">
-                <button onClick={() => setView("collections")}><span>Collections</span><strong>{overview?.collections ?? "—"}</strong><small>Saved plans and posts</small></button>
-                <button onClick={() => setView("collections")}><span>Open collections</span><strong>{overview?.open_collections ?? "—"}</strong><small>Funded and accepting work</small></button>
-                <button onClick={() => setView("collections")}><span>Submission updates</span><strong>{overview?.awaiting_review ?? "—"}</strong><small>Verifying, verified or releasing</small></button>
-              </div>
               {overviewError && <p role="alert" className="error">{overviewError}</p>}
               <PostComposer token={session.token} onChanged={refreshOverview} onView={() => setView("collections")} />
+              <div className="overview-stats">
+                <button onClick={() => setView("collections")}><i className="ov-icon"><Icon name="folder" /></i><span>Collections</span><strong>{overview?.collections ?? "—"}</strong><small>Saved plans and posts</small></button>
+                <button onClick={() => setView("collections")}><i className="ov-icon ov-open"><Icon name="search" /></i><span>Open collections</span><strong>{overview?.open_collections ?? "—"}</strong><small>Funded and accepting work</small></button>
+                <button onClick={() => setView("collections")}><i className="ov-icon ov-updates"><Icon name="eye" /></i><span>Submission updates</span><strong>{overview?.awaiting_review ?? "—"}</strong><small>Verifying, verified or releasing</small></button>
+              </div>
               <details className="how-it-works">
                 <summary>How a collection runs, end to end</summary>
                 <Pipeline />
@@ -350,8 +364,8 @@ export default function Workspace() {
               <div className="page-heading">
                 <div>
                   <p className="eyebrow">Collections & review</p>
-                  <h1>Your collections</h1>
-                  <p>Track each post from plan to payout. Select one to see coverage, submissions and on-chain proof.</p>
+                  <h1>Your requests</h1>
+                  <p>See how close each request is to done. Open one for progress, verified recordings and the payment record.</p>
                 </div>
               </div>
               <Posts key={session.wallet} token={session.token} active={view === "collections"} onChanged={refreshOverview} />
@@ -361,7 +375,7 @@ export default function Workspace() {
               onWorkReady={() => setContributorSection("submissions")} />
           )}
           <footer className="workspace-footer">
-            <span>FrameBounty · Agentic data bounties on Arc</span>
+            <span>FrameBounty · Paid for proof, on Arc</span>
             <span>AI assists. People collect. Escrow pays.</span>
           </footer>
         </div>
