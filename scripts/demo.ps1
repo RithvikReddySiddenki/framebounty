@@ -103,9 +103,28 @@ function Stop-Recorded {
     foreach ($entry in $entries) {
         $proc = Get-RecordedProcess $entry
         if ($null -eq $proc) { Write-Step "$($entry.name): not running (pid $($entry.pid))."; continue }
-        # /T also stops children (venv python launcher -> interpreter, next dev -> server).
-        & taskkill.exe /PID $proc.Id /T /F | Out-Null
+        # Stop the complete tree (venv/node may launch children). Never fall
+        # back to stopping only the parent: that could orphan a server process
+        # while reporting success and discarding the recovery record.
+        # Windows PowerShell 5.1 turns a native program's stderr into an error
+        # record under Stop, even when redirected. Capture the exit code so a
+        # refusal reaches the explicit recovery-state path below.
+        $previousErrorAction = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'SilentlyContinue'
+            & taskkill.exe /PID $proc.Id /T /F 2>$null | Out-Null
+            $taskkillExit = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $previousErrorAction
+        }
+        if ($taskkillExit -ne 0) {
+            Stop-Demo "$($entry.name) process tree could not be stopped; PID record was preserved."
+        }
         Write-Step "$($entry.name): stopped (pid $($proc.Id))."
+        [void]$proc.WaitForExit(5000)
+        if ($null -ne (Get-RecordedProcess $entry)) {
+            Stop-Demo "$($entry.name) did not stop (pid $($proc.Id)); PID record was preserved."
+        }
     }
     Remove-Item -LiteralPath $PidFile -Force
 }
@@ -197,8 +216,24 @@ try {
         Set-Setting 'NEXT_PUBLIC_ENABLE_CHAIN_FUNDING' 'false'
         Set-Setting 'ALLOW_MODEL_TEXT' 'false'
         Set-Setting 'ALLOW_MODEL_MEDIA' 'false'
-        # Simulated AI outcome; 'pass' lets the walkthrough reach release.
-        if (-not (Get-Setting 'FIXTURE_VERIFICATION_RESULT')) { Set-Setting 'FIXTURE_VERIFICATION_RESULT' 'pass' }
+        Set-Setting 'ALLOW_LIVE_MODEL_SMOKE' 'false'
+        Set-Setting 'GEMINI_FREE_TIER_CONFIRMED' 'false'
+        # Fixture children do not need provider credentials or live chain
+        # configuration. Remove them from the inherited environment even when
+        # the local .env also contains a ready-to-use testnet profile.
+        foreach ($name in @('GEMINI_API_KEY', 'GEMINI_MODEL', 'ARC_RPC_URL', 'ARC_USDC_ADDRESS',
+                'ARC_ESCROW_ADDRESS', 'ARC_ALLOCATOR_ADDRESS', 'ARC_ALLOCATOR_PRIVATE_KEY')) {
+            Set-Setting $name $null
+        }
+        foreach ($name in @('GEMINI_API_KEY', 'ARC_ALLOCATOR_PRIVATE_KEY', 'ARC_RPC_URL')) {
+            if (Get-Setting $name) {
+                Fail-Start "Fixture isolation failed to remove $name; no child process was started."
+            }
+        }
+        # This launcher is for the complete simulated walkthrough. Override the
+        # safe application default (uncertain) only in fixture mode; the caller's
+        # original process setting is restored after the child processes start.
+        Set-Setting 'FIXTURE_VERIFICATION_RESULT' 'pass'
         if (-not (Get-Setting 'DATABASE_URL')) {
             Write-Step 'DATABASE_URL not set; using the docker compose default (localhost:5432).'
             Set-Setting 'DATABASE_URL' 'postgresql+psycopg://framebounty:framebounty@localhost:5432/framebounty'
@@ -208,11 +243,9 @@ try {
         $required = @('DATABASE_URL', 'AUTH_ORIGIN', 'NEXT_PUBLIC_API_URL', 'GEMINI_API_KEY', 'GEMINI_MODEL',
             'ARC_RPC_URL', 'ARC_ESCROW_ADDRESS', 'ARC_ALLOCATOR_ADDRESS', 'ARC_ALLOCATOR_PRIVATE_KEY')
         foreach ($name in $required) { if (-not (Get-Setting $name)) { $missing += $name } }
-        $exact = [ordered]@{ APP_MODE = 'testnet'; ALLOW_CHAIN_TRANSACTIONS = 'true'; NEXT_PUBLIC_ENABLE_CHAIN_FUNDING = 'true';
+        $exact = [ordered]@{ APP_MODE = 'testnet'; ARC_CHAIN_ID = '5042002'; ALLOW_CHAIN_TRANSACTIONS = 'true'; NEXT_PUBLIC_ENABLE_CHAIN_FUNDING = 'true';
             ALLOW_MODEL_TEXT = 'true'; ALLOW_MODEL_MEDIA = 'true' }
         foreach ($name in $exact.Keys) { if ((Get-Setting $name) -ne $exact[$name]) { $missing += "$name=$($exact[$name])" } }
-        $chainId = Get-Setting 'ARC_CHAIN_ID'
-        if ($chainId -and $chainId -ne '5042002') { $missing += 'ARC_CHAIN_ID=5042002' }
         if ($missing.Count -gt 0) {
             Restore-Env
             Write-Host '[demo] ERROR: testnet mode refused. Missing or incorrect settings (values not shown):' -ForegroundColor Red
@@ -220,10 +253,10 @@ try {
             Write-Host '[demo] Put them in .env (see docs/DEMO.md, "Testnet mode") and retry.' -ForegroundColor Red
             exit 1
         }
-        foreach ($name in @('NEXT_PUBLIC_API_URL', 'NEXT_PUBLIC_ENABLE_CHAIN_FUNDING')) {
-            $v = Get-Setting $name
-            if ($v -and ($v -eq (Get-Setting 'GEMINI_API_KEY') -or $v -eq (Get-Setting 'ARC_ALLOCATOR_PRIVATE_KEY'))) {
-                Fail-Start "$name contains a secret value. Secrets must never be in NEXT_PUBLIC_ variables."
+        foreach ($publicName in @($settingNames | Where-Object { $_.StartsWith('NEXT_PUBLIC_') })) {
+            $publicValue = Get-Setting $publicName
+            if ($publicValue -and ($publicValue -eq (Get-Setting 'GEMINI_API_KEY') -or $publicValue -eq (Get-Setting 'ARC_ALLOCATOR_PRIVATE_KEY'))) {
+                Fail-Start "$publicName contains a secret value. Secrets must never be in NEXT_PUBLIC_ variables."
             }
         }
         if ((Get-Setting 'GEMINI_MODEL') -ne 'gemini-3.5-flash-lite') {
@@ -240,11 +273,19 @@ try {
         Fail-Start 'No production build found. Run: cd apps/web; npm run build (or use -WebMode dev).'
     }
 
-    $code = Invoke-Checked 'check-ffmpeg' $Python @('-c', 'import sys; from framebounty.media import media_executable as m; missing=[n for n in ("ffmpeg","ffprobe") if not m(n)]; print("missing: " + ", ".join(missing) if missing else "ok"); sys.exit(1 if missing else 0)')
+    $fixtureChildCheck = ''
+    if ($Mode -eq 'fixture') {
+        $fixtureChildCheck = "import os; assert not any(os.getenv(n) for n in ('GEMINI_API_KEY','ARC_ALLOCATOR_PRIVATE_KEY','ARC_RPC_URL')), 'fixture child inherited live configuration'; "
+    }
+    $mediaCheck = $fixtureChildCheck + "import sys; from framebounty.media import media_executable as m; missing=[n for n in ('ffmpeg','ffprobe') if not m(n)]; print('missing: ' + ', '.join(missing) if missing else 'ok'); sys.exit(1 if missing else 0)"
+    $code = Invoke-Checked 'check-ffmpeg' $Python @('-c', $mediaCheck)
     if ($code -ne 0) { Fail-Start 'FFmpeg/ffprobe not found. Run: .\.venv\Scripts\python.exe scripts/setup_media_tools.py (or set FFMPEG_BIN/FFPROBE_BIN).' }
     Write-Step 'FFmpeg and ffprobe found.'
 
-    $code = Invoke-Checked 'check-db' $Python @('-c', 'import sys; from sqlalchemy import text; from framebounty.db import engine;' + "`n" + 'try:' + "`n" + '    c = engine().connect(); c.execute(text("select 1")); c.close(); print("ok")' + "`n" + 'except Exception as e:' + "`n" + '    print("database unreachable: " + type(e).__name__); sys.exit(1)')
+    # Keep python -c on one line. Start-Process on Windows can truncate a quoted
+    # multiline argument and return success after executing only the imports.
+    $databaseCheck = "from sqlalchemy import text; from framebounty.db import engine; c=engine().connect(); c.execute(text('select 1')); c.close(); print('ok')"
+    $code = Invoke-Checked 'check-db' $Python @('-c', $databaseCheck)
     if ($code -ne 0) { Fail-Start 'DATABASE_URL is not reachable. Start PostgreSQL (docker compose up -d postgres) or fix DATABASE_URL.' }
     Write-Step 'PostgreSQL reachable.'
 

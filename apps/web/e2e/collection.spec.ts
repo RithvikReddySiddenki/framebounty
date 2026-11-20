@@ -66,6 +66,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   const buyer = await buyerContext.newPage();
   const actor = await actorContext.newPage();
   await connect(buyer);
+  await expect(buyer.getByText("Submission updates", { exact: true })).toBeVisible();
   await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want images of a cat climbing a tree");
   await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByText(/How many would you like/)).toBeVisible();
@@ -103,13 +104,40 @@ test("image request becomes a labeled post, automatic verification and final fun
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });
   await match.getByRole("button", { name: /Review reservation for/ }).click();
+  await expect(match.getByText(/simulated fixture USDC/)).toBeVisible();
   await match.getByRole("button", { name: /Accept fixed terms for/ }).click();
   const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   await expect(actor.getByRole("checkbox")).toHaveCount(0);
+  const firstUploadResponse = actor.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/media?"));
   await actor.getByRole("button", { name: "Upload image", exact: true }).click();
+  const firstUploaded = await (await firstUploadResponse).json();
   await expect(actor.getByText("queued", { exact: true })).toBeVisible();
   await expect(actor.getByText(/Checking your image with AI/)).toBeVisible();
+  let protectedRetry = true;
+  await actor.route(`**/submissions/${firstUploaded.id}`, async route => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      ...firstUploaded,
+      fixture: false,
+      state: "verification_pending",
+      payment_confirmed: false,
+      findings: {
+        ...firstUploaded.findings,
+        protected: protectedRetry,
+        processing_error: protectedRetry ? "temporary media-provider failure" : "legacy automatic retries exhausted",
+        verification: { decision: "retry", reason: protectedRetry ? "Pending automatic retry in five minutes." : "Automatic retries are exhausted; the obligation will release at its deadline, without payment.", threshold: 80 },
+      },
+    }) });
+  });
+  await actor.getByRole("button", { name: "Refresh submission status" }).click();
+  const pendingUpload = actor.locator(".upload-box").filter({ hasText: "verification pending" });
+  await expect(pendingUpload.getByText(/temporary media-provider failure.*Verification remains pending; no payment is authorized/)).toBeVisible();
+  await expect(pendingUpload.locator(".error")).toHaveCount(0);
+  protectedRetry = false;
+  await actor.getByRole("button", { name: "Refresh submission status" }).click();
+  await expect(pendingUpload.getByText(/legacy automatic retries exhausted.*Verification remains pending; no payment is authorized/)).toBeVisible();
+  await expect(pendingUpload.locator(".error")).toHaveCount(0);
+  await actor.unroute(`**/submissions/${firstUploaded.id}`);
   const root = path.resolve(__dirname, "../../..");
   const worker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL }, encoding: "utf-8", timeout: 60000 });
   expect(worker.status, worker.stderr).toBe(0);
@@ -121,6 +149,9 @@ test("image request becomes a labeled post, automatic verification and final fun
   await expect(buyer.getByRole("checkbox")).toHaveCount(0);
   await buyer.getByRole("button", { name: "Release simulated funds", exact: true }).click();
   await expect(buyer.getByText(/FIXTURE SUBMISSION.*fixture accepted/)).toBeVisible();
+  await actor.getByRole("button", { name: "Refresh submission status" }).click();
+  await expect(actor.getByText("Simulated reward released; no blockchain payment occurred.", { exact: true })).toBeVisible();
+  await expect(actor.getByText("Reward paid.", { exact: true })).toHaveCount(0);
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-submission-mobile.png"), fullPage: true });
   await buyer.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "image-post-desktop.png"), fullPage: true });
   // A second fixture image fails automatically; the contributor sees rejection
