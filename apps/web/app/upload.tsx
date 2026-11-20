@@ -224,10 +224,13 @@ export default function Upload({
               ? "Payment confirmed"
               : "No chain payment confirmed"}
           </p>
-          {submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
-          {submission.payment_due_at && !submission.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(submission.payment_due_at).toLocaleString()}. Your reserved reward remains locked.</p>}
+          {["queued", "verifying"].includes(submission.state) && <p className="notice">Checking your {image ? "image" : "video"} with AI (usually under a minute). This status updates automatically; failed attempts retry on their own.</p>}
+          {["accepted", "fixture_accepted"].includes(submission.state)
+            ? <p className="notice">{submission.fixture ? "Simulated reward released; no blockchain payment occurred." : "Reward paid."}</p>
+            : submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
+          {submission.payment_due_at && !submission.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(submission.payment_due_at).toLocaleString()}. Your reserved reward remains locked; the buyer may release it sooner.</p>}
           {submission.payment_confirmed && <Reputation token={token} submissionId={submission.id} />}
-          {submission.review_reason && (
+          {submission.review_reason && submission.review_reason !== submission.findings.verification?.reason && (
             <p>Decision: {submission.review_reason}</p>
           )}
           {!submission.findings.protected && <p className="muted">
@@ -236,8 +239,9 @@ export default function Upload({
           </p>}
           {submission.findings.assessment && <div aria-label="AI verification results"><h4>AI verification</h4>{Object.entries(submission.findings.assessment).map(([key, check]) => <p key={key}><strong>{key.replaceAll("_", " ")}: {check.result}</strong>: {check.explanation}</p>)}</div>}
           {submission.findings.provider_error && <p className="notice">AI verification unavailable: {submission.findings.provider_error} Verification retries automatically; payment remains blocked until checks pass.</p>}
-          {submission.findings.processing_error && (
-            <p className="error">{submission.findings.processing_error}</p>
+          {submission.findings.processing_error && (["queued", "verifying"].includes(submission.state)
+            ? <p className="notice">Last attempt failed: {submission.findings.processing_error} Retrying automatically.</p>
+            : <p className="error">{submission.findings.processing_error}</p>
           )}
         </div>
       )}
