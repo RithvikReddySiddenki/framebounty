@@ -45,8 +45,8 @@ def resource_id(value: str) -> bytes:
     return bytes.fromhex(value).rjust(32, b"\x00")
 
 
-def artifact(version: int = 3) -> dict:
-    name = {1: "escrow_v1.json", 2: "escrow_v2.json", 3: "escrow.json"}[version]
+def artifact(version: int = 4) -> dict:
+    name = {1: "escrow_v1.json", 2: "escrow_v2.json", 3: "escrow_v3.json", 4: "escrow.json"}[version]
     return json.loads(files("framebounty").joinpath("contract_abi/" + name).read_text(encoding="utf-8"))
 
 
@@ -62,7 +62,7 @@ def escrow_call(name: str, arguments: list) -> str:
     return call_data(name + "(" + ",".join(types) + ")", types, arguments)
 
 
-def expected_runtime(token: str, version: int = 3) -> bytes:
+def expected_runtime(token: str, version: int = 4) -> bytes:
     compiled = artifact(version)
     result = bytearray(hex_bytes(compiled["runtime_bytecode"]))
     replacement = bytes.fromhex(address(token)[2:]).rjust(32, b"\x00")
@@ -90,11 +90,11 @@ class ChainConfig:
         if self.chain_id == 31337:
             if not self.allow_local or not local or parsed.scheme not in {"http", "https"}:
                 raise ChainFailure("Local chain access requires an explicit loopback test configuration")
-        elif self.chain_id == CHAIN_ID:
+        elif self.chain_id in {5042, 5042002}:
             if parsed.scheme != "https" or self.token.lower() != USDC_ADDRESS:
-                raise ChainFailure("Arc testnet requires HTTPS and the canonical USDC interface")
+                raise ChainFailure("Arc requires HTTPS and the canonical USDC interface")
         else:
-            raise ChainFailure("Only Arc testnet or the explicit local test chain is supported")
+            raise ChainFailure("Only Arc mainnet, testnet or the explicit local test chain is supported")
         if parsed.username or parsed.password:
             raise ChainFailure("Do not embed credentials in RPC URLs")
 
@@ -143,6 +143,8 @@ class ChainRPC:
             raise ChainFailure("Unsupported token decimals")
         actual = hex_bytes(self.rpc("eth_getCode", [self.config.escrow, "latest"]))
         if actual == expected_runtime(self.config.token):
+            self.contract_version = 4
+        elif actual == expected_runtime(self.config.token, 3):
             self.contract_version = 3
         elif actual == expected_runtime(self.config.token, 2):
             self.contract_version = 2
@@ -177,7 +179,7 @@ class ChainRPC:
             raise ChainFailure("Native gas quote is outside the configured safety bound")
         return {"chainId": self.config.chain_id, "nonce": nonce, "to": to_checksum_address(destination),
                 "data": data, "value": 0, "gas": gas, "type": 2,
-                "maxFeePerGas": max(price * 2, 20_000_000_000 if self.config.chain_id == CHAIN_ID else 1),
+                "maxFeePerGas": max(price * 2, 20_000_000_000 if self.config.chain_id in {5042, 5042002} else 1),
                 "maxPriorityFeePerGas": min(price // 10, 1_000_000_000)}
 
     def verify_transaction(self, tx_hash: str, sender: str, destination: str, data: str, nonce: int | None = None) -> dict | None:

@@ -72,10 +72,10 @@ contract FrameBountyEscrow is ReentrancyGuard {
     event Refunded(bytes32 indexed jobId, bytes32 indexed refundId, address indexed buyer, uint256 amount);
 
     constructor(address tokenAddress) {
-        // No mainnet execution. Standard local tests use 31337; Arc uses its
+        // Standard local tests use 31337; both Arc networks use the verified
         // canonical interface, preventing accidental deployment against another token.
-        if (block.chainid != 31337 && block.chainid != 5042002) revert InvalidTerms();
-        if (block.chainid == 5042002 && tokenAddress != address(0x3600000000000000000000000000000000000000)) revert UnsupportedToken();
+        if (block.chainid != 31337 && block.chainid != 5042002 && block.chainid != 5042) revert InvalidTerms();
+        if ((block.chainid == 5042002 || block.chainid == 5042) && tokenAddress != address(0x3600000000000000000000000000000000000000)) revert UnsupportedToken();
         if (tokenAddress.code.length == 0 || IERC20Metadata(tokenAddress).decimals() != 6) revert UnsupportedToken();
         token = IERC20(tokenAddress);
     }
