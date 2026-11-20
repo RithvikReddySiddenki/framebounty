@@ -1,5 +1,19 @@
 # Workboard
 
+2026-11-20 active teammate frontend integration: merging origin/main d7eb9bc
+into feat/circle-mainnet. Preserve new dark/lime consumer UI, buyer/contributor
+dashboard, capture/review panels, all-open-task matching and dead Circle challenge
+retries. Resolve design conflicts while retaining Google-only production login,
+the REST feeLevel correction and contextual numeric evidence grounding. Preserve
+current authorization, private media and receipt-gated payout services. No schema
+or contract migration. Acceptance: type/build, full backend and Chromium flows,
+including image/video submission, buyer/contributor separation and callback errors.
+Integration validation passed: full backend 237 passed / 24 separate-chain skips;
+frontend units 15 passed; Chromium 10 passed / 5 gated skips, plus the separately
+enabled funding-panel regression passed. Production build/typecheck passed.
+Media/browser tests use explicit fixtures and synthetic camera input; they do not
+claim a complete live Circle payment or physical-camera validation.
+
 2026-11-20 buyer repeated-question fix: reproduced exact towel-video request
 with live Gemini. Model extracted count=20 and a valid plan, but quoted only
 "20"; application grounding discarded that fact by checking the quote without

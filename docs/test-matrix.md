@@ -250,6 +250,17 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Teammate frontend integration (2026-11-20)
+
+Integrated main d7eb9bc with the current feature branch: dark/lime UI, consumer
+dashboards, focused capture/review panels, contributor ordering of open tasks and
+safe dead-Circle-challenge retries. Retained Google-only production access,
+top-level Circle feeLevel, short-quote buyer grounding, private originals and
+receipt-gated payouts. Full backend: 237 passed / 24 gated chain skips. Web units:
+15 passed. Chromium: 10 passed / 5 gated skips; the separate funding-panel test
+also passed with funding UI enabled. Production build/typecheck passed. Browser
+media and money fixtures are explicitly synthetic; no new live payment proof.
+
 ## Buyer conversation evidence context (2026-11-20)
 
 Live Gemini reproduced the reported defect: the exact complete towel-video

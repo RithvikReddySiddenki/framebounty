@@ -248,8 +248,8 @@ export default function Reviews({
   const met = requirementRows.filter(r => r.minimum !== undefined && r.value >= r.minimum).length;
   return (
     <section className="panel reviews">
-      <p className="eyebrow">Automatic verification & funds release</p>
-      <h2>Coverage & submissions</h2>
+      <p className="eyebrow">Your request</p>
+      <h2>Progress & recordings</h2>
       {!token ? (
         <p>Connect and authenticate the designated buyer/reviewer wallet to access private submissions.</p>
       ) : (
@@ -276,10 +276,20 @@ export default function Reviews({
             {coverage ? <>
               <div className="cov-hero">
                 <div className="cov-total">
+                  {/* Progress ring: display-only, drawn from the same percent as the caption. */}
+                  <div className="cov-ring" aria-hidden="true">
+                    <svg viewBox="0 0 120 120">
+                      <circle className="ring-track" cx="60" cy="60" r="52" />
+                      <circle className="ring-fill" cx="60" cy="60" r="52" pathLength={100} style={{ strokeDasharray: `${percent} 100` }} />
+                    </svg>
+                    <span className="ring-pct mono">{percent}%</span>
+                  </div>
                   {/* The label shares a parent with the count (E2E reads the count via the label's parent). */}
-                  <p className="cov-number mono">{accepted}<small>/ {total || "—"}</small></p>
-                  <span className="cov-caption">accepted items</span>
-                  <span className="cov-caption"> · {percent}% complete</span>
+                  <div className="cov-count">
+                    <p className="cov-number mono">{accepted}<small>/ {total || "—"}</small></p>
+                    <span className="cov-caption">accepted items</span>
+                    <span className="cov-caption"> · {percent}% complete</span>
+                  </div>
                 </div>
                 <dl className="cov-facts">
                   <div><dt>In progress</dt><dd className={`mono ${inFlight ? "tone-text-warn" : ""}`}>{inFlight}</dd><span>reserved or verifying</span></div>
@@ -308,7 +318,7 @@ export default function Reviews({
           </section>}
           {selected && <div className="review-toolbar">
             <button onClick={() => void exportManifest()}>Export accepted manifest</button>
-            <button onClick={() => void exportDataset()}>Download dataset ZIP</button>
+            <button className="primary" onClick={() => void exportDataset()}><Icon name="upload" />Download dataset ZIP</button>
             <button disabled={busy} onClick={() => void nextBatch()}><Icon name="spark" />{fixtureJob ? "Commission next fixture batch" : "Commission next testnet batch"}</button>
           </div>}
           {batchMessage && <p className="notice" role="status">{batchMessage}</p>}
@@ -321,6 +331,13 @@ export default function Reviews({
           {selected && !busy && items.length === 0 && (
             <div className="empty" style={{ marginTop: 12 }}><Icon name="upload" /><p>No submissions yet. Contributors must reserve and upload before work enters review.</p></div>
           )}
+          {items.length > 0 && <div className="recordings-head">
+            <h3>Recordings <span className="count-badge mono">{items.length}</span></h3>
+            <div className="glance" aria-label="Recordings at a glance">
+              {items.map(item => { const v = verdict(item.state); return <span key={item.id} className={`glance-chip tone-${v.tone}`} title={item.state.replaceAll("_", " ")}>
+                <Icon name={v.tone === "ok" ? "check" : v.tone === "danger" ? "x" : "clock"} /><span className="mono">{item.id.slice(0, 6)}</span></span>; })}
+            </div>
+          </div>}
           {items.map((item) => <ReviewCard key={item.id} item={item} token={token} requirements={rubric?.requirements || []} refreshed={() => load()} />)}
         </>
       )}

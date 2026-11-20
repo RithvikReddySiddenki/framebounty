@@ -79,7 +79,7 @@ export default function PostComposer({ token, onChanged, onView }: {
       <span className="agent-avatar"><Icon name="bot" /></span>
       <div>
         <p className="eyebrow" style={{ marginBottom: 2 }}>Your buyer agent</p>
-        <h2>What do you need collected?</h2>
+        <h2>Describe it in plain English</h2>
       </div>
     </div>
     <p className="muted" style={{ marginTop: 10 }}>I&apos;ll ask for anything missing (count, budget, media type), then draft a post you can edit before anything is funded.</p>
@@ -95,9 +95,15 @@ export default function PostComposer({ token, onChanged, onView }: {
       </article>}
     </div>
 
-    {entries.length === 0 && !busy && <div className="suggestions" aria-label="Example requests">
-      {STARTERS.map(text => <button type="button" key={text} className="chip" onClick={() => setMessage(text)}>{text.length > 64 ? text.slice(0, 62) + "…" : text}</button>)}
-    </div>}
+    {entries.length === 0 && !busy && <>
+      <p className="section-label">Start from an example</p>
+      <div className="starters" aria-label="Example requests">
+        {STARTERS.map(text => { const image = /image/i.test(text); return <button type="button" key={text} className="starter" onClick={() => setMessage(text)}>
+          <span className="starter-kind"><Icon name={image ? "eye" : "upload"} />{image ? "Images" : "Videos"}</span>
+          <span className="starter-text">{text}</span>
+        </button>; })}
+      </div>
+    </>}
 
     <form className="chat-form" onSubmit={e => { e.preventDefault(); void generate(); }}>
       <label htmlFor="post-request">Describe your task</label>
@@ -113,16 +119,24 @@ export default function PostComposer({ token, onChanged, onView }: {
     <p className="muted chat-meta">Up to 20 items · Images: JPEG/PNG · Videos: in-app camera recording, 10–30 s · AI verifies every submission.</p>
 
     {plan && <section className="post-preview" aria-label="Generated post preview">
-      <div className="post-tags">
-        <span className="tag">{plan.media_type === "image" ? "Image post" : "Video post"}</span>
-        <span className={`post-status ${published ? "is-open" : ""}`}>{status}</span>
+      <div className="offer-head">
+        <div>
+          <div className="post-tags">
+            <span className="tag">{plan.media_type === "image" ? "Image post" : "Video post"}</span>
+            <span className={`post-status ${published ? "is-open" : ""}`}>{status}</span>
+          </div>
+          <h3>{plan.title}</h3>
+        </div>
+        <div className="offer-total">
+          <span>Total budget</span>
+          <strong className="mono">{usdc(String(plan.budget_atomic))}<small>USDC</small></strong>
+          <span className="mono">{plan.total} × {usdc(String(plan.reward_atomic))} USDC</span>
+        </div>
       </div>
-      <h3>{plan.title}</h3>
       <Lifecycle steps={JOB_STEPS} progress={progress} label="Post lifecycle" />
       <div className="stat-row">
         <Stat icon="grid" label="Items" value={plan.total} unit={unit} />
         <Stat icon="coins" tone="money" label={plan.media_type === "image" ? "Reward / image" : "Reward / clip"} value={usdc(String(plan.reward_atomic))} unit="USDC" />
-        <Stat icon="lock" tone="money" label="Total budget" value={usdc(String(plan.budget_atomic))} unit="USDC" />
         {plan.media_type === "video"
           ? <Stat icon="clock" label="Clip length" value={`${plan.min_seconds}–${plan.max_seconds}`} unit="sec" />
           : <Stat icon="clock" label="Open for" value={plan.posting_hours || 24} unit="hrs" />}

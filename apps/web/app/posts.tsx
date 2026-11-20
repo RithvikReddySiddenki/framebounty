@@ -16,7 +16,7 @@ const ESCROW = process.env.NEXT_PUBLIC_ARC_ESCROW_ADDRESS || "";
  * posts say plainly that nothing is on chain rather than showing fake links. */
 function Proof({ post }: { post: Post }) {
   return <div className="proof">
-    <h4><Icon name="chain" />{post.fixture ? "Ledger (simulated)" : "On-chain proof"}</h4>
+    <h4><Icon name="chain" />{post.fixture ? "Payment record (simulated)" : "Payment record · on Arc"}</h4>
     <dl>
       <dt>Escrow</dt>
       <dd>{post.fixture ? "None. Fixture post: funding is simulated, no transaction exists."

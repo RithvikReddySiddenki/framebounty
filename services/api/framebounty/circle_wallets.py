@@ -17,7 +17,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -223,21 +223,53 @@ def transaction(body: CircleTransaction, wallet: str = Depends(current_wallet),
     if (not intent or intent.sender != wallet or intent.destination != destination or intent.call_data != tx["data"].lower()
         or intent.chain_id != active_network().chain_id or intent.state not in {"intent", "broadcast", "confirmed"}):
         raise HTTPException(403, "Only an existing authorized marketplace intention may be signed")
-    existing = db.get(CircleChallenge, intent.id)
-    if existing: return {"intent_id": intent.id, "challenge_id": existing.challenge_id}
+    token = body.user_token.get_secret_value()
     if intent.tx_hash: return {"intent_id": intent.id, "tx_hash": intent.tx_hash}
-    data, _ = api.call("POST", "/v1/w3s/user/transactions/contractExecution", body.user_token.get_secret_value(), body={
-        "idempotencyKey": str(uuid5(NAMESPACE_URL, "framebounty:" + intent.id)), "walletId": session_row.circle_wallet_id,
+    existing = db.get(CircleChallenge, intent.id)
+    # A closed or timed-out PIN prompt leaves a FAILED/EXPIRED challenge. Reusing
+    # it forever would block this action permanently, so only a challenge that is
+    # provably dead (and produced no live Circle transaction) is replaced.
+    if existing and not (existing.wallet_id == session_row.circle_wallet_id
+                         and challenge_is_dead(api, token, existing.challenge_id, session_row.circle_wallet_id)):
+        return {"intent_id": intent.id, "challenge_id": existing.challenge_id}
+    # One deterministic key per attempt: concurrent retries of the same dead
+    # challenge collapse to one new Circle challenge.
+    attempt = intent.id if not existing else intent.id + ":" + existing.challenge_id
+    data, _ = api.call("POST", "/v1/w3s/user/transactions/contractExecution", token, body={
+        "idempotencyKey": str(uuid5(NAMESPACE_URL, "framebounty:" + attempt)), "walletId": session_row.circle_wallet_id,
         "contractAddress": intent.destination, "callData": intent.call_data, "refId": intent.id,
         # User-controlled REST challenges require top-level feeLevel. The
         # developer-wallet SDK's nested fee object is not this endpoint's schema.
         "feeLevel": "LOW"})
     try: challenge_id = str(UUID(data["challengeId"]))
     except (KeyError, ValueError): raise HTTPException(503, "Circle transaction is unverified; retry the same intention") from None
-    db.execute(insert(CircleChallenge).values(intent_id=intent.id, challenge_id=challenge_id,
-        wallet_id=session_row.circle_wallet_id).on_conflict_do_nothing(index_elements=["intent_id"]))
+    if existing:
+        # Compare-and-swap so a concurrent retry that already replaced the row wins.
+        db.execute(update(CircleChallenge).where(CircleChallenge.intent_id == intent.id,
+            CircleChallenge.challenge_id == existing.challenge_id).values(challenge_id=challenge_id))
+    else:
+        db.execute(insert(CircleChallenge).values(intent_id=intent.id, challenge_id=challenge_id,
+            wallet_id=session_row.circle_wallet_id).on_conflict_do_nothing(index_elements=["intent_id"]))
     db.commit()
-    return {"intent_id": intent.id, "challenge_id": challenge_id}
+    db.expire_all()
+    current = db.get(CircleChallenge, intent.id)
+    return {"intent_id": intent.id, "challenge_id": current.challenge_id if current else challenge_id}
+
+
+def challenge_is_dead(api, token: str, challenge_id: str, wallet_id: str) -> bool:
+    """True only if the PIN challenge failed/expired and no transaction it created is still live."""
+    data, _ = api.call("GET", "/v1/w3s/user/challenges/" + challenge_id, token)
+    item = data.get("challenge", data)
+    if item.get("status") not in {"FAILED", "EXPIRED"}:
+        return False
+    for tid in item.get("correlationIds", []):
+        try: tid = str(UUID(tid))
+        except ValueError: return False
+        record, _ = api.call("GET", "/v1/w3s/transactions/" + tid, token)
+        record = record.get("transaction", record)
+        if record.get("walletId") != wallet_id or record.get("state") not in {"FAILED", "CANCELLED"}:
+            return False
+    return True
 
 
 @router.post("/circle/transactions/{intent_id}/status")

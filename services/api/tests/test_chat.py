@@ -1,6 +1,7 @@
 """Real PostgreSQL chat intake, grounded facts, ownership and replay behavior."""
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from threading import Barrier
 
 import httpx
@@ -9,9 +10,11 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from framebounty.chat import ChatMessage, chat_turn, grounded_number, unlimited_time, stated_resources
+from framebounty.chat import RANK_INSTRUCTION, ChatMessage, chat_turn, grounded_number, unlimited_time, stated_resources
+from framebounty.marketplace import create_job
 from framebounty.models import AgentSession, AgentTurn, Job, Reservation, Task
 from framebounty.verification import GeminiFrames
+from test_matching import cup_plan
 from test_postgres import pg
 from test_submission_flow import flow
 
@@ -43,23 +46,117 @@ def test_buyer_clarifies_count_then_budget_without_creating_or_publishing(flow):
     assert client.get("/chat-sessions?role=contributor", headers=buyer).json()["sessions"] == []
 
 
-def test_contributor_clarifies_time_and_searches_real_tasks_without_reserving(flow):
-    client, buyer, actor, _, job_id, _ = flow
-    plan = client.get(f"/jobs/{job_id}", headers=buyer).json()["plan"]
-    created = client.post("/jobs", headers=buyer, json=plan).json()
+def publish_cup(client, buyer):
+    """The reported bug's post, created through the real buyer chat and simulated publish."""
+    sid = start(client, buyer, "buyer")
+    draft = send(client, buyer, sid, "I want 2 videos of a person pouring water into a cup under 2 USDC", "cup-buyer-post").json()
+    assert draft["tool"] == "draft_plan", draft
+    plan = draft["data"]["plan"]
+    created = client.post("/jobs", headers=buyer, json={**plan, "budget_atomic": int(plan["budget_atomic"]),
+        "reward_atomic": int(plan["reward_atomic"])}).json()
     assert client.post(f"/jobs/{created['id']}/fixture-publish", headers=buyer,
         json={"plan_hash": created["plan_hash"], "confirmed": True}).status_code == 200
+    return created["id"]
+
+
+def test_contributor_with_a_cup_sees_the_cup_post_without_reserving(flow):
+    client, buyer, actor, _, _, _ = flow
+    job_id = publish_cup(client, buyer)
     sid = start(client, actor, "contributor")
-    first = send(client, actor, sid, "I have a phone, a towel and a dark table", "chat-equipment-first").json()
-    assert first["data"]["missing"] == ["minutes"] and "time" in first["reply"]
-    result = send(client, actor, sid, "20 minutes", "chat-time-answer").json()
-    assert result["tool"] == "search_tasks" and result["data"]["tasks"]
-    assert result["data"]["facts"] == {"equipment": ["dark_table", "phone", "towel"], "minutes": 20}
+    result = send(client, actor, sid, "I have a cup and no time limit", "cup-contributor").json()
+    assert result["tool"] == "search_tasks", result
+    assert [t["job_id"] for t in result["data"]["tasks"]] == [job_id]
+    assert result["data"]["facts"] == {"equipment": ["cup"]} and result["data"]["ranked"] is False
+    assert result["reply"] == "Here's 1 open task. Pick one to review its reward."
     # The fixture already has one reservation; chatting must not add another.
     assert len(client.get("/me/reservations", headers=actor).json()["reservations"]) == 1
     assert client.get("/chat-sessions?role=contributor", headers=actor).json()["sessions"][0]["id"] == sid
-    corrected = send(client, actor, sid, "I have no equipment", "chat-profile-correction").json()
-    assert corrected["data"]["facts"]["equipment"] == [] and corrected["data"]["tasks"] == []
+
+
+def test_find_work_asks_one_question_then_always_lists_open_tasks(flow):
+    client, buyer, actor, _, _, _ = flow
+    job_id = publish_cup(client, buyer)
+    sid = start(client, actor, "contributor")
+    first = send(client, actor, sid, "Find work", "find-work").json()
+    assert first["tool"] == "clarify" and first["reply"].startswith("What do you have on hand?")
+    assert first["data"]["missing"] == ["equipment"] and "tasks" not in first["data"]
+    answer = send(client, actor, sid, "a mug", "find-work-answer").json()
+    assert answer["tool"] == "search_tasks" and [t["job_id"] for t in answer["data"]["tasks"]] == [job_id]
+    assert answer["data"]["facts"] == {"equipment": ["mug"]}
+    more = send(client, actor, sid, "I also have a kettle", "find-work-more").json()
+    assert more["data"]["facts"]["equipment"] == ["kettle", "mug"] and more["data"]["tasks"]
+    nothing = send(client, actor, sid, "I have no equipment", "find-work-nothing").json()
+    assert nothing["data"]["facts"]["equipment"] == [] and [t["job_id"] for t in nothing["data"]["tasks"]] == [job_id]
+
+
+def test_show_me_whats_open_lists_without_asking(flow):
+    client, buyer, actor, _, _, _ = flow
+    job_id = publish_cup(client, buyer)
+    sid = start(client, actor, "contributor")
+    result = send(client, actor, sid, "Show me what's open.", "show-open").json()
+    assert result["tool"] == "search_tasks" and [t["job_id"] for t in result["data"]["tasks"]] == [job_id]
+    assert result["data"]["facts"] == {"equipment": []}
+
+
+def test_empty_market_says_check_back_soon(flow):
+    client, _, actor, _, _, _ = flow  # The seeded towel task is already fully reserved.
+    sid = start(client, actor, "contributor")
+    result = send(client, actor, sid, "I have a phone and a cat", "empty-market").json()
+    assert result["tool"] == "search_tasks" and result["data"]["tasks"] == []
+    assert result["reply"] == "There's no open funded work right now. Check back soon."
+
+
+def chain_task(db, task_id, title, hours):
+    job = create_job(db, "0x" + "4" * 40, cup_plan().model_copy(update={"title": title}))
+    job.state, job.chain_id, job.deposited_atomic = "open", 5042002, 2_000_000
+    db.add(Task(id=task_id, job_id=job.id, version=1, reward_atomic=1_000_000, slots=2, claimed=0, tags=["post_requirement"],
+        equipment=["phone"], minutes=15, deadline=datetime.now(UTC) + timedelta(hours=hours), state="open"))
+
+
+def routed(intake, ranking, seen):
+    """Fake Gemini that answers intake and ranking calls separately; None means that call fails."""
+    def respond(request):
+        instruction = json.loads(request.content)["systemInstruction"]["parts"][0]["text"]
+        payload = ranking if instruction == RANK_INSTRUCTION else intake
+        seen.append("rank" if instruction == RANK_INSTRUCTION else "intake")
+        if payload is None: return httpx.Response(503)
+        return httpx.Response(200, json={"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(payload)}]}}]})
+    return GeminiFrames("test-only", "verified-test-model", httpx.MockTransport(respond))
+
+
+@pytest.fixture
+def live_market(pg, monkeypatch):
+    monkeypatch.setenv("APP_MODE", "testnet"); monkeypatch.setenv("ALLOW_MODEL_TEXT", "true"); monkeypatch.setenv("ARC_CHAIN_ID", "5042002")
+    wallet = "0x" + "5" * 40
+    with Session(pg) as db:
+        chain_task(db, "towel-live", "towel folding", 1)
+        chain_task(db, "cup-live", "a person pouring water into a cup", 2)
+        db.add(AgentSession(id="live-contributor", wallet=wallet, role="contributor", profile={"chat": True, "revision": 0}))
+        db.commit()
+    return wallet
+
+
+def test_live_contributor_gets_gemini_ranked_tasks_with_reasons(pg, live_market):
+    seen, text = [], "I have a mug and no time limit"
+    model = routed({"equipment": ["mug"], "no_time_limit": True, "evidence": {"equipment": text, "no_time_limit": text}},
+        {"tasks": [{"task_id": "cup-live", "reason": "A mug works as the cup."}, {"task_id": "towel-live", "reason": "You'd need a towel."}]}, seen)
+    with Session(pg) as db:
+        result = chat_turn(db, live_market, "live-contributor", ChatMessage(message=text, request_id="live-ranked"), model)
+    assert seen == ["intake", "rank"]
+    assert [t["task_id"] for t in result["data"]["tasks"]] == ["cup-live", "towel-live"]
+    assert result["data"]["tasks"][0]["explanation"] == "A mug works as the cup." and result["data"]["ranked"] is True
+    assert result["data"]["facts"] == {"equipment": ["mug"]}
+    assert result["reply"] == "Here are 2 open tasks, best match first. Pick one to review its reward."
+
+
+def test_live_contributor_still_sees_every_task_when_gemini_is_down(pg, live_market):
+    seen = []
+    with Session(pg) as db:
+        result = chat_turn(db, live_market, "live-contributor", ChatMessage(message="I have a mug", request_id="live-down"), routed(None, None, seen))
+    assert seen == ["intake", "rank"]
+    assert result["data"]["facts"] == {"equipment": ["mug"]}  # The explicit "I have…" parser took over.
+    assert [t["task_id"] for t in result["data"]["tasks"]] == ["towel-live", "cup-live"] and result["data"]["ranked"] is False
+    assert result["reply"] == "Here are 2 open tasks. Pick one to review its reward."
 
 
 def test_chat_replay_and_request_conflicts_preserve_history(pg, flow):
@@ -179,7 +276,7 @@ def test_stated_resources_preserve_pets_and_respect_later_corrections():
     assert stated_resources(messages + ["I no longer have a cat"], ["cat", "phone"]) == ["phone"]
 
 
-def test_cat_phone_and_infinite_time_search_without_arbitrary_time_cap(pg, flow):
+def test_cat_and_phone_contributor_sees_tasks_and_time_never_filters(pg, flow):
     client, buyer, actor, _, job_id, _ = flow
     plan = client.get(f"/jobs/{job_id}", headers=buyer).json()["plan"]
     created = client.post("/jobs", headers=buyer, json=plan).json()
@@ -187,28 +284,21 @@ def test_cat_phone_and_infinite_time_search_without_arbitrary_time_cap(pg, flow)
         json={"plan_hash": created["plan_hash"], "confirmed": True}).status_code == 200
     with Session(pg) as db:
         task = db.scalar(select(Task).where(Task.job_id == created["id"]))
-        task.equipment, task.minutes = ["phone"], 2000  # Prove there is no fake 1440-minute cap.
+        task.equipment, task.minutes = ["phone"], 2000  # A legacy listing that still names a phone and a long time.
         db.commit()
     sid = start(client, actor, "contributor")
     first = send(client, actor, sid, "I have a cat. What kinds of tasks are available for me.", "cat-search-first").json()
-    assert first["data"]["facts"]["equipment"] == ["cat"]
-    assert first["data"]["missing"] == ["minutes"]
-    send(client, actor, sid, "I have a phone to record and take pictures", "cat-search-phone")
-    result = send(client, actor, sid, "I have infinite amount of time.", "cat-search-unlimited").json()
-    assert result["tool"] == "search_tasks", result
-    assert result["data"]["facts"]["equipment"] == ["cat", "phone"]
-    assert result["data"]["facts"]["no_time_limit"] is True
-    assert "minutes" not in result["data"]["facts"] and not result["data"]["missing"]
-    assert result["data"]["tasks"][0]["minutes"] == 2000
-    # Simulate the already-saved buggy conversation shown in the report. The next
-    # request must recover its stated cat and unlimited time from history.
+    assert first["tool"] == "search_tasks" and first["data"]["facts"] == {"equipment": ["cat"]}
+    assert first["data"]["tasks"][0]["minutes"] == 2000
+    second = send(client, actor, sid, "I have a phone to record and take pictures", "cat-search-phone").json()
+    assert second["data"]["facts"]["equipment"] == ["cat", "phone"]
+    limited = send(client, actor, sid, "I have only 10 minutes", "cat-search-limited").json()
+    assert limited["data"]["facts"] == {"equipment": ["cat", "phone"]} and limited["data"]["tasks"]
+    # A conversation saved by the old flow (waiting on a time answer) still lists work.
     with Session(pg) as db:
         scope = db.get(AgentSession, sid)
-        scope.profile = {**scope.profile, "facts": {"equipment": ["phone"]}, "awaiting": "minutes"}
+        scope.profile = {**scope.profile, "facts": {"equipment": ["phone"], "minutes": 10}, "awaiting": "minutes"}
         db.commit()
     again = send(client, actor, sid, "Find tasks", "cat-search-again").json()
     assert again["tool"] == "search_tasks" and again["data"]["tasks"]
-    assert again["data"]["facts"]["equipment"] == ["cat", "phone"] and again["data"]["facts"]["no_time_limit"]
-    limited = send(client, actor, sid, "I have only 10 minutes", "cat-search-limited").json()
-    assert limited["data"]["facts"]["equipment"] == ["cat", "phone"]
-    assert not limited["data"]["facts"].get("no_time_limit") and limited["data"]["tasks"] == []
+    assert again["data"]["facts"] == {"equipment": ["cat", "phone"]}

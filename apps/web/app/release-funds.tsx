@@ -46,7 +46,7 @@ export default function ReleaseFunds({ token, jobId, count, pending, fixture, am
     } catch (err) { if (!active.signal.aborted) setError(err instanceof Error ? err.message : "Release could not be verified; the saved transaction is retained."); }
     finally { running.current = false; if (!active.signal.aborted) setBusy(false); }
   }
-  return <section className="notice" aria-label="Final funds release">
+  return <section className="notice release-card" aria-label="Final funds release">
     <h3>{count} AI-verified submission{count === 1 ? "" : "s"} ready · {usdc(amountAtomic)} {moneyUnit(fixture)}</h3>
     <p>Verification is automatic. This action releases the fixed rewards early to their reserved contributors. Protected posts pay automatically one hour after on-chain verification if you take no action. Failed or uncertain submissions cannot enter this batch.</p>
     <button className="primary" disabled={busy || (!count && !pending)} onClick={() => void release()}>{busy ? "Releasing…" : pending ? "Continue funds release" : fixture ? "Release simulated funds" : "Release approved funds"}</button>
