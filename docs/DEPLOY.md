@@ -1,8 +1,10 @@
 # Deployment preparation: Vercel + Railway + Supabase
 
-This branch prepares configuration only. No projects have been created, deployed,
-or billed by this work. Existing Vercel and Supabase accounts can be used later;
-the owner still needs a Railway account. No hosting charges are authorized.
+The user subsequently authorized deployment with a $10 total hosting budget.
+The hosted fixture demo is live at https://framebounty.vercel.app, backed by
+Railway and private Supabase storage. See [hosted evidence](hosted-validation-2026-11-20.md)
+for actual test results, disabled integrations and trial/budget limitations.
+The configuration instructions below also support reproducing a separate setup.
 
 ```text
 Browser -> Vercel Next.js (apps/web)

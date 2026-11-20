@@ -1,5 +1,14 @@
 # Workboard
 
+2026-11-20 hosted deployment completed: https://framebounty.vercel.app with
+Railway API/worker and real private Supabase storage/schema (migration 0009).
+Hosted Chromium PNG/JPEG/in-app synthetic-camera video tests: 3 passed, including
+decode, worker completion, unpaid access restrictions, UI simulated release and
+original ZIP export. Typecheck passed. Existing-wallet sign-in works; Circle and
+all real-money/model flags stay disabled. Trial hosting only, no subscription
+upgrade. Railway hard-limit request requires an active subscription and was not
+available; no upgrade to bypass it. Evidence: docs/hosted-validation-2026-11-20.md.
+
 2026-11-20 active hosted launch: user now authorizes full deployment up to $10
 total hosting cost, superseding configuration-only scope below. Circle mainnet is
 deferred; all real-money transactions stay disabled. Vercel project framebounty

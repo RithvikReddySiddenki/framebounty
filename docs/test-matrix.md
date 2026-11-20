@@ -1,5 +1,13 @@
 # Test matrix
 
+2026-11-20 live hosted fixture gate: PNG, JPEG and actual in-app MediaRecorder
+capture with Chromium synthetic camera all passed (3 tests, ~1.5 minutes) against
+public Vercel frontend, Railway API/worker and private Supabase DB/storage.
+Includes unpaid access gates and post-release ZIP originals. Typecheck passed.
+New secret-key support: full backend 219 passed/24 gated skips; targeted storage
+and hosted config 30 passed. See hosted-validation-2026-11-20.md for commands,
+public URLs, test boundaries, trial budget and disabled integrations.
+
 2026-11-20 final teammate/hosting integration on feat/circle-mainnet: main 081a5e3
 (camera), feat/deploy 9cae3ca (container) and integration 745b4b8 (judge README,
 state-accurate verification reasons) combined without unresolved conflicts.

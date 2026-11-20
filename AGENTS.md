@@ -3,9 +3,12 @@ User-authorized update (2026-11-20): prepare Circle user-controlled login and re
 USDC on Arc mainnet, retaining optional existing wallets and isolated testnet data.
 Maximum deployment plus initial payment-test spend is 1 real USDC including gas.
 No paid subscription or domain purchase is authorized. Decision 0014 governs Circle.
-User-authorized hosting preparation (2026-11-20): Vercel frontend, Railway API and
-workers, Supabase PostgreSQL and private storage. Configuration only; do not create
-services, deploy, or incur hosting charges. Preserve and integrate teammate work.
+User-authorized hosting update (2026-11-20): Vercel frontend, Railway API and workers,
+Supabase PostgreSQL/private storage. User superseded configuration-only scope and
+authorized deployment with a $10 total hosting budget. Preserve teammate work and
+local demo data. Circle mainnet is deferred; hosted testing uses clearly labeled
+fixture verification/funds, with all real-money transactions disabled. Do not
+upgrade subscriptions or authorize unlimited recurring charges implicitly.
 These instructions apply to every coding agent working in this repository. Read this file and docs/PROJECT_BRIEF.md before editing. Read relevant architecture/decision records and existing tests. If existing root instructions exist, merge these rules with them without deleting unrelated guidance.
 Goal and scope
 Deliver a general custom-data marketplace with a buyer agent and contributor agent, demonstrated through one robotics-video purchasing workflow on Arc testnet: buyer plan -> funded escrow -> contributor-agent search/recommendation -> confirmed reserved task -> upload -> verification -> human review -> payout -> coverage update -> targeted next batch -> dataset export.

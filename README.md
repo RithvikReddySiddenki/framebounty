@@ -8,8 +8,11 @@ This integrated branch includes in-app video capture, Circle Google login (email
 OTP optional), optional browser wallets, and guarded Arc mainnet support. Live
 Circle login and real-USDC settlement still need account setup and validation;
 no real funds have been spent. See [Circle setup](docs/CIRCLE_SETUP.md).
-Vercel/Railway/Supabase deployment configuration and private object storage are
-prepared, with no hosted deployment performed: [hosting guide](docs/DEPLOY.md).
+The [hosted demo](https://framebounty.vercel.app) runs on Vercel/Railway with private
+Supabase storage. PNG, JPEG and in-app video submission flows passed hosted
+browser tests. Verification and payments are simulated; Circle remains disabled.
+See [hosted evidence](docs/hosted-validation-2026-11-20.md) and the
+[hosting guide](docs/DEPLOY.md).
 
 Robotics demonstration video is the launch example, not the product boundary: “20 towel-folding videos, including at least five large towels and five dark surfaces, under a 20 USDC contributor budget.”
 
