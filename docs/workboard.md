@@ -1,5 +1,16 @@
 # Workboard
 
+2026-11-20 draft removal follow-up: actual hosted draft has zero chain funding but
+an unbroadcast deposit intent with a Circle challenge. Inspect the signed-in
+owner's challenge before removal: FAILED/EXPIRED with no live correlated transfer
+may be archived; pending/completed/unknown approvals remain blocked. User token
+stays only in memory and request SecretStr, never persisted. Archived posts also
+cannot reissue an old Circle funding challenge. No user's post is auto-removed.
+Validation: full backend 252 passed / 24 gated chain skips; targeted Circle/draft
+suite 27 passed; frontend units 16 passed; removal Chromium flow and production
+build/typecheck passed. Failed/expired and active challenge cases are distinct.
+Removal progress/error now appears next to its button rather than below all media.
+
 2026-11-20 remove-unfunded-post feature: owner-only reversible archival of draft
 posts, including awaiting escrow creation/allowance. Refuse published/funded posts,
 contributor obligations and any unresolved deposit intention. For chain-bound

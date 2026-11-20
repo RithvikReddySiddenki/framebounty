@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { request, usdc } from "./api";
+import { request, usdc, removeDraft } from "./api";
 import Funding from "./funding";
 import Reviews from "./reviews";
 import RefundUnused from "./refund-unused";
@@ -45,11 +45,12 @@ export default function Posts({ token, active, onChanged }: { token: string; act
   async function changed() { await refresh(); await onChanged(); }
   async function remove(post: Post) {
     setBusy(true); setError("");
-    try { await request(`/jobs/${post.id}/remove`, token, {}); setSelected(undefined); await changed(); }
+    try { await removeDraft(post.id, token); setSelected(undefined); await changed(); }
     catch (err) { setError(err instanceof Error ? err.message : "Could not remove this draft"); }
     finally { setBusy(false); }
   }
   const post = posts.find(p => p.id === selected);
+  const canRemove = Boolean(post && post.state === "draft" && post.deposited_atomic === "0");
   const unit = post?.media_type === "image" ? "images" : "videos";
   return <>
     <div className="post-list-toolbar">
@@ -69,10 +70,10 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       <span>View post & submissions →</span>
     </button>)}</div>
     {post && <section className="panel post-detail" aria-label="Your post details">
-      {post.state === "draft" && post.deposited_atomic === "0" && <div className="spread">
+      {canRemove && <div><div className="spread">
         <p className="muted">Not published yet? Remove this draft if no deposit is pending. Close any open wallet prompts first.</p>
-        <button disabled={busy} onClick={() => void remove(post)}>Remove unfunded post</button>
-      </div>}
+        <button disabled={busy} onClick={() => void remove(post)}>{busy ? "Checking funding…" : "Remove unfunded post"}</button>
+      </div>{error && <p className="error" role="alert">{error}</p>}</div>}
       <div className="spread">
         <div>
           <div className="post-tags">
@@ -100,6 +101,6 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       {post.state === "draft" && process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && <Funding key={`funding-${post.id}`} token={token} jobId={post.id} planHash={post.plan_hash} onPublished={changed} />}
       {post.protection_version === 3 && post.expires_at && new Date(post.expires_at).getTime() <= Date.now() && <RefundUnused token={token} jobId={post.id} onChanged={changed} />}
     </section>}
-    {error && <p className="error" role="alert">{error}</p>}
+    {error && !canRemove && <p className="error" role="alert">{error}</p>}
   </>;
 }

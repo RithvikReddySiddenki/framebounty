@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
@@ -137,10 +137,15 @@ def get_job(job_id: str, wallet: str = Depends(current_wallet), db: Session = De
             "available_atomic": str(item.deposited_atomic - item.committed_atomic - item.paid_atomic - item.refunded_atomic)}
 
 
+class RemovePostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    user_token: SecretStr | None = None
+
+
 @app.post("/jobs/{job_id}/remove")
-def remove_unfunded_post(job_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+def remove_unfunded_post(job_id: str, body: RemovePostRequest, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     from .drafts import remove_draft
-    return remove_draft(db, wallet, job_id)
+    return remove_draft(db, wallet, job_id, body.user_token.get_secret_value() if body.user_token else None)
 
 
 @app.get("/tasks")

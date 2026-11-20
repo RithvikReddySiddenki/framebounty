@@ -87,3 +87,30 @@ def test_removal_serializes_against_new_deposit_intentions(pg, flow):
         db.get(Job, jid).archived = True; db.commit()
         with pytest.raises(ChainFailure, match="Archived"):
             create_intent(db, rpc, action)
+
+@pytest.mark.parametrize("challenge_state,expected", [("FAILED", 200), ("EXPIRED", 200), ("PENDING", 409), ("COMPLETE", 409)])
+def test_circle_dead_deposit_approval_can_be_removed_but_live_approval_cannot(pg, flow, monkeypatch, challenge_state, expected):
+    from framebounty import circle_wallets
+    from framebounty.models import CircleChallenge
+    client, buyer, _, _, _, _ = flow
+    jid = client.post("/jobs", headers=buyer, json=image_plan()).json()["id"]
+    wallet_id = "10000000-0000-4000-8000-000000000001"
+    with Session(pg) as db:
+        owner = db.get(Job, jid).buyer
+        db.add(TransactionIntent(id="c"*64, chain_id=5042002, kind="deposit", resource_id=jid,
+            job_id=jid, sender=owner, destination="0x"+"2"*40, call_data="0x12345678",
+            expected_event={}, unsigned={}, state="intent", projected=False, start_block=1))
+        db.flush()
+        db.add(CircleChallenge(intent_id="c"*64, challenge_id="20000000-0000-4000-8000-000000000001", wallet_id=wallet_id))
+        db.commit()
+    class API:
+        def owned_wallets(self, token):
+            assert token == "test-private-token"
+            return [{"id": wallet_id, "address": owner}]
+        def call(self, method, path, token):
+            assert method == "GET" and "/challenges/" in path
+            return {"challenge": {"status": challenge_state, "correlationIds": []}}, {}
+    monkeypatch.setattr(circle_wallets, "CircleAPI", API)
+    response = client.post(f"/jobs/{jid}/remove", headers=buyer, json={"user_token": "test-private-token"})
+    assert response.status_code == expected
+    with Session(pg) as db: assert db.get(Job, jid).archived == (expected == 200)

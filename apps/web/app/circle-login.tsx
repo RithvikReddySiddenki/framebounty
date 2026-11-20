@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
-import { configureArcNetwork, request, setEmbeddedWalletSender, type WalletTransaction } from "./api";
+import { configureArcNetwork, request, setEmbeddedWalletSender, setEmbeddedDraftRemover, type WalletTransaction } from "./api";
 
 type Configuration = { chain_id: number; network: string; real_money: boolean; circle_enabled: boolean;
   circle_app_id: string; circle_login_method: "email" | "google"; google_client_id: string };
@@ -100,6 +100,9 @@ export default function CircleLogin({ authenticated }: { authenticated: (session
         throw new Error("Circle transaction is still pending. Retry this same action to reconcile its existing authorization.");
       });
       sessionStorage.removeItem(pendingKey);
+      // Keep the Circle user token only in this in-memory closure, just like
+      // transaction signing. Removal may inspect a failed/expired approval.
+      setEmbeddedDraftRemover(jobId => request(`/jobs/${jobId}/remove`, session.token, body));
       window.history.replaceState(null, "", window.location.pathname);
       authenticated({ wallet: session.wallet, token: session.token, expiresAt: Date.now() + session.expires_in_seconds * 1000, method: "circle" });
     } catch (error) { if (active.current) setMessage(error instanceof Error ? error.message : "Circle sign-in could not be verified."); }

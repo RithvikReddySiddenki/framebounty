@@ -5,7 +5,15 @@ export const apiBase =
 
 export type WalletTransaction = { from: string; to: string; data: string; value: string; chainId: string };
 let embeddedSender: ((transaction: WalletTransaction, intentId?: string) => Promise<string>) | undefined;
-export function setEmbeddedWalletSender(sender?: (transaction: WalletTransaction, intentId?: string) => Promise<string>) { embeddedSender = sender; }
+let embeddedDraftRemover: ((jobId: string) => Promise<unknown>) | undefined;
+export function setEmbeddedDraftRemover(remove: (jobId: string) => Promise<unknown>) { embeddedDraftRemover = remove; }
+export function removeDraft(jobId: string, token: string) {
+  return embeddedDraftRemover ? embeddedDraftRemover(jobId) : request(`/jobs/${jobId}/remove`, token, {});
+}
+export function setEmbeddedWalletSender(sender?: (transaction: WalletTransaction, intentId?: string) => Promise<string>) {
+  embeddedSender = sender;
+  if (!sender) embeddedDraftRemover = undefined;
+}
 let activeChain = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || "5042002");
 export function configureArcNetwork(chainId: number) {
   if (![5042, 5042002].includes(chainId)) throw new Error("Unsupported FrameBounty network.");

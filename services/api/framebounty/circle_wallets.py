@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from .auth import bearer, create_session, current_wallet, wallet_address
 from .db import session
-from .models import AuthSession, AuthRateBucket, CircleChallenge, TransactionIntent
+from .models import AuthSession, AuthRateBucket, CircleChallenge, TransactionIntent, Job
 from .networks import active_network, chain_enabled
 
 router = APIRouter()
@@ -223,6 +223,10 @@ def transaction(body: CircleTransaction, wallet: str = Depends(current_wallet),
     if (not intent or intent.sender != wallet or intent.destination != destination or intent.call_data != tx["data"].lower()
         or intent.chain_id != active_network().chain_id or intent.state not in {"intent", "broadcast", "confirmed"}):
         raise HTTPException(403, "Only an existing authorized marketplace intention may be signed")
+    if intent.job_id and intent.kind in {"create_job", "create_protected", "token_approve", "deposit"}:
+        job = db.scalar(select(Job).where(Job.id == intent.job_id).with_for_update().execution_options(populate_existing=True))
+        if job and job.archived:
+            raise HTTPException(409, "This post was removed; no new funding approval is allowed")
     token = body.user_token.get_secret_value()
     if intent.tx_hash: return {"intent_id": intent.id, "tx_hash": intent.tx_hash}
     existing = db.get(CircleChallenge, intent.id)
