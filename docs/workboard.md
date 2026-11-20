@@ -1,5 +1,13 @@
 # Workboard
 
+## Active slice: camera-only contributor capture (2026-11-20)
+
+Owner: Codex on `feat/in-app-camera`, based on `origin/main` at `4e30c64`.
+
+Approved behavior: video contributors open the camera after reservation, record 10–30 seconds inside FrameBounty, review/retake, and submit. The video file picker is removed. Image posts are unchanged. The backend requires a short-lived reservation-bound capture token and accepts browser WebM as well as MP4/MOV. This is not a liveness or physical-camera authenticity claim.
+
+Plan and acceptance criteria: `docs/plans/2026-11-20-in-app-camera.md`. No contract ABI or payment-rule change.
+
 2026-11-19 buyer-agent timeout fix (implementation lead): API health succeeds but
 the browser uses a 15-second timeout for 45-second model requests (up to two calls
 for contributor ranking). Give agent-message calls a bounded longer timeout,
