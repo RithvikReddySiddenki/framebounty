@@ -868,6 +868,49 @@ details[open] > summary { margin-bottom: 10px; }
   .cov-count .cov-number { font-size: 44px; }
 }
 
+/* ---------- Buyer overview ---------- */
+/* The request box is the page's one job: a white floating card, big input. */
+.panel.post-composer { background: var(--surface-2); border: 1px solid var(--line); box-shadow: var(--shadow-float); padding: 28px; }
+.post-composer .chat-head h2 { font-size: 22px; }
+.post-composer .agent-avatar { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); width: 40px; height: 40px; }
+.post-composer .chat-input { padding: 8px; border-radius: 14px; background: var(--bg-2); }
+.post-composer .chat-input textarea { min-height: 76px; font-size: 15px; }
+.post-composer .chat-input button.primary { padding: 10px 16px; border-radius: 10px; }
+.post-composer .bubble.agent { background: var(--surface); border-color: transparent; }
+.starters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.starter {
+  display: grid; justify-items: start; align-content: start; gap: 8px; text-align: left;
+  padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid transparent;
+  font-weight: 400; color: var(--text-2); transition: transform 0.2s, border-color 0.2s, background 0.2s;
+}
+.starter:hover:not(:disabled) { transform: translateY(-2px); background: var(--surface-2); border-color: var(--accent); }
+.starter-kind { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--accent); }
+.starter-kind .icon { width: 14px; height: 14px; }
+.starter-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* The drafted plan reads as an offer: title left, total budget right. */
+.panel .post-composer .post-preview, .post-composer .post-preview {
+  background: var(--surface-2); border: 1px solid var(--line-2); box-shadow: none; border-radius: 18px; padding: 24px;
+  animation: reveal 0.5s cubic-bezier(.2,.7,.2,1) backwards;
+}
+.offer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.offer-head h3 { font-size: 22px; letter-spacing: -0.03em; }
+.offer-total { text-align: right; display: grid; gap: 2px; }
+.offer-total > span { font-size: 12px; color: var(--muted); }
+.offer-total strong { font-size: 36px; font-weight: 600; color: var(--money); letter-spacing: -0.04em; line-height: 1.05; }
+.offer-total strong small { font-size: 14px; color: var(--muted); margin-left: 6px; font-weight: 500; letter-spacing: 0; }
+.post-composer .post-actions { border-top: 1px solid var(--line); padding-top: 18px; margin-top: 18px; }
+.post-composer .post-actions button.primary { padding: 12px 20px; font-size: 14px; border-radius: 12px; }
+
+/* Overview stats: compact tiles with a tinted icon. */
+.overview-stats button { grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; padding: 16px; transition: transform 0.2s, background 0.2s; }
+.overview-stats button:hover:not(:disabled) { transform: translateY(-2px); background: var(--surface-3); }
+.ov-icon { grid-row: span 3; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--text-2); font-style: normal; }
+.ov-icon .icon { width: 18px; height: 18px; }
+.ov-open { color: var(--money); background: var(--money-soft); }
+.ov-updates { color: var(--accent); background: var(--accent-soft); }
+.overview-stats strong { font-size: 26px; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .how-it-works .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -886,6 +929,11 @@ details[open] > summary { margin-bottom: 10px; }
   .trust { grid-template-columns: 1fr; margin-top: 48px; }
   .trust > div + div { border-left: 0; border-top: 1px solid var(--line); }
   .earnings-card { grid-template-columns: 1fr; padding: 22px; }
+  .starters { grid-template-columns: 1fr; }
+  .panel.post-composer { padding: 20px; }
+  .offer-total { text-align: left; }
+  .overview-stats button { grid-template-columns: auto 1fr auto; }
+  .ov-icon { grid-row: span 2; }
   .earn-total { font-size: 44px; }
   /* App-style bottom tab bar on phones. */
   .side-nav {
@@ -923,8 +971,8 @@ details[open] > summary { margin-bottom: 10px; }
   .workspace-header { position: static; padding: 12px 16px; }
   .workspace-content { padding: 18px 16px 32px; }
   .overview-stats { grid-template-columns: 1fr; }
-  .overview-stats button { grid-template-columns: 1fr auto; align-items: center; }
-  .overview-stats strong { grid-row: span 2; grid-column: 2; font-size: 24px; }
+  .overview-stats button { grid-template-columns: auto 1fr auto; align-items: center; }
+  .overview-stats strong { grid-row: 1 / span 2; grid-column: 3; font-size: 24px; }
   .how-it-works .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bubble { max-width: 92%; }
   .agent-task .task-reward { text-align: left; }

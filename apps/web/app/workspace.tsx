@@ -348,13 +348,13 @@ export default function Workspace() {
                 </div>
                 <button className="quiet" onClick={() => void refreshOverview()}>Refresh overview</button>
               </div>
-              <div className="overview-stats">
-                <button onClick={() => setView("collections")}><span>Collections</span><strong>{overview?.collections ?? "—"}</strong><small>Saved plans and posts</small></button>
-                <button onClick={() => setView("collections")}><span>Open collections</span><strong>{overview?.open_collections ?? "—"}</strong><small>Funded and accepting work</small></button>
-                <button onClick={() => setView("collections")}><span>Submission updates</span><strong>{overview?.awaiting_review ?? "—"}</strong><small>Verifying, verified or releasing</small></button>
-              </div>
               {overviewError && <p role="alert" className="error">{overviewError}</p>}
               <PostComposer token={session.token} onChanged={refreshOverview} onView={() => setView("collections")} />
+              <div className="overview-stats">
+                <button onClick={() => setView("collections")}><i className="ov-icon"><Icon name="folder" /></i><span>Collections</span><strong>{overview?.collections ?? "—"}</strong><small>Saved plans and posts</small></button>
+                <button onClick={() => setView("collections")}><i className="ov-icon ov-open"><Icon name="search" /></i><span>Open collections</span><strong>{overview?.open_collections ?? "—"}</strong><small>Funded and accepting work</small></button>
+                <button onClick={() => setView("collections")}><i className="ov-icon ov-updates"><Icon name="eye" /></i><span>Submission updates</span><strong>{overview?.awaiting_review ?? "—"}</strong><small>Verifying, verified or releasing</small></button>
+              </div>
               <details className="how-it-works">
                 <summary>How a collection runs, end to end</summary>
                 <Pipeline />
