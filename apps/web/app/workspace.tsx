@@ -441,7 +441,7 @@ export default function Workspace() {
                   <button onClick={() => setView("collections")}>
                     <span>Ready for release</span>
                     <strong>{overview?.awaiting_review ?? "—"}</strong>
-                    <small>AI-verified rewards awaiting release</small>
+                    <small>AI-verified rewards: protected posts pay automatically after the payment window, or release early</small>
                   </button>
                 </div>
                 {overviewError && (

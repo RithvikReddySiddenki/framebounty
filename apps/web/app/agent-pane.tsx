@@ -280,7 +280,8 @@ export default function AgentPane({
       </p>
       <p className="muted">
         Get help with planning and tracking work. You confirm the terms before
-        committing; AI verifies quality; the buyer makes the final funds-release decision.
+        committing; AI verifies quality. Protected posts pay verified work automatically
+        after a one-hour payment window (the buyer may release early); older posts wait for buyer release.
       </p>
       {role === "contributor" && (
         <p className="notice">
@@ -428,9 +429,9 @@ export default function AgentPane({
                         ))}
                       <p>{task.rights_declaration}</p>
                       <p>
-                        Full task completion requires human approval. Reviewer:{" "}
-                        {task.reviewer}. An abandoned review releases funds
-                        after timeout rather than automatically paying.
+                        Payment requires passing AI verification. Reviewer:{" "}
+                        {task.reviewer}. Protected posts then pay automatically
+                        after a one-hour payment window; older posts wait for buyer release.
                       </p>
                     </details>
                     <button disabled={busy} onClick={() => void prepare(task)}>

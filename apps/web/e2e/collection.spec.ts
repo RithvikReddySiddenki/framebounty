@@ -109,6 +109,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   await expect(actor.getByRole("checkbox")).toHaveCount(0);
   await actor.getByRole("button", { name: "Upload image", exact: true }).click();
   await expect(actor.getByText("queued", { exact: true })).toBeVisible();
+  await expect(actor.getByText(/Checking your image with AI/)).toBeVisible();
   const root = path.resolve(__dirname, "../../..");
   const worker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL }, encoding: "utf-8", timeout: 60000 });
   expect(worker.status, worker.stderr).toBe(0);

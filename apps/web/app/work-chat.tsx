@@ -82,7 +82,7 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
       <p>{task.explanation}</p><BuyerReputation token={token} jobId={task.job_id} />
       {prepared?.task === task.task_id && <p className="notice">Accept {usdc(task.reward_atomic)} test USDC for these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
       <p>Reserve for up to {2 * task.minutes} minutes. Listing closes {new Date(task.deadline).toLocaleString()}.</p>
-      <details><summary>Requirements & usage rights</summary><ul>{task.requirements.map(r => <li key={r.key}>{r.description}</li>)}</ul><p>{task.rights_declaration}</p><p>Reviewer: {task.reviewer}. Payment requires acceptance; it is not guaranteed by reservation.</p></details>
+      <details><summary>Requirements & usage rights</summary><ul>{task.requirements.map(r => <li key={r.key}>{r.description}</li>)}</ul><p>{task.rights_declaration}</p><p>Reviewer: {task.reviewer}. Payment requires passing AI verification and is not guaranteed by reservation; protected posts then pay automatically after a one-hour payment window.</p></details>
       <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</button>
     </article>)}
     <form onSubmit={e => { e.preventDefault(); void send(); }}>
