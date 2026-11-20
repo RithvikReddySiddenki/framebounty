@@ -154,16 +154,16 @@ does not know the network. Fund all three wallets before rehearsal. Never share 
 seed phrase or private key; only public wallet and transaction addresses belong in
 the demo record.
 
-## Phone or LAN upload
+## Phone or remote camera capture
 
-Use HTTPS for a real phone/wallet setup whenever possible; browser wallet and
-media features can be restricted on insecure non-local origins. For a trusted
-local-network rehearsal, find the laptop's LAN address, allow only the chosen API
-and web ports through the local firewall, and set both public origins explicitly:
+Use HTTPS for a real phone/wallet setup. Camera capture uses `getUserMedia`, which
+browsers restrict to secure contexts; a plain `http://192.168...` LAN origin is not
+a supported phone-camera path. Use an HTTPS tunnel or a locally trusted certificate,
+then set both public origins to those HTTPS URLs:
 
 ```dotenv
-AUTH_ORIGIN=http://192.0.2.10:3000
-NEXT_PUBLIC_API_URL=http://192.0.2.10:8000
+AUTH_ORIGIN=https://framebounty.example.test
+NEXT_PUBLIC_API_URL=https://api.framebounty.example.test
 ```
 
 Then start on all interfaces:
@@ -172,11 +172,11 @@ Then start on all interfaces:
 .\scripts\demo.ps1 -Mode fixture -Action start -ListenHost 0.0.0.0
 ```
 
-Replace the example address with the laptop's actual LAN address and open that web
-origin on the phone. For testnet, rebuild the web app after changing
+Replace the example origins with the HTTPS endpoints that route to the local web and
+API ports and open the web origin on the phone. For testnet, rebuild the web app after changing
 `NEXT_PUBLIC_API_URL` when using `-WebMode start`. Return the firewall and listen
-address to their prior state after the rehearsal. Physical phone upload remains an
-interactive check; a desktop viewport test is not evidence that it passed.
+address to their prior state after the rehearsal. Physical phone camera capture
+remains an interactive check; a desktop viewport test is not evidence that it passed.
 
 ## Live walkthrough and evidence to save
 
@@ -191,7 +191,9 @@ careful smoke test and keep the fixture recording as a backup.
 3. A different contributor wallet asks the work agent for matching tasks, confirms
    the displayed fixed reward and deadline, and reserves. Record the allocator's
    `reserve` transaction.
-4. The contributor uploads the correct media and signs `submit(contentHash)`.
+4. For an image task, the contributor selects the correct JPEG/PNG. For a video
+   task, the contributor selects **Open camera**, permits camera access, records
+   10-30 seconds, reviews or retakes it, submits, and signs `submit(contentHash)`.
    Record that transaction and the visible content-hash/status evidence.
 5. Wait for per-criterion Gemini findings. Record the allocator's `verify` and
    evidence-hash transaction, or the rejection transaction and visible reasons.
@@ -228,6 +230,14 @@ uncertain findings remain pending and cannot pay.
 `running`; inspect `media-worker.err.log`; verify `ALLOW_MODEL_MEDIA=true`, model
 access, upload consent, and that FFmpeg can decode the file. Protected submissions
 retry after provider failures and may legitimately stay held instead of passing.
+
+**Camera does not open.** Confirm camera permission is allowed for the exact site,
+no other application owns the camera, and the page is on HTTPS (or localhost for
+desktop development). FrameBounty requests video only, never microphone access.
+Permission denial, no available device and unsupported `MediaRecorder` are distinct
+errors. A clip under 10 seconds must be retaken; recording stops automatically at
+30 seconds. Chrome-family browsers commonly produce WebM while Safari may produce
+MP4; both are supported by the media worker.
 
 **Reservation, attestation, or settlement remains pending.** Confirm the chain
 worker is `running`; inspect `chain-worker.err.log`; verify the allocator address

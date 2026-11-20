@@ -689,6 +689,9 @@ details[open] > summary { margin-bottom: 10px; }
 .upload-box [role="status"] > p:first-of-type strong { font-family: var(--mono); font-weight: 500; }
 .upload-box label { margin: 0; }
 .upload-box details { margin-top: 0; }
+.camera-capture { width: 100%; display: grid; gap: 10px; justify-items: start; }
+.camera-preview { width: min(100%, 520px); aspect-ratio: 4 / 3; object-fit: contain; border-radius: 12px; border: 1px solid var(--line); background: #000; }
+.camera-capture [role="timer"] { font-family: var(--mono); color: var(--danger); }
 .empty {
   border: 1px dashed var(--line-2); border-radius: var(--radius); padding: 28px; text-align: center; color: var(--text-2);
   display: grid; gap: 10px; justify-items: center;

@@ -107,6 +107,22 @@ class Reservation(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class CaptureSession(Base):
+    """Short-lived proof that the supported client opened the capture workflow.
+
+    Only a hash of the browser token is stored. This binds uploads to a reserved
+    task and prevents file-picker/API bypass in the supported app, but it is not
+    a liveness guarantee: modified clients and virtual cameras remain possible.
+    """
+    __tablename__ = "capture_sessions"
+    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    reservation_id: Mapped[str] = mapped_column(ForeignKey("reservations.id"), index=True)
+    wallet: Mapped[str] = mapped_column(String(42), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class Audit(Base):
     __tablename__ = "audit_events"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

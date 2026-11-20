@@ -1,6 +1,13 @@
 # FrameBounty: Full Session Handoff (for a new assistant)
 *Written Thu Nov 19, 2026 (evening, US Central) by the previous assistant session. Read all of it before acting.*
 
+> **November 20 camera update:** This is historical context. For current restart
+> instructions read `..\CODEX-SESSION-HANDOFF.md` and
+> `docs/plans/2026-11-20-in-app-camera.md`. The active branch is
+> `feat/in-app-camera`. Video contributors now record 10–30 seconds inside the app;
+> there is no video-file picker. Remote camera use requires HTTPS. Deployment and
+> `main` remain out of scope for this branch.
+
 ---
 
 ## 0. TL;DR
@@ -50,7 +57,7 @@
 ## 2. Product as built (Rithvik's code; reviewed and tested this session)
 **Stack:**
 - `apps/web`: Next.js 16 / React 19, one page with Buyer and Contributor workspaces. Uses raw `window.ethereum` (MetaMask); no wagmi.
-- `services/api`: FastAPI + SQLAlchemy + Alembic + **PostgreSQL** (SQLite rejected), migrations 0001–0007.
+- `services/api`: FastAPI + SQLAlchemy + Alembic + **PostgreSQL** (SQLite rejected), migrations 0001–0008.
 - `contracts`: Solidity 0.8.24 `FrameBountyEscrow.sol`, built with Arc Foundry.
 - `scripts/`: setup, deploy, tests.
 - Docs live in `docs/`: architecture, state-machine, decisions 0001–0012, live-validation, test-matrix, workboard, and PROJECT_BRIEF (the Codex master prompt Rithvik used).
@@ -60,7 +67,7 @@
 2. Buyer chats with the **buyer agent** (Gemini), which asks for missing count, budget and media type, then drafts a plan (≤20 items, reward = floor(budget/count), requirements, rights).
 3. Buyer publishes: MetaMask signs `createProtectedJob` → USDC `approve` → `deposit`. The first batch is 2 slots.
 4. Contributor (a **different wallet**; self-trade is blocked) chats with the **work agent**, which ranks real funded listings. The contributor reserves with a two-step click, and the backend **allocator key** calls `reserve` on chain.
-5. Contributor uploads a 10–30 s MP4/MOV (or a JPEG/PNG image) and signs `submit(sha256)` in their own wallet (needs gas).
+5. For video work, the contributor opens the in-app camera, records/reviews 10–30 s, and submits browser MP4/WebM; there is no existing-video picker. Image work retains JPEG/PNG selection. The contributor then signs `submit(sha256)` in their own wallet (needs gas).
 6. The **media worker** probes and decodes with ffmpeg, samples **5 frames** (0, ¼, ½, ¾, end−250 ms; 640 px), and calls Gemini `assess_post` with a JSON schema. Each check returns {pass/fail/uncertain, confidence 0–100, explanation, timestamps}.
 7. A **deterministic policy** (`automatic_verification.py`, THRESHOLD=80) decides; mandatory checks are task_completion, visibility and the task's tags:
    - all pass ≥80 → verified

@@ -5,6 +5,7 @@ import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
 import Reputation from "./reputation";
+import CameraRecorder from "./camera-recorder";
 
 export type Submission = {
   id: string;
@@ -63,6 +64,7 @@ export default function Upload({
 }) {
   const image = mediaType === "image";
   const [file, setFile] = useState<File>();
+  const [captureToken, setCaptureToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [percent, setPercent] = useState(0);
   const [error, setError] = useState("");
@@ -115,6 +117,7 @@ export default function Upload({
               ? "video/quicktime"
               : "video/mp4"),
         );
+        if (!image) xhr.setRequestHeader("X-Capture-Token", captureToken);
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable)
             setPercent(Math.round((event.loaded / event.total) * 100));
@@ -164,7 +167,7 @@ export default function Upload({
   return (
     <div className="upload-box">
       <p className="muted">
-        {image ? "Submit one JPEG/PNG image, at most 20 MiB and 16 megapixels. Follow the post requirements." : "Submit a complete 10-30 second MP4/MOV video, at most 100 MiB. Follow the post requirements."}
+        {image ? "Submit one JPEG/PNG image, at most 20 MiB and 16 megapixels. Follow the post requirements." : "Record a complete 10-30 second video inside FrameBounty. Existing video files cannot be submitted."}
       </p>
       <details>
         <summary>Requested usage rights</summary>
@@ -172,23 +175,31 @@ export default function Upload({
       </details>
       {canUpload && !submission && !existingId && (
         <>
-          <label htmlFor={`video-${reservationId}`}>{image ? "Choose an image" : "Choose a phone video"}</label>
-          <input
-            id={`video-${reservationId}`}
-            type="file"
-            accept={image ? "image/jpeg,image/png,.jpg,.jpeg,.png" : "video/mp4,video/quicktime,.mp4,.mov"}
+          {image ? <>
+            <label htmlFor={`video-${reservationId}`}>Choose an image</label>
+            <input
+              id={`video-${reservationId}`}
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              disabled={busy}
+              onChange={(event) => setFile(event.target.files?.[0])}
+            />
+          </> : <CameraRecorder
+            reservationId={reservationId}
+            token={token}
             disabled={busy}
-            onChange={(event) => {
-              setFile(event.target.files?.[0]);
+            onRecording={(recording) => {
+              setFile(recording?.file);
+              setCaptureToken(recording?.captureToken || "");
             }}
-          />
+          />}
           <p className="notice">By submitting, you acknowledge the requested usage rights, confirm permission to share this media, and consent to Gemini checking a reduced image or sampled video frames.</p>
           <button
             className="primary"
-            disabled={!file || busy}
+            disabled={!file || busy || (!image && !captureToken)}
             onClick={() => void upload()}
           >
-            {busy ? `Uploading ${percent}%…` : image ? "Upload image" : "Upload video"}
+            {busy ? `Uploading ${percent}%…` : image ? "Upload image" : "Submit recording"}
           </button>
           {busy && (
             <progress

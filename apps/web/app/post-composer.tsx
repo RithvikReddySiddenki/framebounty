@@ -110,7 +110,7 @@ export default function PostComposer({ token, onChanged, onView }: {
       </div>
     </form>
     {busy && <p role="status" className="muted chat-meta">Preparing your post. AI responses can take up to a minute; keep this page open.</p>}
-    <p className="muted chat-meta">Up to 20 items · Images: JPEG/PNG · Videos: MP4/MOV, 10–30 s · AI verifies every submission.</p>
+    <p className="muted chat-meta">Up to 20 items · Images: JPEG/PNG · Videos: in-app camera recording, 10–30 s · AI verifies every submission.</p>
 
     {plan && <section className="post-preview" aria-label="Generated post preview">
       <div className="post-tags">

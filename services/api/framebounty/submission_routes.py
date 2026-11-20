@@ -17,9 +17,17 @@ from .marketplace import new_id
 from .media import MAX_UPLOAD, InvalidMedia, LocalStorage, validate_container_header, validate_image_header
 from .models import Job, Submission
 from .planning import next_collection_batch, next_fixture_batch, publish_fixture
-from .submissions import coverage, finalize_upload, owned_reservation, private_submission, release_expired, review, submission_view
+from .submissions import (capture_token_hash, coverage, finalize_upload, issue_capture_session,
+                          owned_reservation, private_submission, release_expired, review, submission_view,
+                          validate_capture_session)
 
 router = APIRouter()
+
+
+@router.post("/reservations/{reservation_id}/capture-sessions")
+def open_capture(reservation_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    token, expires = issue_capture_session(db, wallet, reservation_id)
+    return {"token": token, "expires_at": expires}
 
 
 @router.post("/reservations/{reservation_id}/media")
@@ -33,8 +41,7 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
     endpoint = request.url.path.rsplit("/", 1)[-1]
     if endpoint != "media" and endpoint != kind:
         raise HTTPException(415, "This post requires " + kind + " submissions")
-    validate_header = validate_image_header if kind == "image" else validate_container_header
-    allowed_mimes = {"image/jpeg", "image/png"} if kind == "image" else {"video/mp4", "video/quicktime"}
+    allowed_mimes = {"image/jpeg", "image/png"} if kind == "image" else {"video/mp4", "video/quicktime", "video/webm"}
     limit = 20 * 1024 * 1024 if kind == "image" else MAX_UPLOAD
     if not rights_ack:
         raise HTTPException(422, "Explicit acknowledgment of this task's usage rights is required")
@@ -44,7 +51,15 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
         raise HTTPException(409, "Reservation no longer accepts uploads")
     mime = request.headers.get("content-type", "").split(";")[0].lower()
     if mime not in allowed_mimes:
-        raise HTTPException(415, "Use JPEG/PNG for image posts or MP4/MOV for video posts")
+        raise HTTPException(415, "Use JPEG/PNG for image posts or an in-app MP4/WebM recording for video posts")
+    validate_header = validate_image_header if kind == "image" else lambda header: validate_container_header(header, mime)
+    capture_hash = None
+    if kind == "video":
+        raw_capture = request.headers.get("x-capture-token", "")
+        if not raw_capture:
+            raise HTTPException(422, "Open the camera for this reservation before submitting")
+        capture_hash = capture_token_hash(raw_capture)
+        validate_capture_session(db, wallet, reservation_id, capture_hash)
     try:
         declared = int(request.headers.get("content-length", "0"))
     except ValueError as exc:
@@ -72,7 +87,8 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
         if declared and declared != count:
             raise HTTPException(400, "Upload was truncated")
         temporary.replace(final)
-        item = finalize_upload(db, wallet, reservation_id, name + "." + kind, digest.hexdigest(), count, mime, model_ack)
+        item = finalize_upload(db, wallet, reservation_id, name + "." + kind, digest.hexdigest(), count, mime,
+                               model_ack, capture_hash)
         retained = item.object_key == name + "." + kind
         return submission_view(item)
     except InvalidMedia as exc:
@@ -199,7 +215,8 @@ def export_dataset(job_id: str, wallet: str = Depends(current_wallet), db: Sessi
             raise HTTPException(409, "An accepted media object is missing; export requires storage repair")
         # Archive paths contain only server-generated identifiers, never filenames
         # from contributors. Stored ZIP streams avoid compression CPU and temp copies.
-        extension = {"image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov"}[item.content_type]
+        extension = {"image/jpeg": "jpg", "image/png": "png", "video/mp4": "mp4", "video/quicktime": "mov",
+                     "video/webm": "webm"}[item.content_type]
         folder = "images" if item.content_type.startswith("image/") else "videos"
         name = f"{folder}/{item.id}.{extension}"
         archive.add_path(str(source), name)
