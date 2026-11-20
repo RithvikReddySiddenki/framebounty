@@ -48,8 +48,11 @@ export default function Upload({
   existingId,
   canUpload,
   onChanged,
+  onSubmission,
   mediaType = "video",
 }: {
+  /** Reports the latest submission so the parent can draw its lifecycle. */
+  onSubmission?: (submission: Submission) => void;
   mediaType?: "image" | "video";
   reservationId: string;
   token: string;
@@ -65,6 +68,7 @@ export default function Upload({
   const [error, setError] = useState("");
   const [submission, setSubmission] = useState<Submission>();
   const [preview, setPreview] = useState(false);
+  useEffect(() => { if (submission) onSubmission?.(submission); }, [submission?.id, submission?.state, submission?.payment_confirmed]);
 
   async function refresh() {
     const id = submission?.id || existingId;

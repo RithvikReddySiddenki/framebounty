@@ -106,6 +106,21 @@ async function ensureArcTestnet(provider: Provider): Promise<unknown> {
   return provider.request({ method: "eth_chainId" });
 }
 
+/** Translate EIP-1193 wallet error codes into actionable sign-in guidance.
+ * -32002 is the common trap: an earlier popup is still open (often hidden behind
+ * the browser window), so every later click fails instantly without a prompt. */
+export function walletErrorMessage(error: unknown): string {
+  const code = (error as { code?: number })?.code;
+  if (code === 4001)
+    return "Signature request was rejected in your wallet. Click sign in again and approve the message.";
+  if (code === -32002)
+    return "Your wallet already has a pending request. Click the MetaMask extension icon to finish or dismiss it, then try again.";
+  if (code === 4100)
+    return "Your wallet hasn't authorized this site. Unlock your wallet and connect this account, then retry.";
+  const message = (error as { message?: string })?.message;
+  return message ? `Wallet error: ${message}` : "Wallet sign-in failed. Check your wallet extension and retry.";
+}
+
 export async function authenticate(): Promise<{
   wallet: string;
   token: string;
@@ -116,9 +131,12 @@ export async function authenticate(): Promise<{
     throw new Error(
       "Install or open an Ethereum-compatible browser wallet to sign in.",
     );
-  const accounts = (await provider.request({
-    method: "eth_requestAccounts",
-  })) as string[];
+  let accounts: string[];
+  try {
+    accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
+  } catch (error) {
+    throw new Error(walletErrorMessage(error));
+  }
   const wallet = accounts[0];
   if (!wallet) throw new Error("No wallet account was selected.");
   let chain: unknown;
@@ -141,10 +159,15 @@ export async function authenticate(): Promise<{
     Array.from(new TextEncoder().encode(challenge.message), (b) =>
       b.toString(16).padStart(2, "0"),
     ).join("");
-  const signature = await provider.request({
-    method: "personal_sign",
-    params: [hex, wallet],
-  });
+  let signature: unknown;
+  try {
+    signature = await provider.request({
+      method: "personal_sign",
+      params: [hex, wallet],
+    });
+  } catch (error) {
+    throw new Error(walletErrorMessage(error));
+  }
   const result = await request<{ token: string; expires_in_seconds: number }>(
     "/auth/login",
     undefined,
