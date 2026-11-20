@@ -168,6 +168,7 @@ def post_reservation(body: ReserveRequest, wallet: str = Depends(current_wallet)
 def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     items = db.scalars(select(Reservation).where(Reservation.wallet == wallet).order_by(Reservation.id).limit(100)).all()
     return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic),
+        "title": db.get(Job, r.job_id).plan["title"],
         "fixture": db.get(Job, r.job_id).fixture, "media_type": db.get(Job, r.job_id).plan.get("media_type", "video"),
         "expires_at": r.expires_at, "rights_declaration": db.get(Job, r.job_id).plan["rights_declaration"],
         "submission_id": db.scalar(select(Submission.id).where(Submission.reservation_id == r.id))} for r in items]}

@@ -1,5 +1,19 @@
 # Workboard
 
+2026-11-20 active folder/image-batch submissions: contributors choose an image
+reservation count within advertised funded slots, then select a folder or multiple
+JPEG/PNG files and choose how many to upload (max 20). One existing reservation,
+content hash, verification and reward per image; never attach a folder to one
+payable item. Reservation calls retain idempotency keys across retries, and upload
+retries retain exact file/reservation assignments. Availability changes can leave
+a partially reserved batch; already-created reservations remain in My submissions.
+Current contract still requires each contributor content-hash authorization on
+Arc. No migration, contract change or fee sponsorship is part of this feature.
+Validated: 240 backend passed / 24 separately gated chain skips; 11 browser
+regressions passed / 5 gated skips, plus both explicit folder/count/retry tests
+passed. Final matching/image checks: 20 passed. Web units 15 passed and production
+typecheck/build passed. No live Circle batch or mainnet transaction is claimed.
+
 2026-11-20 user-requested image minimum removal: still JPEG/PNG uploads no longer
 require 240 pixels per side. Preserve decoder validation, file-size/animation
 guards and upper processing limits (16 MP / 8192px per side). AI still assesses

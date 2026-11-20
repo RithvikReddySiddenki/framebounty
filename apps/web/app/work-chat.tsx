@@ -8,6 +8,7 @@ import { Icon } from "./ui";
 const STARTERS = ["I have a cup and a kitchen table.", "I have a phone and a cat.", "Show me what's open."];
 
 type Task = { job_id: string; task_id: string; title: string; media_type: string; version: number; reward_atomic: string;
+  available_slots?: number;
   minutes: number; deadline: string; fixture: boolean; requirements: { key: string; description: string }[];
   rights_declaration: string; review_hours: number; reviewer: string; explanation: string };
 type Reply = { reply: string; provider_mode: string; data: { facts: { equipment?: string[] }; tasks?: Task[]; ranked?: boolean } };
@@ -24,6 +25,8 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [prepared, setPrepared] = useState<{ task: string; deadline: string }>();
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const batchBodies = useRef<Record<string, unknown>[]>([]);
   const attempt = useRef<{ id: string; message: string } | undefined>(undefined);
   const reservation = useRef<{ task: string; body: Record<string, unknown> } | undefined>(undefined);
   const log = useRef<HTMLDivElement | null>(null);
@@ -65,16 +68,28 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
         reservation.current = { task: task.task_id, body: { confirmation_id: confirmation.confirmation_id,
           version: confirmation.version, reward_atomic: confirmation.reward_atomic, task_id: task.task_id,
           confirmed: true, idempotency_key: crypto.randomUUID() } };
+        batchBodies.current = [reservation.current.body];
         setPrepared({ task: task.task_id, deadline: confirmation.reservation_expires_at });
         return;
       }
-      await request("/reservations", token, reservation.current.body);
+      const count = task.media_type === "image" ? quantities[task.task_id] || 1 : 1;
+      for (let index = 0; index < count; index++) {
+        if (!batchBodies.current[index]) {
+          const next = await request<{ confirmation_id: string; version: number; reward_atomic: string }>(`/tasks/${task.task_id}/confirmation`, token, {});
+          if (next.version !== task.version || next.reward_atomic !== task.reward_atomic) throw new Error("Task terms changed. Your completed reservations are saved in My submissions.");
+          batchBodies.current[index] = { ...reservation.current.body, confirmation_id: next.confirmation_id, idempotency_key: crypto.randomUUID() };
+        }
+        // Each item has its own fixed reward and idempotent reservation. If
+        // availability changes partway, retry cannot duplicate successful items.
+        await request("/reservations", token, batchBodies.current[index]);
+      }
       await onReserved();
       reservation.current = undefined; setPrepared(undefined);
     } catch (err) { setError(err instanceof Error ? err.message : "This task is no longer available; ask me to search again"); }
     finally { setBusy(false); }
   }
   const latest = entries[entries.length - 1]?.result;
+  const totalReward = (task: Task) => usdc((BigInt(task.reward_atomic) * BigInt(task.media_type === "image" ? quantities[task.task_id] || 1 : 1)).toString());
   const pending = sending;
   return <section className="work-chat chat" aria-label="Contributor chat">
     <div className="chat-head">
@@ -114,8 +129,13 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
       <p className="section-label">What the AI will check</p>
       <ul className="requirements">{task.requirements.map(r => <li key={r.key}><Icon name="check" /><span>{r.description}</span></li>)}</ul>
       <details><summary>Usage rights & payment terms</summary><p className="muted">{task.rights_declaration}</p><p className="muted">Reviewer: {task.reviewer}. Payment requires passing AI verification and is not guaranteed by reservation; protected posts then pay automatically after a one-hour payment window.</p></details>
-      {prepared?.task === task.task_id && <p className="notice">Accept {usdc(task.reward_atomic)} {moneyUnit(task.fixture)} for these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
-      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {usdc(task.reward_atomic)} {moneyUnit(task.fixture)}</button>
+      {task.media_type === "image" && <label>Images to submit (up to {task.available_slots || 1} available)
+        <input type="number" min={1} max={task.available_slots || 1} value={quantities[task.task_id] || 1}
+          disabled={busy || prepared?.task === task.task_id} onChange={e => setQuantities(current => ({ ...current, [task.task_id]: Math.max(1, Math.min(task.available_slots || 1, Math.floor(Number(e.target.value)) || 1)) }))} />
+        <small>Total reward if all pass: {usdc((BigInt(task.reward_atomic) * BigInt(quantities[task.task_id] || 1)).toString())} {moneyUnit(task.fixture)}. Each image is checked separately.</small>
+      </label>}
+      {prepared?.task === task.task_id && <p className="notice">Accept {totalReward(task)} {moneyUnit(task.fixture)} total if all selected items pass these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
+      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {totalReward(task)} {moneyUnit(task.fixture)}</button>
     </article>)}
     <form className="chat-form" onSubmit={e => { e.preventDefault(); void send(); }}>
       <label htmlFor="work-message">Message your work agent</label>

@@ -1,7 +1,7 @@
 import { test, expect, Page } from "@playwright/test";
 import { Wallet, getBytes } from "ethers";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 test("buyer retries the same message and waits beyond the old 15-second cutoff", async ({ page }) => {
@@ -293,6 +293,64 @@ test("a buyer's cup post reaches a contributor who only says they have a cup", a
   await expect(contributor.getByText(/no matches|couldn't find matching/i)).toHaveCount(0);
   const task = contributor.locator(".agent-task").filter({ hasText: /pouring water into a cup/i });
   await expect(task.getByRole("button", { name: /Review reservation for/ })).toBeVisible();
+});
+
+for (const batchCount of [1, 2]) test(`image folder selection submits chosen count ${batchCount} to separate reservations`, async ({ browser }) => {
+  const buyer = await (await browser.newContext()).newPage();
+  const actor = await (await browser.newContext()).newPage();
+  await connect(buyer);
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 2 images of red circles under 2 USDC");
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByRole("button", { name: "Save draft instead" }).click();
+  await buyer.getByRole("button", { name: "Publish simulated post" }).click();
+  await connect(actor);
+  await actor.getByRole("button", { name: "Contributor workspace" }).click();
+  await actor.getByLabel("Message your work agent").fill("Show me what's open");
+  await actor.getByRole("button", { name: "Send", exact: true }).click();
+  const task = actor.locator(".agent-task").filter({ hasText: /red circles/i });
+  await task.getByLabel(/Images to submit/).fill("2");
+  await task.getByRole("button", { name: /Review reservation for/ }).click();
+  await task.getByRole("button", { name: /Accept fixed terms for/ }).click();
+  const batch = actor.getByRole("region", { name: "Upload image batch" });
+  await expect(batch).toContainText("2 confirmed image reservations");
+  const image = await actor.evaluate(() => { const c = document.createElement("canvas"); c.width = 120; c.height = 180; c.getContext("2d")!.fillRect(0, 0, 120, 180); return c.toDataURL().split(",")[1]; });
+  const folder = path.join(path.dirname(process.env.E2E_VIDEO!), `batch-images-${batchCount}`);
+  mkdirSync(folder);
+  writeFileSync(path.join(folder, "a.png"), Buffer.from(image, "base64"));
+  writeFileSync(path.join(folder, "b.png"), Buffer.from(image, "base64"));
+  writeFileSync(path.join(folder, "ignore.txt"), "not an image");
+  await batch.getByLabel("Choose image folder").setInputFiles(folder);
+  await expect(batch.getByLabel("Number of images to submit")).toHaveValue("2");
+  await batch.getByLabel("Number of images to submit").fill(String(batchCount));
+  const uploads: string[] = [];
+  actor.on("request", r => { if (r.method() === "POST" && r.url().includes("/image?")) uploads.push(r.url()); });
+  if (batchCount === 2) {
+    let requests = 0;
+    await actor.route("**/reservations/*/image?*", async route => {
+      if (++requests === 2) await route.fulfill({ status: 503, json: { detail: "Temporary second-image failure" } });
+      else await route.continue();
+    });
+    await batch.getByRole("button", { name: "Submit 2 images", exact: true }).click();
+    await expect(batch.getByRole("alert")).toContainText("Temporary second-image failure");
+    await batch.getByRole("button", { name: "Continue image batch", exact: true }).click();
+    await expect(batch).toHaveCount(0);
+    expect(uploads).toHaveLength(3);
+    expect(uploads[0]).not.toBe(uploads[1]);
+    expect(uploads[1]).toBe(uploads[2]);
+    return;
+  }
+  await batch.getByRole("button", { name: "Submit 1 images", exact: true }).click();
+  await expect(batch).toContainText("1 confirmed image reservations");
+  expect(uploads).toHaveLength(1);
+  // The remaining reservation can accept another batch, without re-uploading
+  // the first image or consuming both rewards for one uploaded file.
+  await expect(batch.getByLabel("Or choose image files")).toBeEnabled();
+  await batch.getByLabel("Or choose image files").setInputFiles({ name: "remaining.png", mimeType: "image/png", buffer: Buffer.from(image, "base64") });
+  await batch.getByRole("button", { name: "Submit 1 images", exact: true }).click();
+  await expect(batch).toHaveCount(0);
+  expect(uploads).toHaveLength(2);
+  expect(new Set(uploads).size).toBe(2);
 });
 
 test("anonymous visitors see sign-in only and cannot access product services", async ({

@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { request, usdc } from "./api";
 import Upload, { type Submission } from "./upload";
 import WorkChat from "./work-chat";
+import ImageBatch from "./image-batch";
 import WalletAction from "./wallet-action";
 import { ITEM_STEPS, Icon, Lifecycle, itemProgress } from "./ui";
 
 type Reservation = {
+  title?: string;
   media_type: "image" | "video";
   fixture: boolean;
   id: string;
@@ -112,6 +114,10 @@ export default function Contributor({
             </div>
           </div>}
           <h2 hidden>Your reservations</h2>
+          {Object.entries(reservations.filter(r => r.media_type === "image" && !r.submission_id &&
+            ["reserved", "fixture_reserved"].includes(r.state) && Date.parse(r.expires_at) > Date.now())
+            .reduce<Record<string, Reservation[]>>((groups, r) => { (groups[r.task_id] ||= []).push(r); return groups; }, {}))
+            .map(([task, slots]) => <ImageBatch key={task} token={token} slots={slots} onChanged={refreshMine} />)}
           {!busy && reservations.length === 0 && <div className="empty"><Icon name="search" /><p>No reservations yet. Ask your work agent to find a funded task.</p></div>}
           {reservations.map((r) => {
             const submission = submissions[r.id];

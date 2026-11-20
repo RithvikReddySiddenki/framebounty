@@ -250,6 +250,21 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Folder and multiple-image submissions (2026-11-20)
+
+Each image retains its own reservation, upload hash, verification and reward.
+Contributor quantity selection is limited to advertised funded slots, with every
+reservation still atomically checked by the server. Folder selection filters to
+JPEG/PNG, lists the chosen images and permits a smaller count (up to 20). Chromium
+tests cover reserving two slots, selecting a real folder with a non-image file,
+uploading only one chosen image, using the remaining reservation later, and a
+two-image upload interrupted on image two. Retry sends only the failed image to
+the same reservation. Full backend 240 passed / 24 gated chain skips; full browser
+regression 11 passed / 5 gated skips, followed by both folder/count/retry variants
+passing. Frontend units 15 passed. These browser tests use explicit fixture money
+and synthetic images; individual Circle hash authorizations remain required on
+real Arc testnet, and no batch contract/gas sponsorship is claimed.
+
 ## Teammate frontend integration (2026-11-20)
 
 Integrated main d7eb9bc with the current feature branch: dark/lime UI, consumer
