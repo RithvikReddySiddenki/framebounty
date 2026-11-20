@@ -131,7 +131,7 @@ export default function Workspace() {
   // wallet ownership. The API independently rejects every unauthenticated service.
   if (!session)
     return (
-      <main className="signin-page">
+      <main className="signin-page theme-dark">
         <section className="signin-story">
           <div className="brand"><span className="mark">F</span>FrameBounty</div>
           <div className="signin-editorial">
