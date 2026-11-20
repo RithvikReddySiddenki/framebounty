@@ -99,6 +99,13 @@ export function stateTone(state: string): "ok" | "chain" | "warn" | "danger" | "
   return "neutral";
 }
 
+/** Plain-language verification verdict for a submission state (display only). */
+export function verdict(state: string): { label: "Passed" | "Rejected" | "Checking"; tone: "ok" | "danger" | "warn" } {
+  if (VERIFIED.includes(state) || PAID.includes(state)) return { label: "Passed", tone: "ok" };
+  if (REJECTED.includes(state)) return { label: "Rejected", tone: "danger" };
+  return { label: "Checking", tone: "warn" };
+}
+
 export function StatePill({ state }: { state: string }) {
   return <span className={`pill tone-${stateTone(state)}`}>{state.replaceAll("_", " ")}</span>;
 }

@@ -81,6 +81,7 @@ export default function Posts({ token, active, onChanged }: { token: string; act
         <Stat icon="search" label="Available slots" value={post.open_slots} />
       </div>
       {post.protection_version === 3 && <p className="notice">Protected budget locked until {post.expires_at ? new Date(post.expires_at).toLocaleString() : "publication expires"}. Requirements are fixed. Verified work pays automatically after one hour.</p>}
+      <Reviews key={`reviews-${post.id}`} token={token} jobId={post.id} onChanged={changed} />
       <Requirements items={post.plan.requirements} note={post.media_type === "video" ? `${post.plan.min_seconds}–${post.plan.max_seconds} seconds per video · AI checks each one` : undefined} />
       <details><summary>Usage rights</summary><p className="muted">{post.plan.rights_declaration}</p></details>
       <Proof post={post} />
@@ -88,7 +89,6 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       {post.publication_status === "no_available_tasks" && <p className="notice">The collection is funded, but tasks are claimed, expired or no longer covered by available funds. Review submissions or ask the collection agent to commission the next batch.</p>}
       {post.state === "draft" && process.env.NEXT_PUBLIC_ENABLE_CHAIN_FUNDING === "true" && <Funding key={`funding-${post.id}`} token={token} jobId={post.id} planHash={post.plan_hash} onPublished={changed} />}
       {post.protection_version === 3 && post.expires_at && new Date(post.expires_at).getTime() <= Date.now() && <RefundUnused token={token} jobId={post.id} onChanged={changed} />}
-      <Reviews key={`reviews-${post.id}`} token={token} jobId={post.id} onChanged={changed} />
     </section>}
     {error && <p className="error" role="alert">{error}</p>}
   </>;

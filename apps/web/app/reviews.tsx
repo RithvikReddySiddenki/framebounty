@@ -7,7 +7,7 @@ import AgentPane from "./agent-pane";
 import type { Submission } from "./upload";
 import ReleaseFunds from "./release-funds";
 import Reputation from "./reputation";
-import { ITEM_STEPS, Icon, Lifecycle, StatePill, itemProgress } from "./ui";
+import { ITEM_STEPS, Icon, Lifecycle, StatePill, itemProgress, verdict } from "./ui";
 
 type Job = { id: string; title: string; state: string; fixture: boolean };
 type Coverage = {
@@ -19,20 +19,31 @@ type Coverage = {
 
 function ReviewCard({ item, token }: { item: Submission; token: string; requirements?: { key: string; description: string }[]; refreshed?: () => Promise<void> }) {
   const [mediaVisible, setMediaVisible] = useState(false);
+  const result = verdict(item.state);
   return <article className="panel review-card">
     <div className="spread">
       <div>
         <p className="eyebrow">{item.fixture ? "FIXTURE SUBMISSION" : "TESTNET SUBMISSION"} - {item.state.replaceAll("_", " ")}</p>
         <h3>Submission <span className="mono">{item.id.slice(0, 8)}</span></h3>
       </div>
-      <StatePill state={item.state} />
+      <div className="verdict-wrap">
+        <span className={`verdict tone-${result.tone}`}><Icon name={result.tone === "ok" ? "check" : result.tone === "danger" ? "x" : "clock"} />{result.label}</span>
+        <StatePill state={item.state} />
+      </div>
     </div>
     <Lifecycle steps={ITEM_STEPS} progress={itemProgress("reserved", item.state, item.payment_confirmed)} label={`Lifecycle for submission ${item.id.slice(0, 8)}`} />
     <p>{item.payment_confirmed ? "Payment confirmed." : item.state === "verified" ? "AI verification passed. Payment window is shown below." : "No chain payment confirmed."}</p>
     {item.payment_due_at && !item.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(item.payment_due_at).toLocaleString()}. Release sooner in a batch below.</p>}
-    {item.review_reason && <p className="muted">{item.review_reason}</p>}
+    {item.review_reason && item.review_reason !== item.findings.verification?.reason && <p className="muted">{item.review_reason}</p>}
     {item.findings.verification && <p className="notice">{item.findings.verification.reason}</p>}
-    {item.findings.assessment && <div className="criterion-grid">{Object.entries(item.findings.assessment).map(([key, value]) => <div key={key}><strong>{value.result === "pass" ? "✓ " : value.result === "fail" ? "✗ " : "? "}{key.replaceAll("_", " ")}: {value.result}{value.confidence !== undefined ? ` (${value.confidence}% model-reported confidence)` : ""}</strong><p>{value.explanation}</p></div>)}</div>}
+    {item.findings.assessment && <div className="checks">{Object.entries(item.findings.assessment).map(([key, value]) => <div key={key} className={`check check-${value.result}`}>
+      <span className="check-icon"><Icon name={value.result === "pass" ? "check" : value.result === "fail" ? "x" : "info"} /></span>
+      <div className="check-body">
+        <strong>{key.replaceAll("_", " ")}: {value.result}</strong>
+        <p>{value.explanation}</p>
+      </div>
+      {value.confidence !== undefined && <div className="check-conf"><span className="mono">{value.confidence}% model-reported confidence</span><div className="bar"><i style={{ width: `${value.confidence}%` }} /></div></div>}
+    </div>)}</div>}
     {item.findings.processing_error && <p className="error">{item.findings.processing_error}</p>}
     {item.findings.provider_error && <p className="notice">{item.findings.provider_error}</p>}
     <button onClick={() => setMediaVisible(!mediaVisible)}><Icon name="eye" />{mediaVisible ? "Hide submitted media" : item.media_type === "image" ? "View submitted image & AI checks" : "View watermarked preview & AI checks"}</button>

@@ -635,6 +635,23 @@ details[open] > summary { margin-bottom: 10px; }
 .review-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
 
 /* ---------- Reviews / submissions ---------- */
+.verdict-wrap { display: flex; align-items: center; gap: 8px; }
+.verdict { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; border: 1px solid; border-radius: 999px; padding: 5px 12px; }
+.verdict .icon { width: 15px; height: 15px; }
+.checks { display: grid; gap: 8px; margin-top: 14px; }
+.check { display: grid; grid-template-columns: auto 1fr minmax(160px, 220px); gap: 12px; align-items: center; background: var(--surface); border-radius: 12px; padding: 12px 14px; }
+.check-icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-3); color: var(--text-2); }
+.check-icon .icon { width: 14px; height: 14px; }
+.check-pass .check-icon { background: var(--money-soft); color: var(--money); }
+.check-fail .check-icon { background: var(--danger-soft); color: var(--danger); }
+.check-body strong { font-size: 13.5px; font-weight: 600; text-transform: capitalize; }
+.check-body p { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.check-conf { display: grid; gap: 6px; }
+.check-conf span { font-size: 11px; color: var(--muted); }
+.check-fail .check-conf .bar i { background: var(--danger); }
+/* Contributor-side AI results block (upload.tsx) */
+[aria-label="AI verification results"] { display: grid; gap: 6px; width: 100%; }
+[aria-label="AI verification results"] p { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; font-size: 13px; color: var(--text-2); }
 .reviews { padding: 0; background: transparent; border: 0; margin-top: 22px; }
 .reviews > h2 { margin-bottom: 4px; }
 .review-card { margin-top: 12px; background: var(--surface); }
@@ -687,6 +704,8 @@ details[open] > summary { margin-bottom: 10px; }
   .how-it-works .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
+  .check { grid-template-columns: auto 1fr; }
+  .check-conf { grid-column: 1 / -1; }
   .signin-page { padding: 0 18px 32px; }
   .hero { padding-top: 36px; }
   .hero h1 { font-size: 40px; }
