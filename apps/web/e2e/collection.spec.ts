@@ -93,14 +93,13 @@ test("image request becomes a labeled post, automatic verification and final fun
   await actor.getByRole("button", { name: "Contributor workspace" }).click();
   await actor.getByLabel("Message your work agent").fill("I have a cat. What kinds of tasks are available for me.");
   await actor.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(actor.getByText(/How much time do you have/)).toBeVisible();
+  // Tasks show right away; the agent never asks about time.
+  await expect(actor.getByText(/Matching on: cat\./)).toBeVisible();
+  await expect(actor.getByText(/How much time do you have/)).toHaveCount(0);
   await expect(actor.getByLabel("Equipment (comma-separated)")).toHaveCount(0);
   await actor.getByLabel("Message your work agent").fill("I have a phone to record and take pictures");
   await actor.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(actor.getByText(/Using: cat, phone/)).toBeVisible();
-  await actor.getByLabel("Message your work agent").fill("I have infinite amount of time.");
-  await actor.getByRole("button", { name: "Send", exact: true }).click();
-  await expect(actor.getByText(/no time filter/).first()).toBeVisible();
+  await expect(actor.getByText(/Matching on: cat, phone/)).toBeVisible();
   const match = actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i });
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });
@@ -275,6 +274,26 @@ function expireToken(authorization: string) {
   );
   expect(result.status, result.stderr).toBe(0);
 }
+
+test("a buyer's cup post reaches a contributor who only says they have a cup", async ({ browser }) => {
+  const buyer = await (await browser.newContext()).newPage();
+  const contributor = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+  await connect(buyer);
+  await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 2 videos of a person pouring water into a cup under 2 USDC");
+  await buyer.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByRole("button", { name: "Save draft instead" }).click();
+  await buyer.getByRole("button", { name: "Publish simulated post" }).click();
+  await expect(buyer.getByText(/Open.*Simulated funding/)).toBeVisible();
+  await connect(contributor);
+  await contributor.getByRole("button", { name: "Contributor workspace" }).click();
+  await contributor.getByLabel("Message your work agent").fill("I have a cup and no time limit");
+  await contributor.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(contributor.getByText(/Matching on: cup\./)).toBeVisible();
+  await expect(contributor.getByText(/no matches|couldn't find matching/i)).toHaveCount(0);
+  const task = contributor.locator(".agent-task").filter({ hasText: /pouring water into a cup/i });
+  await expect(task.getByRole("button", { name: /Review reservation for/ })).toBeVisible();
+});
 
 test("anonymous visitors see sign-in only and cannot access product services", async ({
   page,
