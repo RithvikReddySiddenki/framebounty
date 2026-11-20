@@ -1,5 +1,18 @@
 # Hosted demo validation — 2026-11-20
 
+## Circle activation update
+
+After the submission tests below, the user confirmed that the live Vercel origin
+and redirect URI were saved in Google OAuth. Circle credentials were transferred
+privately to Railway and `CIRCLE_ENABLED=true` activated. Public configuration
+now reports Google login enabled, chain 5042002 and `real_money=false`.
+An actual browser check found Continue with Google and completed the Circle
+device handshake far enough to navigate to accounts.google.com, without browser
+errors. This does not prove complete user sign-in, wallet initialization or
+returning-user login: those still require the account owner's Google login.
+The earlier disabled-Circle statements below describe the initial smoke-test
+phase. All real-money and model flags remain disabled; MetaMask is optional.
+
 Frontend: https://framebounty.vercel.app
 
 API: https://framebounty-api-production.up.railway.app

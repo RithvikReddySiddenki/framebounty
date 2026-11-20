@@ -10,7 +10,9 @@ Circle login and real-USDC settlement still need account setup and validation;
 no real funds have been spent. See [Circle setup](docs/CIRCLE_SETUP.md).
 The [hosted demo](https://framebounty.vercel.app) runs on Vercel/Railway with private
 Supabase storage. PNG, JPEG and in-app video submission flows passed hosted
-browser tests. Verification and payments are simulated; Circle remains disabled.
+browser tests. Verification and payments are simulated. Circle Google sign-in is
+now enabled; its button and redirect to Google were verified, with full user
+account sign-in still awaiting a human browser check.
 See [hosted evidence](docs/hosted-validation-2026-11-20.md) and the
 [hosting guide](docs/DEPLOY.md).
 

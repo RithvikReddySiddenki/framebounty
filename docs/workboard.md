@@ -1,5 +1,13 @@
 # Workboard
 
+2026-11-20 Circle Google activation: user confirmed production OAuth origin and
+redirect saved. Backend credentials configured through private stdin and Circle
+enabled on Railway. Public config verified circle_enabled=true, method=google,
+real_money=false; actual browser displayed Continue with Google and reached
+accounts.google.com with no page errors. No user Google credentials were entered;
+full sign-in/wallet initialization remains a manual live check. Optional existing
+wallet sign-in retained. Mainnet/chain/model transactions remain disabled.
+
 2026-11-20 hosted deployment completed: https://framebounty.vercel.app with
 Railway API/worker and real private Supabase storage/schema (migration 0009).
 Hosted Chromium PNG/JPEG/in-app synthetic-camera video tests: 3 passed, including
