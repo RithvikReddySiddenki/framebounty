@@ -13,15 +13,22 @@ from test_automatic_verification import uploaded_ai
 from test_image_posts import image_bytes
 
 
-@pytest.fixture
-def remote(monkeypatch):
+@pytest.fixture(params=["legacy", "secret"])
+def remote(monkeypatch, request):
     monkeypatch.setenv("STORAGE_BACKEND", "supabase")
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "synthetic-server-only-secret")
+    monkeypatch.delenv("SUPABASE_SECRET_KEY", raising=False)
+    modern = request.param == "secret"
+    if modern: monkeypatch.setenv("SUPABASE_SECRET_KEY", "sb_secret_synthetic-test-only")
     monkeypatch.setenv("SUPABASE_STORAGE_BUCKET", "framebounty-media")
     state = {"objects": {}, "public": False, "fail_write": False, "calls": []}
     def respond(request):
-        assert request.headers["Authorization"] == "Bearer synthetic-server-only-secret"
+        if modern:
+            assert request.headers["apikey"] == "sb_secret_synthetic-test-only"
+            assert "authorization" not in request.headers
+        else:
+            assert request.headers["Authorization"] == "Bearer synthetic-server-only-secret"
         assert request.url.host == "example.supabase.co"
         state["calls"].append((request.method, request.url.path))
         if "/bucket/" in request.url.path:

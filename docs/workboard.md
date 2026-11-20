@@ -1,5 +1,16 @@
 # Workboard
 
+2026-11-20 active hosted launch: user now authorizes full deployment up to $10
+total hosting cost, superseding configuration-only scope below. Circle mainnet is
+deferred; all real-money transactions stay disabled. Vercel project framebounty
+and Railway project/service created, account access verified. New Supabase project
+credential checks passed; private bootstrap and migration 0009 applied successfully.
+Support new sb_secret_ keys via apikey only, preserving legacy credential headers.
+Targeted storage/hosted regression: 30 passed; full backend 219 passed/24 gated
+chain skips. Railway Docker build started after setting its explicit Dockerfile
+path. Vercel deployment is pending a connectivity failure to api.vercel.com.
+No provider secret is committed.
+
 Completed integrated hosting preparation (2026-11-20): main 081a5e3, deployment
 9cae3ca and integration 745b4b8 included; all content conflicts resolved and one
 migration head 0009. Final backend 210 passed/24 separate-chain skips; local chain

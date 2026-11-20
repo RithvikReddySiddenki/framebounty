@@ -235,3 +235,5 @@ contracts/cache/
 .next-live/
 test-results/
 playwright-report/
+.vercel
+.env*

@@ -1,0 +1,12 @@
+.git
+.local
+.venv
+.env*
+**/.env*
+node_modules
+**/node_modules
+**/.next*
+**/__pycache__
+**/test-results
+contracts/out
+contracts/cache

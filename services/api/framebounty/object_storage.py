@@ -21,7 +21,10 @@ class SupabaseStorage(LocalStorage):
         self.url = os.getenv("SUPABASE_URL", "").rstrip("/")
         parsed = urlparse(self.url)
         self.bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "framebounty-media")
-        self.secret = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        modern = os.getenv("SUPABASE_SECRET_KEY", "")
+        self.secret = modern or os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+        if modern and not modern.startswith("sb_secret_"):
+            raise MediaUnavailable("Configure a server-side Supabase secret key")
         if (parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".supabase.co")
                 or parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment
                 or parsed.port not in {None, 443} or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", self.bucket)
@@ -30,8 +33,14 @@ class SupabaseStorage(LocalStorage):
         self.transport = transport
 
     def client(self):
+        # New opaque keys authenticate via apikey only. Sending one as a JWT
+        # bearer token causes gateway rejection. Legacy service_role JWTs retain
+        # their original headers during migration.
+        headers = {"apikey": self.secret}
+        if not self.secret.startswith("sb_secret_"):
+            headers["Authorization"] = "Bearer " + self.secret
         return httpx.Client(base_url=self.url + "/storage/v1/", timeout=120, follow_redirects=False,
-            transport=self.transport, headers={"apikey": self.secret, "Authorization": "Bearer " + self.secret})
+            transport=self.transport, headers=headers)
 
     def check_private(self, client):
         response = client.get("bucket/" + self.bucket)

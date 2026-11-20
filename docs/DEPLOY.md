@@ -33,8 +33,10 @@ still runs. Circle Google login requires the setup in [CIRCLE_SETUP.md](CIRCLE_S
    `postgres://`, `postgresql://` and `postgresql+psycopg://` forms.
 4. Set `DATABASE_SCHEMA=framebounty`. Session pooling preserves the app's session
    advisory locks; do not substitute transaction pooling (usually port 6543).
-5. Set `SUPABASE_URL` and the backend-only legacy **service_role** API key in
-   Railway. Never put the key in Vercel or any `NEXT_PUBLIC_*` variable.
+5. Set `SUPABASE_URL` and the backend-only `SUPABASE_SECRET_KEY` (`sb_secret_...`)
+   in Railway. Legacy `SUPABASE_SERVICE_ROLE_KEY` remains supported. New keys use
+   only the `apikey` header, not a JWT bearer header. Never put either secret in
+   Vercel or any `NEXT_PUBLIC_*` variable.
 6. Keep the bucket private and give no anonymous/user policies for these objects.
    The app uses its own authenticated proxy, not Supabase Auth browser JWTs.
    Check existing project-wide storage policies if reusing a project.
@@ -53,6 +55,8 @@ payment. No public or signed Supabase object URLs are sent to clients.
 When authorized, create a GitHub-connected service with repository root `/`.
 `railway.json` selects `deploy/railway/Dockerfile`. Review the integrated feature
 branch first; do not switch production to an unreviewed branch automatically.
+Also set `RAILWAY_DOCKERFILE_PATH=deploy/railway/Dockerfile` explicitly: the first
+hosted CLI upload selected Railpack until this documented path override was set.
 
 Use **one replica**, always running (no sleeping), and attach a persistent volume
 at `/data`. The container supervises API and verification worker together; the
@@ -70,7 +74,7 @@ service variables. Required settings:
 | `AUTH_ORIGIN` | Exact HTTPS Vercel origin, without trailing slash |
 | `STORAGE_BACKEND` | `supabase` |
 | `SUPABASE_URL` | Your Supabase HTTPS project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Backend-only service_role secret |
+| `SUPABASE_SECRET_KEY` | Backend-only secret key (legacy service_role also supported) |
 | `SUPABASE_STORAGE_BUCKET` | `framebounty-media` |
 | `STORAGE_ROOT` | `/data/cache` |
 | `APP_MODE` | `fixture` for initial hosted verification |
