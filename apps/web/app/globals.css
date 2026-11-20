@@ -911,6 +911,22 @@ details[open] > summary { margin-bottom: 10px; }
 .ov-updates { color: var(--accent); background: var(--accent-soft); }
 .overview-stats strong { font-size: 26px; }
 
+/* ---------- Final touches: receipt, camera, offers ---------- */
+.receipt-line { font-size: 12.5px; color: var(--text-2); }
+.receipt-line a { color: var(--chain); font-weight: 500; }
+/* When the camera is open, the recorder becomes a dark, focused panel. */
+.camera-capture:has(video) {
+  background: #0b0b0b; color: #f5f5f5; border-radius: 20px; padding: 18px; justify-items: center; text-align: center;
+}
+.camera-capture:has(video) .camera-preview { width: 100%; max-width: 640px; box-shadow: none; }
+.camera-capture:has(video) .muted { color: #a3a3a3; }
+.camera-capture:has(video) [role="timer"] { color: #ff6b6b; font-size: 15px; }
+.camera-capture:has(video) button:not(.primary) { background: #1c1c1c; color: #f5f5f5; border-color: #333; }
+.camera-capture:has(video) button { min-width: 180px; padding: 12px 18px; border-radius: 999px; font-size: 14px; }
+.agent-task .requirements { margin-top: 6px; }
+.agent-task .requirements li > .icon { color: var(--money); }
+.agent-task .tag { margin-bottom: 2px; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1100px) {
   .how-it-works .pipeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }

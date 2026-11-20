@@ -6,6 +6,10 @@ import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
 import Reputation from "./reputation";
 import CameraRecorder from "./camera-recorder";
+import { ExplorerLink } from "./ui";
+
+/** Public escrow address, display-only: lets a paid contributor check the payer on Arc. */
+const ESCROW = process.env.NEXT_PUBLIC_ARC_ESCROW_ADDRESS || "";
 
 export type Submission = {
   id: string;
@@ -248,6 +252,7 @@ export default function Upload({
               ? <p className="notice paid-note">Simulated reward released; no blockchain payment occurred.</p>
               : submission.findings.verification && <p className="notice">{submission.findings.verification.reason}</p>}
           {submission.payment_due_at && !submission.payment_confirmed && <p className="notice">Automatic payment eligible {new Date(submission.payment_due_at).toLocaleString()}. Your reserved reward remains locked; the buyer may release it sooner.</p>}
+          {submission.payment_confirmed && !submission.fixture && ESCROW && <p className="receipt-line">Paid from escrow on Arc · <ExplorerLink value={ESCROW} kind="address" /></p>}
           {submission.payment_confirmed && <Reputation token={token} submissionId={submission.id} />}
           {submission.review_reason && submission.review_reason !== submission.findings.verification?.reason && (
             <p>Decision: {submission.review_reason}</p>
