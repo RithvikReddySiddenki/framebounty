@@ -88,7 +88,9 @@ export default function Upload({
   useEffect(() => { if (existingId) void refresh(); }, [existingId]);
   useEffect(() => {
     if (!submission || ["accepted", "fixture_accepted", "rejected", "verification_rejected", "expired", "timed_out"].includes(submission.state)) return;
-    const delay = ["queued", "verifying"].includes(submission.state) ? 3000 : 10000;
+    // needs_review is usually a brief step between decoding and the automatic
+    // policy decision, so poll it quickly too; otherwise the verdict can lag 10s.
+    const delay = ["queued", "verifying", "needs_review"].includes(submission.state) ? 3000 : 10000;
     const timer = window.setInterval(() => void refresh(), delay);
     return () => window.clearInterval(timer);
   }, [submission?.id, submission?.state]);
