@@ -160,7 +160,7 @@ export default function PostComposer({ token, onChanged, onView }: {
       </>}
       {!published && !publishNow && <div className="post-actions">
         <button className="primary" disabled={busy} onClick={() => void save(true)}><Icon name="lock" />{chain ? "Approve budget & publish" : "Publish simulated post"}</button>
-        {!saved && <button disabled={busy} onClick={() => void save(false)}>Save draft instead</button>}
+        {!saved && <details><summary>More options</summary><button disabled={busy} onClick={() => void save(false)}>Save draft instead</button></details>}
       </div>}
       {saved && <>
         {chain && publishNow && <Funding token={token} jobId={saved.id} planHash={saved.plan_hash} termsApproved autoStart onPublished={async () => { setPublished(true); await onChanged(); }} />}

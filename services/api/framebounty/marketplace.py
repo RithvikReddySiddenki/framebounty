@@ -41,7 +41,7 @@ def _open_rows(db: Session, *conditions, limit: int) -> list:
     """Open, unexpired, funded tasks with free slots in the current mode/network."""
     fixture = os.getenv("APP_MODE", "fixture") == "fixture"
     return db.execute(select(Task, Job).join(Job, Task.job_id == Job.id).where(
-        Job.state == "open", Task.state == "open", Task.deadline > datetime.now(UTC),
+        Job.archived.is_(False), Job.state == "open", Task.state == "open", Task.deadline > datetime.now(UTC),
         Job.fixture == fixture, *([] if fixture else [Job.chain_id == active_network().chain_id]),
         Task.claimed < Task.slots,
         Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic >= Task.reward_atomic,
@@ -79,6 +79,8 @@ def prepare_confirmation(db: Session, wallet: str, task_id: str, confirmation_id
     if task is None or task.state != "open" or task.deadline <= datetime.now(UTC):
         raise HTTPException(409, "Task is no longer available; refresh search")
     job = db.get(Job, task.job_id)
+    if job.archived:
+        raise HTTPException(404, "Task is archived")
     if not job.fixture and job.chain_id != active_network().chain_id:
         raise HTTPException(409, "This task belongs to another network")
     if job.state != "open" or task.claimed >= task.slots or job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic < task.reward_atomic:
@@ -130,7 +132,7 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
         raise HTTPException(409, "This reservation belongs to another network")
     if not (fixture or live):
         raise HTTPException(503, "Reservations are disabled for this mode")
-    if task.version != version or task.reward_atomic != reward_atomic or task.state != "open" or task.deadline <= datetime.now(UTC) or task.claimed >= task.slots or job.state != "open":
+    if job.archived or task.version != version or task.reward_atomic != reward_atomic or task.state != "open" or task.deadline <= datetime.now(UTC) or task.claimed >= task.slots or job.state != "open":
         raise HTTPException(409, "Task changed or filled; refresh search")
     available = job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic
     if job.protection_version >= 3 and wallet == job.buyer:

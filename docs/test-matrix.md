@@ -250,6 +250,23 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Fresh demo and streamlined authorization (2026-11-20)
+
+Migration 0010 archives post visibility without altering immutable terms, balances,
+reservations, submissions, media or transaction intents. Chats are archived and
+app sessions revoked. Regression verifies an empty newly authenticated workspace,
+revoked old sessions, inaccessible archived chats and preserved funded accounting.
+Workers retain archived obligations for verification/release/settlement; new claims
+and funding on archived posts are blocked. Circle users and chain history persist.
+Upload now continues directly into its exact hash authorization using the existing
+receipt coordinator; frontend regression verifies one signature and recovery after
+a lost response without signing again. Browser suite: 12 passed / 5 gated skips;
+frontend unit suite: 16 passed; build/typecheck passed. Migration-specific follow-up:
+13 passed after updating the explicit single-head expectation from 0009 to 0010.
+An entire folder still requires one Circle approval per image with current contracts.
+Final full backend after migration expectation updates: 241 passed / 24 separately
+gated chain skips. No failing assertions were removed or weakened.
+
 ## Folder and multiple-image submissions (2026-11-20)
 
 Each image retains its own reservation, upload hash, verification and reward.

@@ -1,5 +1,19 @@
 # Workboard
 
+2026-11-20 approved fresh-demo archive and streamlined confirmations: migration
+0010 adds a visible-workspace archive flag while retaining financial/media rows,
+transaction nonce history and active payment workers. Archive all existing posts
+and conversations and revoke sessions; Circle accounts and chain history remain.
+New Submit action uploads then automatically requests the exact contributor hash
+authorization using the existing durable receipt coordinator. Recovery retains
+the original hash. Draft saving moves under More options; publishing auto-flow
+does not display a redundant publish button. Current contracts still require
+separate Circle approvals per image and three funding authorizations; one wallet
+approval for an entire folder requires a separate contract/wallet upgrade.
+Validated: final backend 241 passed / 24 gated chain skips; Chromium 12 passed /
+5 gated skips; frontend units 16 passed; typecheck/production build passed.
+Hosted archive will run only after migration 0010 is confirmed on deployment.
+
 2026-11-20 active folder/image-batch submissions: contributors choose an image
 reservation count within advertised funded slots, then select a folder or multiple
 JPEG/PNG files and choose how many to upload (max 20). One existing reservation,

@@ -59,6 +59,7 @@ class Job(Base):
     plan_hash: Mapped[str] = mapped_column(String(64))
     state: Mapped[str] = mapped_column(String(20), default="draft")
     fixture: Mapped[bool] = mapped_column(Boolean, default=False)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     escrow_address: Mapped[str | None] = mapped_column(String(42))
     chain_id: Mapped[int | None] = mapped_column(Integer)
     protection_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

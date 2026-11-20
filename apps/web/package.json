@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:publishing": "node --test tests/publishing.cjs tests/api.cjs tests/camera.cjs"
+    "test:publishing": "node --test tests/publishing.cjs tests/api.cjs tests/camera.cjs tests/submission-flow.cjs"
   },
   "dependencies": {
     "@circle-fin/w3s-pw-web-sdk": "1.1.11",

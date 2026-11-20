@@ -110,10 +110,10 @@ def logout(credentials: HTTPAuthorizationCredentials = Depends(bearer), db: Sess
 @app.get("/me/overview")
 def overview(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     fixture = os.getenv("APP_MODE", "fixture") == "fixture"
-    owned = (Job.buyer == wallet) & ((Job.fixture == fixture) | (Job.state == "draft"))
+    owned = (Job.buyer == wallet) & Job.archived.is_(False) & ((Job.fixture == fixture) | (Job.state == "draft"))
     count = lambda condition: db.scalar(select(func.count()).select_from(Job).where(condition))
     reviews = db.scalar(select(func.count()).select_from(Submission).join(Job, Submission.job_id == Job.id).where(
-        Job.reviewer == wallet, Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid", "verified", "release_pending"])))
+        Job.reviewer == wallet, Job.archived.is_(False), Job.fixture == fixture, Submission.state.in_(["needs_review", "invalid", "verified", "release_pending"])))
     claimable = select(Task.id).where(Task.job_id == Job.id, Task.state == "open", Task.deadline > datetime.now(UTC),
         Task.claimed < Task.slots, Task.reward_atomic <= Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic).exists()
     return {"collections": count(owned), "open_collections": count(owned & (Job.state == "open") & claimable),
@@ -166,7 +166,7 @@ def post_reservation(body: ReserveRequest, wallet: str = Depends(current_wallet)
 
 @app.get("/me/reservations")
 def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
-    items = db.scalars(select(Reservation).where(Reservation.wallet == wallet).order_by(Reservation.id).limit(100)).all()
+    items = db.scalars(select(Reservation).join(Job, Job.id == Reservation.job_id).where(Reservation.wallet == wallet, Job.archived.is_(False)).order_by(Reservation.id).limit(100)).all()
     return {"reservations": [{"id": r.id, "task_id": r.task_id, "state": r.state, "reward_atomic": str(r.reward_atomic),
         "title": db.get(Job, r.job_id).plan["title"],
         "fixture": db.get(Job, r.job_id).fixture, "media_type": db.get(Job, r.job_id).plan.get("media_type", "video"),
@@ -176,7 +176,7 @@ def my_reservations(wallet: str = Depends(current_wallet), db: Session = Depends
 
 @app.get("/me/jobs")
 def my_jobs(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
-    items = db.scalars(select(Job).where((Job.buyer == wallet) | (Job.reviewer == wallet)).order_by(Job.created_at.desc()).limit(100)).all()
+    items = db.scalars(select(Job).where(Job.archived.is_(False), (Job.buyer == wallet) | (Job.reviewer == wallet)).order_by(Job.created_at.desc()).limit(100)).all()
     rows = []
     for item in items:
         available = item.deposited_atomic - item.committed_atomic - item.paid_atomic - item.refunded_atomic

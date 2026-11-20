@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiBase, notifySessionExpired } from "./api";
+import { confirmUploadedSubmission } from "./submit-flow";
 
 type Slot = { id: string; title?: string; expires_at: string; rights_declaration: string };
 type Assignment = { slot: Slot; file: File };
@@ -18,6 +19,8 @@ export default function ImageBatch({ token, slots, onChanged }: {
   const [error, setError] = useState("");
   const assignment = useRef<Assignment[]>([]);
   const done = useRef(new Set<string>());
+  const controller = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => controller.current?.abort(), []);
   const maximum = Math.min(files.length, slots.length, 20);
 
   function select(list: FileList | null) {
@@ -31,6 +34,7 @@ export default function ImageBatch({ token, slots, onChanged }: {
   async function submit() {
     if (busy || !maximum) return;
     setBusy(true); setError("");
+    controller.current = new AbortController();
     try {
       if (!assignment.current.length) {
         const selected = files.slice(0, Math.min(count, maximum));
@@ -50,6 +54,10 @@ export default function ImageBatch({ token, slots, onChanged }: {
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           throw new Error(typeof payload.detail === "string" ? payload.detail : "An image upload failed. Retry to continue the same batch.");
+        }
+        const uploaded = await response.json();
+        if (!uploaded.fixture && uploaded.state === "chain_pending") {
+          await confirmUploadedSubmission(token, slot.id, controller.current.signal);
         }
         done.current.add(slot.id); setCompleted(done.current.size);
       }
@@ -74,7 +82,7 @@ export default function ImageBatch({ token, slots, onChanged }: {
       <ol>{files.slice(0, Math.min(count, maximum)).map((f, i) => <li key={i}>{f.webkitRelativePath || f.name}</li>)}</ol>
     </>}
     <details><summary>Usage rights</summary><p>{slots[0]?.rights_declaration}</p></details>
-    <p>By submitting, you confirm these usage rights for every selected image and consent to AI verification. Each image keeps its own reward and result. On Arc, complete each image&apos;s Circle confirmation below after upload.</p>
+    <p>By submitting, you confirm these usage rights for every selected image and consent to AI verification. Each image keeps its own reward and result. We guide you through the required Circle approvals automatically.</p>
     <button className="primary" disabled={busy || !maximum} onClick={() => void submit()}>{busy ? `Uploading ${completed}/${count}…` : completed ? "Continue image batch" : `Submit ${Math.min(count, maximum) || 0} images`}</button>
     {completed > 0 && <p role="status">{completed} images uploaded. Complete any pending on-chain confirmations in their submission cards.</p>}
     {error && <p role="alert" className="error">{error}</p>}

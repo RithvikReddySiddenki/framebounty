@@ -34,7 +34,7 @@ def start(body: SessionIntent, wallet: str = Depends(current_wallet), db: Sessio
 
 @router.get("/agent-sessions")
 def sessions(wallet: str = Depends(current_wallet), db: Session = Depends(session)):
-    items = db.scalars(select(AgentSession).where(AgentSession.wallet == wallet).order_by(AgentSession.created_at.desc()).limit(30)).all()
+    items = db.scalars(select(AgentSession).where(AgentSession.wallet == wallet, AgentSession.profile["archived"].as_boolean().is_distinct_from(True)).order_by(AgentSession.created_at.desc()).limit(30)).all()
     return {"sessions": [{"id": item.id, "role": item.role, "job_id": item.job_id, "profile": item.profile} for item in items]}
 
 

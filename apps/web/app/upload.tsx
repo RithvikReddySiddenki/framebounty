@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { confirmUploadedSubmission } from "./submit-flow";
 import { apiBase, notifySessionExpired, request } from "./api";
 import MediaView from "./media-view";
 import WalletAction from "./wallet-action";
@@ -74,6 +75,8 @@ export default function Upload({
   const [error, setError] = useState("");
   const [submission, setSubmission] = useState<Submission>();
   const [preview, setPreview] = useState(false);
+  const controller = useRef<AbortController | undefined>(undefined);
+  useEffect(() => () => controller.current?.abort(), []);
   useEffect(() => { if (submission) onSubmission?.(submission); }, [submission?.id, submission?.state, submission?.payment_confirmed]);
 
   async function refresh() {
@@ -163,6 +166,11 @@ export default function Upload({
         xhr.send(file);
       });
       setSubmission(result);
+      if (!result.fixture && result.state === "chain_pending") {
+        controller.current = new AbortController();
+        await confirmUploadedSubmission(token, reservationId, controller.current.signal);
+        setSubmission(await request<Submission>(`/submissions/${result.id}`, token));
+      }
       await onChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -205,7 +213,7 @@ export default function Upload({
             disabled={!file || busy || (!image && !captureToken)}
             onClick={() => void upload()}
           >
-            {busy ? `Uploading ${percent}%…` : image ? "Upload image" : "Submit recording"}
+            {busy ? percent < 100 ? `Uploading ${percent}%…` : "Complete the secure authorization…" : image ? "Submit image" : "Submit recording"}
           </button>
           {busy && (
             <progress
@@ -230,7 +238,7 @@ export default function Upload({
       )}
       {submission && (
         <div role="status">
-          {!submission.fixture && submission.state === "chain_pending" && (
+          {!busy && !submission.fixture && submission.state === "chain_pending" && (
             <WalletAction
               token={token}
               reservationId={reservationId}

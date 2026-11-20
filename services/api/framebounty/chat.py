@@ -250,7 +250,7 @@ def extract(role: str, message: str, history: list[str], facts: dict, awaiting: 
 
 def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: GeminiFrames | None = None) -> dict:
     scope = db.get(AgentSession, sid)
-    if scope is None or scope.wallet != wallet or not scope.profile.get("chat"):
+    if scope is None or scope.wallet != wallet or not scope.profile.get("chat") or scope.profile.get("archived"):
         raise HTTPException(404, "Chat not found")
     key = turn_key(sid, body.request_id)
     previous = db.get(AgentTurn, key)
@@ -363,7 +363,7 @@ def start(body: StartChat, wallet: str = Depends(current_wallet), db: Session = 
 @router.get("/chat-sessions")
 def chats(role: Literal["buyer", "contributor"], wallet: str = Depends(current_wallet), db: Session = Depends(session)):
     rows = db.scalars(select(AgentSession).where(AgentSession.wallet == wallet, AgentSession.role == role,
-        AgentSession.profile["chat"].as_boolean() == True).order_by(AgentSession.created_at.desc()).limit(20)).all()
+        AgentSession.profile["chat"].as_boolean() == True, AgentSession.profile["archived"].as_boolean().is_distinct_from(True)).order_by(AgentSession.created_at.desc()).limit(20)).all()
     return {"sessions": [{"id": row.id, "facts": row.profile.get("facts", {})} for row in rows]}
 
 

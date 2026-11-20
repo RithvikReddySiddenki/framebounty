@@ -50,7 +50,7 @@ export default function Funding({ token, jobId, planHash, onPublished, termsAppr
     <h3>{step?.funded ? "Open for contributors" : busy ? "Publishing your post" : "Publish your saved post"}</h3>
     <p>Publishing guides you through authorizing escrow creation, the exact allowance and the deposit. Approve each request in the secure authorization window.</p>
     {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - awaiting your authorization" : " - waiting for confirmation"}`}{step.amount_atomic && ` · ${usdc(step.amount_atomic)} ${moneyUnit()}`}</p>}
-    {!step?.funded && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the authorization prompts" : "Publish post"}</button>}
+    {!step?.funded && (!autoStart || error) && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the authorization prompts" : autoStart ? "Resume publishing" : "Publish post"}</button>}
     {!step?.funded && <details><summary>Recover a wallet transaction</summary><p>Only if the wallet lost its response: enter the existing hash, then continue. Existing transactions are checked before any new signature.</p><label>Existing transaction hash<input value={recoveryHash} disabled={busy} onChange={e => setRecoveryHash(e.target.value)} placeholder="0x?" /></label></details>}
     {error && <p role="alert" className="error">{error}</p>}
   </section>;

@@ -21,6 +21,8 @@ def owned_job(db: Session, wallet: str, job_id: str, plan_hash: str) -> Job:
     job = db.scalar(select(Job).where(Job.id == job_id).with_for_update().execution_options(populate_existing=True))
     if job is None or job.buyer != address(wallet):
         raise HTTPException(404, "Job not found")
+    if job.archived:
+        raise HTTPException(409, "This post is archived; create a new post")
     if job.fixture or job.state not in {"draft", "open"}:
         raise HTTPException(409, "Only a real draft or funded job can use chain funding")
     if job.plan_hash != plan_hash:

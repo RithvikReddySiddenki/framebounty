@@ -60,7 +60,7 @@ TOOLS = {"buyer": {"draft_plan", "inspect_job", "next_batch"},
 
 def owned_session(db: Session, wallet: str, session_id: str) -> AgentSession:
     item = db.get(AgentSession, session_id)
-    if item is None or item.wallet != wallet:
+    if item is None or item.wallet != wallet or item.profile.get("archived"):
         raise HTTPException(404, "Agent conversation not found")
     return item
 

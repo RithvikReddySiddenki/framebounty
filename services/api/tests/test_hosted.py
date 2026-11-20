@@ -74,7 +74,7 @@ def test_database_url_normalization_and_schema_use_real_postgres(pg, monkeypatch
     try:
         with configured.connect() as connection:
             assert connection.scalar(text("select current_schema()")) == schema
-            assert connection.scalar(text("select version_num from alembic_version")) == "0009"
+            assert connection.scalar(text("select version_num from alembic_version")) == "0010"
     finally:
         configured.dispose(); engine.cache_clear()
 
@@ -84,7 +84,7 @@ def test_migration_history_has_one_unambiguous_head():
     from alembic.script import ScriptDirectory
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     history = ScriptDirectory.from_config(config)
-    assert history.get_heads() == ["0009"]
+    assert history.get_heads() == ["0010"]
     assert history.get_revision("0009").down_revision == "0008"
     assert history.get_revision("0008").down_revision == "0007"
 

@@ -80,6 +80,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   const preview = buyer.getByRole("region", { name: "Generated post preview" });
   await expect(preview.getByText("Image post", { exact: true })).toBeVisible();
   await buyer.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "buyer-chat-preview.png"), fullPage: true });
+  await buyer.getByText("More options", { exact: true }).click();
   await buyer.getByRole("button", { name: "Save draft instead" }).click();
   await buyer.getByRole("button", { name: "View my posts & status" }).click();
   const card = buyer.locator(".post-card").filter({ hasText: /cat climbing a tree/i });
@@ -110,7 +111,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   await expect(actor.getByRole("checkbox")).toHaveCount(0);
   const firstUploadResponse = actor.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/media?"));
-  await actor.getByRole("button", { name: "Upload image", exact: true }).click();
+  await actor.getByRole("button", { name: "Submit image", exact: true }).click();
   const firstUploaded = await (await firstUploadResponse).json();
   await expect(actor.getByText("queued", { exact: true })).toBeVisible();
   await expect(actor.getByText(/Checking your image with AI/)).toBeVisible();
@@ -161,7 +162,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   await actor.locator(".agent-task").filter({ hasText: /cat climbing a tree/i }).getByRole("button", { name: /Accept fixed terms for/ }).click();
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-failure.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
   const uploadResponse = actor.waitForResponse(response => response.request().method() === "POST" && response.url().includes("/media?"));
-  await actor.getByRole("button", { name: "Upload image", exact: true }).click();
+  await actor.getByRole("button", { name: "Submit image", exact: true }).click();
   const uploaded = await (await uploadResponse).json();
   const failedCard = actor.locator(".mine article.panel").filter({ hasText: uploaded.reservation_id.slice(0, 8) });
   const failingWorker = spawnSync(process.env.PYTHON_BIN!, ["-m", "framebounty.worker", "--once"], { cwd: root, env: { ...process.env, DATABASE_URL: process.env.E2E_DATABASE_URL, FIXTURE_VERIFICATION_RESULT: "fail" }, encoding: "utf-8", timeout: 60000 });
@@ -282,6 +283,7 @@ test("a buyer's cup post reaches a contributor who only says they have a cup", a
   await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 2 videos of a person pouring water into a cup under 2 USDC");
   await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByText("More options", { exact: true }).click();
   await buyer.getByRole("button", { name: "Save draft instead" }).click();
   await buyer.getByRole("button", { name: "Publish simulated post" }).click();
   await expect(buyer.getByText(/Open.*Simulated funding/)).toBeVisible();
@@ -302,6 +304,7 @@ for (const batchCount of [1, 2]) test(`image folder selection submits chosen cou
   await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("I want 2 images of red circles under 2 USDC");
   await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByText("More options", { exact: true }).click();
   await buyer.getByRole("button", { name: "Save draft instead" }).click();
   await buyer.getByRole("button", { name: "Publish simulated post" }).click();
   await connect(actor);
@@ -506,6 +509,7 @@ test("buyer plan → fixture funding → confirmed mobile upload → real decode
   await buyer.getByLabel("Describe your task").filter({ visible: true }).fill("Plan 20 towel-folding videos with large towels and dark surfaces under 20 USDC");
   await buyer.getByRole("button", { name: "Send", exact: true }).click();
   await expect(buyer.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await buyer.getByText("More options", { exact: true }).click();
   await buyer.getByRole("button", { name: "Save draft instead" }).click();
   await buyer.getByRole("button", { name: "Publish simulated post" }).click();
   await expect(buyer.getByText(/Open.*Simulated funding/)).toBeVisible();
