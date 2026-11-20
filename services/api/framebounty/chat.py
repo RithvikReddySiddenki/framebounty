@@ -20,7 +20,7 @@ from .db import session
 from .domain import ClosedModel, Plan, parse_usdc
 from .agents import turn_key
 from .demo import example_plan
-from .marketplace import new_id, search_tasks
+from .marketplace import new_id, open_tasks
 from .models import AgentSession, AgentTurn
 from .verification import GeminiFrames, ProviderFailure
 from typing import Literal
@@ -104,7 +104,7 @@ QUESTIONS = {
     "media_type": "Would you like images or videos?",
     "count": "How many would you like? You can request 1 to 20 items.",
     "budget_usdc": "What is your maximum reward budget in test USDC?",
-    "equipment": "What equipment or materials do you have? You can also say you have no equipment.",
+    "equipment": "What do you have on hand? Name any items, props, pets or places, or say 'nothing' and I'll show everything that's open.",
     "minutes": "How much time do you have? You can give minutes or hours, or say 'no time limit'.",
 }
 
@@ -149,17 +149,17 @@ def stated_resources(messages: list[str], initial: list[str]) -> list[str]:
     return sorted(resources)[:30]
 
 
-def stated_minutes(text: str) -> int | None:
-    text = text.lower()
-    for number, word in reversed(list(enumerate("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split(), 1))):
-        text = re.sub(r"\b" + word + r"\b", str(number), text)
-    text = text.replace("half an hour", "30 minutes")
-    text = re.sub(r"\b(?:a|an) hour\b", "1 hour", text)
-    values = re.findall(r"\b(\d+)\s*(minutes?|mins?|hours?|hrs?)\b", text)
-    if values:
-        value = int(values[-1][0]) * (60 if values[-1][1].startswith("h") else 1)
-        if 1 <= value <= 1440: return value
-    return None
+# "Nothing" or "show me what's open" answers the on-hand question without naming items.
+SHOW_ALL = re.compile(r"\b(?:nothing|no equipment|everything|what(?:'|’)?s open|what is open|all (?:open )?(?:tasks|work|jobs))\b")
+INTENT = re.compile(r"\b(?:find|show|search|look|looking|what|which|tasks?|work|jobs?|help|open|anything|available)\b")
+
+
+def bare_items(message: str) -> list[str]:
+    """A short reply to the on-hand question, such as 'a cup and a kettle'."""
+    text = message.lower().strip()
+    if text.startswith("i ") or INTENT.search(text) or SHOW_ALL.search(text) or len(text.split()) > 12:
+        return []
+    return stated_resources(["i have " + text], [])
 
 
 def grounded_number(field: str, value, quote: str, awaiting: str | None) -> bool:
@@ -263,8 +263,12 @@ def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: Ge
         AgentTurn.state == "completed").order_by(AgentTurn.created_at.desc()).limit(12)).all()))
     db.rollback()  # Model/network work must never hold financial or session locks.
     try:
-        intake = extract(role, body.message, history, facts, awaiting, adapter)
-        allowed = ["subject", "media_type", "count", "budget_usdc"] if role == "buyer" else ["equipment", "minutes"]
+        try:
+            intake = extract(role, body.message, history, facts, awaiting, adapter)
+        except ProviderFailure:
+            if role != "contributor": raise
+            intake = Intake()  # Contributors fall back to the explicit "I have…" parser below.
+        allowed = ["subject", "media_type", "count", "budget_usdc"] if role == "buyer" else ["equipment"]
         user_text = "\n".join(history + [body.message])
         for field in allowed:
             value, quote = getattr(intake, field), intake.evidence.get(field, "")
@@ -274,26 +278,18 @@ def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: Ge
         if role == "contributor":
             resources = stated_resources(history + [body.message], facts.get("equipment", []))
             if resources or "equipment" in facts: facts["equipment"] = resources
-            # Recover explicit preferences from existing chats too, so retrying
-            # 'find work' after the old numeric-only loop does not ask again.
-            for text in history + [body.message]:
-                if unlimited_time(text, awaiting if text == body.message else None):
-                    facts["no_time_limit"] = True
-                    facts.pop("minutes", None)
-                elif (duration := stated_minutes(text)) is not None:
-                    facts["minutes"] = duration
-                    facts.pop("no_time_limit", None)
-            if awaiting == "minutes" and body.message.strip().isdigit() and 1 <= int(body.message.strip()) <= 1440:
-                facts["minutes"] = int(body.message.strip())
-                facts.pop("no_time_limit", None)
+            if "equipment" not in facts and awaiting == "equipment" and (items := bare_items(body.message)):
+                facts["equipment"] = items
+            if "equipment" not in facts and (awaiting == "equipment" or SHOW_ALL.search(body.message.lower())):
+                facts["equipment"] = []  # Answered, or asked to see everything, without naming items.
+            # Time is never asked for or filtered; drop facts saved by the older flow.
+            facts.pop("minutes", None); facts.pop("no_time_limit", None)
         if "budget_usdc" in facts:
             budget = parse_usdc(facts["budget_usdc"])
             if budget <= 0: raise HTTPException(422, "The reward budget must be greater than zero")
         if "equipment" in facts and any(not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", label) for label in facts["equipment"]):
             raise ProviderFailure("AI proposed invalid equipment labels; please rephrase your equipment")
         missing = [field for field in allowed if field not in facts]
-        if role == "contributor" and facts.get("no_time_limit"):
-            missing = [field for field in missing if field != "minutes"]
         data, tool = {"facts": facts, "missing": missing}, "clarify"
         if missing:
             reply = QUESTIONS[missing[0]]
@@ -318,12 +314,16 @@ def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: Ge
             data["plan"] = {**plan.model_dump(mode="json"), "budget_atomic": str(plan.budget_atomic), "reward_atomic": str(plan.reward_atomic)}
             tool, reply = "draft_plan", "Your post is ready. Review the terms below, then publish when you are happy with it."
         else:
-            tasks = search_tasks(db, set(facts["equipment"]), None if facts.get("no_time_limit") else facts["minutes"])
+            # Every open task is listed; matching only decides the order.
+            tasks = open_tasks(db)
             db.rollback()  # Ranking is a model call; hold no locks.
-            tasks, _ = rank_tasks(tasks, history[-4:] + [body.message], facts["equipment"], adapter)
-            data["tasks"] = tasks
-            tool, reply = "search_tasks", (f"I found {len(tasks)} matching funded tasks. Pick a task to reserve its displayed reward." if tasks
-                else "I couldn't find matching funded work right now. Tell me what else you have, or check back later.")
+            tasks, ranked = rank_tasks(tasks, history[-4:] + [body.message], facts["equipment"], adapter)
+            data.update(tasks=tasks, ranked=ranked)
+            found = "Here's 1 open task" if len(tasks) == 1 else f"Here are {len(tasks)} open tasks"
+            tool, reply = "search_tasks", (
+                "There's no open funded work right now. Check back soon." if not tasks
+                else f"{found}, best match first. Pick one to review its reward." if ranked and len(tasks) > 1
+                else f"{found}. Pick one to review its reward.")
     except (ProviderFailure, ValueError) as exc:
         raise HTTPException(503, str(exc)) from exc
     scope = db.scalar(select(AgentSession).where(AgentSession.id == sid).with_for_update().execution_options(populate_existing=True))
