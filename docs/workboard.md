@@ -13,6 +13,12 @@ approval for an entire folder requires a separate contract/wallet upgrade.
 Validated: final backend 241 passed / 24 gated chain skips; Chromium 12 passed /
 5 gated skips; frontend units 16 passed; typecheck/production build passed.
 Hosted archive will run only after migration 0010 is confirmed on deployment.
+Hosted rollout/reset completed: API and Vercel ready; migration 0010 confirmed.
+Archived 13 posts and 17 conversations; revoked 26 app sessions. Verified zero
+active posts/conversations/sessions. Retained all 13 job records, 5 submissions,
+7 reservations and 22 transaction intents, plus private media and chain history.
+Archive audit is recorded in PostgreSQL; the local operator manifest stays ignored.
+Existing financial workers retain their ledger and can reconcile old obligations.
 
 2026-11-20 active folder/image-batch submissions: contributors choose an image
 reservation count within advertised funded slots, then select a folder or multiple
