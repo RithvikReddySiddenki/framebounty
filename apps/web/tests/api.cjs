@@ -88,3 +88,22 @@ test("declining the network switch keeps the clear Arc testnet instruction", asy
   await assert.rejects(walletHarness(wallet)(), /Switch your wallet to Arc testnet/);
   assert.ok(!wallet.calls.includes("personal_sign"));
 });
+
+test("wallet events from sign-in itself never end a session; real changes do", () => {
+  const sandbox = { exports: {}, process: { env: {} }, Error };
+  vm.runInNewContext(compiled, sandbox);
+  const ends = sandbox.exports.walletEventEndsSession;
+  const wallet = "0xAbC0000000000000000000000000000000000001";
+  // Before a session exists (mid sign-in), connect/switch events are ignored.
+  for (const [event, payload] of [["accountsChanged", [wallet]], ["chainChanged", "0x1"], ["disconnect", undefined]])
+    assert.equal(ends(event, payload, undefined), false);
+  // Echoes of the signed-in account and Arc chain keep the session (case-insensitive).
+  assert.equal(ends("accountsChanged", [wallet.toLowerCase()], wallet), false);
+  assert.equal(ends("chainChanged", "0x4cef52", wallet), false);
+  // Real changes end it; payload-less events fail closed.
+  assert.equal(ends("accountsChanged", ["0x0000000000000000000000000000000000000002"], wallet), true);
+  assert.equal(ends("accountsChanged", [], wallet), true);
+  assert.equal(ends("accountsChanged", undefined, wallet), true);
+  assert.equal(ends("chainChanged", "0x1", wallet), true);
+  assert.equal(ends("disconnect", undefined, wallet), true);
+});

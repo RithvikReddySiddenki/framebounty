@@ -52,27 +52,45 @@ export async function request<T>(
 
 type Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (event: string, listener: () => void) => void;
-  removeListener?: (event: string, listener: () => void) => void;
+  on?: (event: string, listener: (payload?: unknown) => void) => void;
+  removeListener?: (event: string, listener: (payload?: unknown) => void) => void;
 };
 
+export type WalletEvent = "accountsChanged" | "chainChanged" | "disconnect";
+const WALLET_EVENTS: WalletEvent[] = ["accountsChanged", "chainChanged", "disconnect"];
+
+/** Decide whether a wallet event must end the signed-in session.
+ *
+ * Sign-in itself calls eth_requestAccounts and switches to Arc, which makes
+ * MetaMask emit accountsChanged/chainChanged, sometimes after login returns.
+ * Treating those as "the user changed wallets" signed people out the instant
+ * they signed in. So: with no session, events are ignored (the server already
+ * verifies the signature matches the wallet). With a session, only a real
+ * change ends it: another account, a non-Arc chain, a disconnect, or an event
+ * with no usable payload (fail closed). */
+export function walletEventEndsSession(event: WalletEvent, payload: unknown, wallet?: string): boolean {
+  if (!wallet) return false;
+  if (event === "accountsChanged")
+    return !(Array.isArray(payload) && typeof payload[0] === "string" && payload[0].toLowerCase() === wallet.toLowerCase());
+  if (event === "chainChanged") return payload !== "0x4cef52";
+  return true;
+}
+
 export function watchWalletChange(
-  disconnect: () => void,
-  sessionExpired: (token: string) => void = disconnect,
+  onEvent: (event: WalletEvent, payload: unknown) => void,
+  sessionExpired: (token: string) => void,
 ): () => void {
   const provider = (window as Window & { ethereum?: Provider }).ethereum;
-  provider?.on?.("accountsChanged", disconnect);
-  provider?.on?.("chainChanged", disconnect);
-  provider?.on?.("disconnect", disconnect);
+  // Keep exact references so removeListener detaches the same functions.
+  const listeners = WALLET_EVENTS.map(event => [event, (payload?: unknown) => onEvent(event, payload)] as const);
+  listeners.forEach(([event, listener]) => provider?.on?.(event, listener));
   const expired = (event: Event) => {
     const token = (event as CustomEvent<{ token: string }>).detail?.token;
     if (token) sessionExpired(token);
   };
   window.addEventListener("framebounty:session-expired", expired);
   return () => {
-    provider?.removeListener?.("accountsChanged", disconnect);
-    provider?.removeListener?.("chainChanged", disconnect);
-    provider?.removeListener?.("disconnect", disconnect);
+    listeners.forEach(([event, listener]) => provider?.removeListener?.(event, listener));
     window.removeEventListener("framebounty:session-expired", expired);
   };
 }
@@ -106,6 +124,21 @@ async function ensureArcTestnet(provider: Provider): Promise<unknown> {
   return provider.request({ method: "eth_chainId" });
 }
 
+/** Translate EIP-1193 wallet error codes into actionable sign-in guidance.
+ * -32002 is the common trap: an earlier popup is still open (often hidden behind
+ * the browser window), so every later click fails instantly without a prompt. */
+export function walletErrorMessage(error: unknown): string {
+  const code = (error as { code?: number })?.code;
+  if (code === 4001)
+    return "Signature request was rejected in your wallet. Click sign in again and approve the message.";
+  if (code === -32002)
+    return "Your wallet already has a pending request. Click the MetaMask extension icon to finish or dismiss it, then try again.";
+  if (code === 4100)
+    return "Your wallet hasn't authorized this site. Unlock your wallet and connect this account, then retry.";
+  const message = (error as { message?: string })?.message;
+  return message ? `Wallet error: ${message}` : "Wallet sign-in failed. Check your wallet extension and retry.";
+}
+
 export async function authenticate(): Promise<{
   wallet: string;
   token: string;
@@ -116,9 +149,12 @@ export async function authenticate(): Promise<{
     throw new Error(
       "Install or open an Ethereum-compatible browser wallet to sign in.",
     );
-  const accounts = (await provider.request({
-    method: "eth_requestAccounts",
-  })) as string[];
+  let accounts: string[];
+  try {
+    accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
+  } catch (error) {
+    throw new Error(walletErrorMessage(error));
+  }
   const wallet = accounts[0];
   if (!wallet) throw new Error("No wallet account was selected.");
   let chain: unknown;
@@ -141,10 +177,15 @@ export async function authenticate(): Promise<{
     Array.from(new TextEncoder().encode(challenge.message), (b) =>
       b.toString(16).padStart(2, "0"),
     ).join("");
-  const signature = await provider.request({
-    method: "personal_sign",
-    params: [hex, wallet],
-  });
+  let signature: unknown;
+  try {
+    signature = await provider.request({
+      method: "personal_sign",
+      params: [hex, wallet],
+    });
+  } catch (error) {
+    throw new Error(walletErrorMessage(error));
+  }
   const result = await request<{ token: string; expires_in_seconds: number }>(
     "/auth/login",
     undefined,
