@@ -43,6 +43,12 @@ export default function Posts({ token, active, onChanged }: { token: string; act
   }
   useEffect(() => { if (active) void refresh(); }, [active, token]);
   async function changed() { await refresh(); await onChanged(); }
+  async function remove(post: Post) {
+    setBusy(true); setError("");
+    try { await request(`/jobs/${post.id}/remove`, token, {}); setSelected(undefined); await changed(); }
+    catch (err) { setError(err instanceof Error ? err.message : "Could not remove this draft"); }
+    finally { setBusy(false); }
+  }
   const post = posts.find(p => p.id === selected);
   const unit = post?.media_type === "image" ? "images" : "videos";
   return <>
@@ -63,6 +69,10 @@ export default function Posts({ token, active, onChanged }: { token: string; act
       <span>View post & submissions →</span>
     </button>)}</div>
     {post && <section className="panel post-detail" aria-label="Your post details">
+      {post.state === "draft" && post.deposited_atomic === "0" && <div className="spread">
+        <p className="muted">Not published yet? Remove this draft if no deposit is pending. Close any open wallet prompts first.</p>
+        <button disabled={busy} onClick={() => void remove(post)}>Remove unfunded post</button>
+      </div>}
       <div className="spread">
         <div>
           <div className="post-tags">

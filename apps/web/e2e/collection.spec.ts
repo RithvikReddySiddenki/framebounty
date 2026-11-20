@@ -356,6 +356,23 @@ for (const batchCount of [1, 2]) test(`image folder selection submits chosen cou
   expect(new Set(uploads).size).toBe(2);
 });
 
+test("buyer can remove an unpublished unfunded post from collections", async ({ page }) => {
+  await connect(page);
+  await page.getByLabel("Describe your task").filter({ visible: true }).fill("I want 1 video of a person filling an orange glass under 5 USDC");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Generated post preview" })).toBeVisible();
+  await page.getByText("More options", { exact: true }).click();
+  await page.getByRole("button", { name: "Save draft instead" }).click();
+  await page.getByRole("button", { name: "View my posts & status" }).click();
+  const card = page.locator(".post-card").filter({ hasText: /orange glass/i });
+  await expect(card).toContainText("Draft");
+  await card.click();
+  await page.getByRole("button", { name: "Remove unfunded post", exact: true }).click();
+  await expect(card).toHaveCount(0);
+  await page.getByRole("button", { name: "Refresh posts", exact: true }).click();
+  await expect(card).toHaveCount(0);
+});
+
 test("anonymous visitors see sign-in only and cannot access product services", async ({
   page,
 }) => {

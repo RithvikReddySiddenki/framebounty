@@ -1,5 +1,16 @@
 # Workboard
 
+2026-11-20 remove-unfunded-post feature: owner-only reversible archival of draft
+posts, including awaiting escrow creation/allowance. Refuse published/funded posts,
+contributor obligations and any unresolved deposit intention. For chain-bound
+drafts independently verify zero escrow accounting; RPC failures fail closed.
+Serialize new funding-intent creation against removal with the same job lock.
+Keep financial evidence, and expose Remove unfunded post in post details.
+Validated: full backend 247 passed / 24 separate-chain skips; final draft suite
+7 passed including a real PostgreSQL deposit/removal race; Chromium removal
+flow passed; production typecheck/build passed. No migration or automatic deletion
+of existing user posts is performed.
+
 2026-11-20 approved fresh-demo archive and streamlined confirmations: migration
 0010 adds a visible-workspace archive flag while retaining financial/media rows,
 transaction nonce history and active payment workers. Archive all existing posts

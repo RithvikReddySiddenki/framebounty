@@ -250,6 +250,16 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Remove unfunded drafts (2026-11-20)
+
+Owner-only removal archives unpublished zero-obligation drafts, including awaiting
+escrow creation. Funded posts and unresolved deposit intents fail closed; bound
+contracts are checked for zero funding history. PostgreSQL concurrency regression
+serializes deposit intention creation against removal. Full backend 247 passed /
+24 gated skips; final targeted draft suite 7 passed. Chromium creates a draft,
+removes it through post details and verifies it stays absent after refresh.
+Production typecheck/build passed. No chain cancellation/refund is implied.
+
 ## Fresh demo and streamlined authorization (2026-11-20)
 
 Migration 0010 archives post visibility without altering immutable terms, balances,

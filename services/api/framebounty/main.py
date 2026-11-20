@@ -137,6 +137,12 @@ def get_job(job_id: str, wallet: str = Depends(current_wallet), db: Session = De
             "available_atomic": str(item.deposited_atomic - item.committed_atomic - item.paid_atomic - item.refunded_atomic)}
 
 
+@app.post("/jobs/{job_id}/remove")
+def remove_unfunded_post(job_id: str, wallet: str = Depends(current_wallet), db: Session = Depends(session)):
+    from .drafts import remove_draft
+    return remove_draft(db, wallet, job_id)
+
+
 @app.get("/tasks")
 def tasks(equipment: str = "", minutes: int = 20, db: Session = Depends(session)):
     if len(equipment) > 500 or not 1 <= minutes <= 1440:

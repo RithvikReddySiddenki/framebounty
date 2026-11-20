@@ -109,7 +109,12 @@ def create_intent(db: Session, rpc: ChainRPC, action: Action) -> TransactionInte
     rpc.check_contract()
     if action.job_id:
         from .models import Job
-        job = db.get(Job, action.job_id)
+        if action.kind in {"create_job", "create_protected", "token_approve", "deposit"}:
+            # Serialize draft removal against issuing any new funding intent.
+            job = db.scalar(select(Job).where(Job.id == action.job_id).with_for_update().execution_options(populate_existing=True))
+            if job and job.archived: raise ChainFailure("Archived posts cannot request new funding transactions")
+        else:
+            job = db.get(Job, action.job_id)
         if job and job.chain_id is None: job.chain_id = rpc.config.chain_id
         elif job and job.chain_id != rpc.config.chain_id: raise ChainFailure("Job belongs to another network")
         if job and job.escrow_address is None:
