@@ -1,5 +1,17 @@
 # Workboard
 
+2026-11-20 buyer repeated-question fix: reproduced exact towel-video request
+with live Gemini. Model extracted count=20 and a valid plan, but quoted only
+"20"; application grounding discarded that fact by checking the quote without
+its original units. Ground evidence against the containing user message and use
+awaiting only for the current turn. Cover complete single-message intake, absent
+count/budget safeguards, and historical bare-answer misuse. No financial or schema
+changes; drafting still requires buyer approval before publishing/funding.
+Validation: 23 chat tests passed; full backend 222 passed / 24 separately gated
+chain skips. Live Gemini through the actual chat service drafted the complete
+video and image requests without clarification, and asked only for missing
+count/budget in the incomplete request. No synthetic model fallback was used.
+
 2026-11-20 publishing failure: hosted logs confirm successful Circle login, then
 contractExecution HTTP 400/code 2. User-controlled REST requires top-level
 feeLevel; the bridge incorrectly used a nested developer-SDK fee object. Correct

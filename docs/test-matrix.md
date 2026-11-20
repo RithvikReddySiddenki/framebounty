@@ -250,6 +250,17 @@ non-paying rejection, deadline release, reverted-batch retry and restart project
 are covered against the actual local EVM. Live Gemini rejected a generated color
 card at reported confidence 100; this is not real task-accuracy evaluation.
 
+## Buyer conversation evidence context (2026-11-20)
+
+Live Gemini reproduced the reported defect: the exact complete towel-video
+request yielded count=20 but evidence="20", which the old application discarded.
+The fixed application chat path, with isolated PostgreSQL and actual Gemini,
+returned a draft immediately for that request and for 20 cat images/20 USDC.
+An incomplete dog-image request still asked for count and budget. Targeted chat
+regressions: 23 passed, including preventing budget-derived counts and reuse of
+historical bare answers as a new numeric field. These tests draft only; no
+publishing, chain transaction or payment is implied.
+
 ## Google-only / actual testnet activation (2026-11-20)
 
 Backend: 220 passed / 24 separate-chain skips. Web typecheck/build passed.

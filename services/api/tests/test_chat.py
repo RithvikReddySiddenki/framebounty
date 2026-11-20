@@ -94,6 +94,42 @@ def test_live_intake_cannot_invent_count_from_budget(pg, monkeypatch):
         assert db.scalar(select(func.count()).select_from(Job)) == 0
 
 
+def test_complete_buyer_request_uses_context_for_short_model_quotes(pg, monkeypatch):
+    from framebounty.demo import example_plan
+    monkeypatch.setenv("APP_MODE", "testnet"); monkeypatch.setenv("ALLOW_MODEL_TEXT", "true")
+    text = "I need 20 short videos of people folding towels, at least 5 with large towels and 5 on dark surfaces. Budget 20 USDC."
+    wallet = "0x" + "3" * 40
+    with Session(pg) as db:
+        db.add(AgentSession(id="chat-short-quotes", wallet=wallet, role="buyer", profile={"chat": True, "revision": 0}))
+        db.commit()
+        model = adapter({"subject": "people folding towels", "media_type": "video", "count": 20, "budget_usdc": "20",
+            "evidence": {"subject": "people folding towels", "media_type": "videos", "count": "20", "budget_usdc": "20"},
+            "plan": example_plan().model_dump(mode="json")})
+        result = chat_turn(db, wallet, "chat-short-quotes", ChatMessage(message=text, request_id="complete-short-quotes"), model)
+        assert result["tool"] == "draft_plan" and result["data"]["missing"] == []
+        assert result["data"]["plan"]["total"] == 20
+        assert result["data"]["plan"]["budget_atomic"] == "20000000"
+        assert db.scalar(select(func.count()).select_from(Job)) == 0
+
+
+def test_old_bare_answer_cannot_be_reused_as_a_new_count(pg, monkeypatch):
+    monkeypatch.setenv("APP_MODE", "testnet"); monkeypatch.setenv("ALLOW_MODEL_TEXT", "true")
+    wallet = "0x" + "4" * 40
+    with Session(pg) as db:
+        db.add(AgentSession(id="chat-old-bare-answer", wallet=wallet, role="buyer", profile={"chat": True, "revision": 0}))
+        db.commit()
+        # A prior bare message lacks units. Its old contextual meaning is not
+        # evidence for a later field merely because the current question changed.
+        db.add(AgentTurn(id="old-bare-turn", session_id="chat-old-bare-answer", request_id="old-bare-request",
+            message="20", tool="clarify", arguments={}, state="completed", result={}))
+        row = db.get(AgentSession, "chat-old-bare-answer")
+        row.profile = {"chat": True, "revision": 1, "facts": {"subject": "cats", "media_type": "image", "budget_usdc": "20"}, "awaiting": "count"}
+        db.commit()
+        result = chat_turn(db, wallet, row.id, ChatMessage(message="What information is missing?", request_id="old-answer-new-field"),
+            adapter({"count": 20, "evidence": {"count": "20"}}))
+        assert result["data"]["missing"] == ["count"]
+
+
 def test_concurrent_chat_turns_do_not_overwrite_each_others_facts(pg, monkeypatch):
     monkeypatch.setenv("APP_MODE", "testnet"); monkeypatch.setenv("ALLOW_MODEL_TEXT", "true")
     wallet, text = "0x" + "2" * 40, "I want images of cats"

@@ -220,10 +220,19 @@ def chat_turn(db: Session, wallet: str, sid: str, body: ChatMessage, adapter: Ge
     try:
         intake = extract(role, body.message, history, facts, awaiting, adapter)
         allowed = ["subject", "media_type", "count", "budget_usdc"] if role == "buyer" else ["equipment", "minutes"]
-        user_text = "\n".join(history + [body.message])
+        user_messages = history + [body.message]
         for field in allowed:
             value, quote = getattr(intake, field), intake.evidence.get(field, "")
-            if value is not None and quote and quote in user_text and grounded_number(field, value, quote, awaiting):
+            # Gemini may quote only "20" even when the user wrote "20 short
+            # videos". Ground numeric meaning in its original message, retaining
+            # the unit/context instead of rejecting a correctly extracted fact.
+            # Bare answers may use awaiting only in the CURRENT turn: an older
+            # bare budget answer must never become a newly requested item count.
+            supported = value is not None and bool(quote) and any(
+                quote in source and grounded_number(field, value, source,
+                    awaiting if index == len(user_messages) - 1 else None)
+                for index, source in enumerate(user_messages))
+            if supported:
                 facts[field] = value
                 if field == "minutes": facts.pop("no_time_limit", None)
         if role == "contributor":
