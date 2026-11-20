@@ -229,7 +229,9 @@ def transaction(body: CircleTransaction, wallet: str = Depends(current_wallet),
     data, _ = api.call("POST", "/v1/w3s/user/transactions/contractExecution", body.user_token.get_secret_value(), body={
         "idempotencyKey": str(uuid5(NAMESPACE_URL, "framebounty:" + intent.id)), "walletId": session_row.circle_wallet_id,
         "contractAddress": intent.destination, "callData": intent.call_data, "refId": intent.id,
-        "fee": {"type": "level", "config": {"feeLevel": "LOW"}}})
+        # User-controlled REST challenges require top-level feeLevel. The
+        # developer-wallet SDK's nested fee object is not this endpoint's schema.
+        "feeLevel": "LOW"})
     try: challenge_id = str(UUID(data["challengeId"]))
     except (KeyError, ValueError): raise HTTPException(503, "Circle transaction is unverified; retry the same intention") from None
     db.execute(insert(CircleChallenge).values(intent_id=intent.id, challenge_id=challenge_id,

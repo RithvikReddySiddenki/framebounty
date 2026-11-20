@@ -1,5 +1,12 @@
 # Workboard
 
+2026-11-20 publishing failure: hosted logs confirm successful Circle login, then
+contractExecution HTTP 400/code 2. User-controlled REST requires top-level
+feeLevel; the bridge incorrectly used a nested developer-SDK fee object. Correct
+that schema with regression coverage and remove stale MetaMask publishing copy.
+Existing durable intent/challenge identifiers and receipt checks remain unchanged.
+Reference: https://developers.circle.com/api-reference/wallets/user-controlled-wallets/create-user-transaction-contract-execution-challenge
+
 2026-11-20 Google-only milestone validated: backend 220 passed / 24 separately
 gated skips; web typecheck and production build passed; existing Chromium suite
 8 passed / 5 gated skips. Additional real-Circle-SDK invalid-state callback test

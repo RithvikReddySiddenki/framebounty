@@ -48,9 +48,9 @@ export default function Funding({ token, jobId, planHash, onPublished, termsAppr
   const label = (step?.step === "create_job" || step?.step === "create_protected") ? "Creating escrow" : step?.step === "token_approve" ? "Approving the exact budget" : "Depositing budget";
   return <section aria-label={`${networkName()} funding`}>
     <h3>{step?.funded ? "Open for contributors" : busy ? "Publishing your post" : "Publish your saved post"}</h3>
-    <p>One publishing action guides the whole process. MetaMask still asks you to authorize escrow creation, the exact allowance and the deposit. No funds move without your wallet approval.</p>
-    {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - check MetaMask" : " - waiting for confirmation"}`}{step.amount_atomic && ` ? ${usdc(step.amount_atomic)} ${moneyUnit()}`}</p>}
-    {!step?.funded && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the prompts in MetaMask?" : "Publish post"}</button>}
+    <p>Publishing guides you through authorizing escrow creation, the exact allowance and the deposit. Approve each request in the secure authorization window.</p>
+    {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - awaiting your authorization" : " - waiting for confirmation"}`}{step.amount_atomic && ` · ${usdc(step.amount_atomic)} ${moneyUnit()}`}</p>}
+    {!step?.funded && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the authorization prompts" : "Publish post"}</button>}
     {!step?.funded && <details><summary>Recover a wallet transaction</summary><p>Only if the wallet lost its response: enter the existing hash, then continue. Existing transactions are checked before any new signature.</p><label>Existing transaction hash<input value={recoveryHash} disabled={busy} onChange={e => setRecoveryHash(e.target.value)} placeholder="0x?" /></label></details>}
     {error && <p role="alert" className="error">{error}</p>}
   </section>;

@@ -192,6 +192,7 @@ def test_circle_bridge_only_signs_exact_saved_intentions_and_recovers_same_chall
         assert first == again and len(calls) == 1
         assert calls[0]["callData"] == item.call_data and calls[0]["refId"] == item.id
         assert calls[0]["walletId"] == WALLET_ID
+        assert calls[0]["feeLevel"] == "LOW" and "fee" not in calls[0]
         candidate = status(item.id, UserToken(user_token=USER_TOKEN), WALLET, credentials, db, api)
         assert candidate["tx_hash"] == "0x" + "a" * 64
         # Circle's broadcast hash alone is never confirmed marketplace money.
