@@ -52,7 +52,12 @@ def test_verified_image_needs_only_final_buyer_funds_release(pg, flow, monkeypat
     assert client.post(f"/jobs/{job}/release-funds", headers=buyer, json=body).json() == result.json()
     with Session(pg) as db:
         assert db.get(Job, job).paid_atomic == 1_000_000 and db.get(Job, job).committed_atomic == 0
-    assert client.get(f"/submissions/{sid}", headers=actor).json()["state"] == "fixture_accepted"
+    accepted = client.get(f"/submissions/{sid}", headers=actor).json()
+    assert accepted["state"] == "fixture_accepted"
+    # The durable verification reason describes the completed decision. It must
+    # not retain a future-tense release message after the submission advances.
+    assert accepted["findings"]["verification"]["reason"] == "Required checks passed automated verification."
+    assert accepted["review_reason"] == accepted["findings"]["verification"]["reason"]
 
 
 @pytest.mark.parametrize("confidence,rejected", [(79, False), (80, True), (100, True)])
@@ -73,6 +78,10 @@ def test_rejection_threshold_and_contributor_visible_reason(pg, flow, monkeypatc
     assert item["findings"]["verification"]["decision"] == ("reject" if rejected else "retry")
     assert item["state"] == ("verification_rejected" if rejected else "queued")
     if rejected: assert "No cat or tree" in item["review_reason"]
+    else:
+        reason = item["findings"]["verification"]["reason"]
+        assert "Automatic retry queued" in reason
+        assert "payment is blocked" not in reason
     assert client.post(f"/jobs/{job}/release-funds", headers=buyer,
         json={"confirmed": True, "request_id": "cannot-release-failed"}).status_code == 409
     with Session(pg) as db:
@@ -96,3 +105,20 @@ def test_uncertain_results_retry_boundedly_without_manual_acceptance(pg, flow, m
     assert item["findings"]["verification"]["decision"] == "retry"
     assert client.post(f"/submissions/{sid}/review", headers=buyer, json={"decision": "accept", "task_completed": True,
         "watched_full_video": True, "tags": ["cat_climbing_tree"], "reason": "Try to bypass automatic checks"}).status_code == 409
+
+
+def test_provider_error_reason_is_punctuated_before_retry_status(pg, flow, monkeypatch):
+    client, buyer, actor, _, _, _ = flow
+    monkeypatch.setenv("FIXTURE_VERIFICATION_RESULT", "uncertain")
+    _, sid = uploaded_ai(client, buyer, actor)
+    assert run_once(pg)
+    with Session(pg) as db:
+        item = db.get(Submission, sid)
+        item.state = "needs_review"
+        item.findings = {**item.findings, "provider_error": "Gemini unavailable"}
+        work = db.scalar(select(VerificationJob).where(VerificationJob.submission_id == sid))
+        work.state = "done"
+        db.commit()
+        assert evaluate(db, sid)
+    reason = client.get(f"/submissions/{sid}", headers=actor).json()["findings"]["verification"]["reason"]
+    assert reason.startswith("Gemini unavailable. Automatic retry queued;")

@@ -1,5 +1,15 @@
 # Workboard
 
+Completed integrated hosting preparation (2026-11-20): main 081a5e3, deployment
+9cae3ca and integration 745b4b8 included; all content conflicts resolved and one
+migration head 0009. Final backend 210 passed/24 separate-chain skips; local chain
+25 passed; contracts 29 passed plus canonical artifact check; Node 15 passed;
+production build passed; Chromium 8 passed/1 separate funding skip plus separate
+funding gate 1 passed; actual Linux supervisor scenarios passed. Private Supabase
+storage boundary regressions 9 passed after final hardening. Docker image build
+blocked by unavailable daemon; live Supabase/Circle/hosting checks not performed.
+No hosting services or fees, no mainnet spend. See docs/DEPLOY.md and templates.
+
 2026-11-20 hosting/integration (implementation lead, feat/circle-mainnet): user
 approved configuration only for Vercel frontend, Railway API/workers and Supabase
 PostgreSQL/private media. Existing Vercel/Supabase accounts, no Railway account;

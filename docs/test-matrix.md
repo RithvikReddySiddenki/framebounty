@@ -1,5 +1,31 @@
 # Test matrix
 
+2026-11-20 final teammate/hosting integration on feat/circle-mainnet: main 081a5e3
+(camera), feat/deploy 9cae3ca (container) and integration 745b4b8 (judge README,
+state-accurate verification reasons) combined without unresolved conflicts.
+Camera migration stays 0008; Circle is serialized as 0009 (single head).
+
+- `PYTHONPATH=services/api python -m pytest services/api/tests -q --tb=short
+  -p no:cacheprovider --basetemp=.local/pytest-integrated-final`: 210 passed,
+  24 separately gated chain skips, one upstream TestClient deprecation warning.
+- `PYTEST_ADDOPTS="-p no:cacheprovider --basetemp=.local/pytest-hosted-chain
+  --tb=short" python scripts/test_chain.py`: 25 passed against actual local EVM.
+- Arc Foundry `forge test --root contracts --use <pinned-solc> --offline -q`:
+  passed all 29 contract cases; `python scripts/export_contract.py --check`: passed.
+- `npm run test:publishing`: 15 passed; `npm run build`: production build passed.
+- `python scripts/test_e2e.py`: 8 passed / 1 separate funding-panel skip.
+  Funding-enabled `--grep 'draft funding and review panels'`: 1 passed.
+- Linux `python3 scripts/check_hosted_startup.py`: fixture, optional chain-worker
+  and invalid-config cases passed using the actual Bash supervisor.
+- Nine storage regressions passed again after final bucket metadata hardening.
+  Hosted HTTP is the simulated boundary; real PostgreSQL, private bytes, decoder,
+  payment-gated downloads, watermark and export rules are exercised.
+
+Docker CLI is installed but daemon unavailable, so no image build was claimed.
+No hosted database migration, Supabase request, Circle login, deployment or real
+USDC transaction occurred. Hosting configuration alone does not prove live
+providers work. Original running preview/database and local editor changes remain.
+
 2026-11-20 Circle/mainnet feature branch: `python -m pytest services/api/tests -q
 --tb=short -p no:cacheprovider --basetemp=.local/pytest-circle-final-2` with real
 TEST_DATABASE_URL and feature-worktree PYTHONPATH: 185 passed, 24 separate-chain

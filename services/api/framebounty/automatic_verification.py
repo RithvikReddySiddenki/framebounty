@@ -53,16 +53,23 @@ def evaluate(db: Session, submission_id: str) -> bool:
             reservation.state = "fixture_rejected"
         item.reviewed_tags = []
     elif passed:
-        decision, reason = "pass", ("Required checks passed; awaiting on-chain verification and its one-hour payment window."
-            if job.protection_version >= 3 else "Required checks passed automated verification; awaiting buyer funds release.")
+        # This durable reason is evidence for the completed verification decision
+        # and may remain visible after later attestation/payment transitions. Keep
+        # lifecycle status in explicit state and payment fields so the text cannot
+        # become stale after the submission advances.
+        decision, reason = "pass", "Required checks passed automated verification."
         item.state, item.review_reason = "verified", reason
         item.reviewed_tags = sorted(key for key in {r["key"] for r in job.plan["requirements"]}
             if checks.get(key, {}).get("result") == "pass" and checks[key].get("confidence", 0) >= THRESHOLD)
     else:
-        decision, reason = "retry", item.findings.get("provider_error") or "Evidence is uncertain or below the required confidence; payment is blocked."
+        decision = "retry"
+        reason = (item.findings.get("provider_error") or "Evidence is uncertain or below the required confidence.").strip()
+        if not reason.endswith((".", "!", "?")):
+            reason += "."
         if work.attempts < 3 and item.review_deadline > datetime.now(UTC) + timedelta(seconds=10):
             item.state, work.state = "queued", "queued"
             work.lease_until = datetime.now(UTC) + timedelta(seconds=2 ** work.attempts)
+            reason += " Automatic retry queued; no payment is authorized unless all required checks pass."
         else:
             item.state = "verification_pending"
             if job.protection_version >= 3:

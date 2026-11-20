@@ -36,7 +36,8 @@ class SupabaseStorage(LocalStorage):
     def check_private(self, client):
         response = client.get("bucket/" + self.bucket)
         response.raise_for_status()
-        if response.json().get("public") is not False:
+        metadata = response.json()
+        if not isinstance(metadata, dict) or metadata.get("public") is not False:
             raise MediaUnavailable("Media bucket must be private")
 
     def persist(self, key: str, content_type: str):

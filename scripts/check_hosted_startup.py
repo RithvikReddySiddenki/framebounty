@@ -15,6 +15,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     script = root / "deploy/railway/start.sh"
     subprocess.run(["bash", "-n", str(script)], check=True)
+    (root / ".local").mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="startup-", dir=root / ".local") as directory:
         staging = Path(directory)
         fake = staging / "bin"; fake.mkdir()

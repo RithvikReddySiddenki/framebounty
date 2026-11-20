@@ -1,238 +1,370 @@
-# framebounty
-An AI-powered marketplace where labs and developers commission custom data, agents manage tasks and budgets, and contributors find paid work. Built on Arc with USDC payments, featuring a robotics data collection demo.
+# FrameBounty
 
-## Current status
+**An AI-managed marketplace for custom data collection, with protected USDC payments on Arc.**
 
-The `feat/circle-mainnet` branch prepares Circle Google sign-in (email OTP optional),
-optional browser wallets, and separately gated real-USDC Arc mainnet operation.
-Account setup and a live payment walkthrough are still required; this is not a
-claim of production activation. Follow [Circle setup](docs/CIRCLE_SETUP.md).
+A buyer describes the data it needs and its budget. FrameBounty turns that request into a funded collection plan, helps contributors find suitable tasks, checks each submission against the agreed rubric, and pays verified work from escrow. After each confirmed payout, the system publishes a small next batch aimed at the categories that are still missing.
 
-Implemented locally: signed EOA wallet login, buyer-owned versioned draft plans,
-database-backed filtered task search, explicit version/reward confirmation,
-atomic and idempotent fixture reservations, private reservation lists, strict
-money/coverage rules, private contributor media, durable verification jobs, real
-FFmpeg decoding and sampled frames, automatic verification, next-batch allocation, and
-accepted-data manifest/streaming ZIP export. The Solidity escrow passes local-EVM
-security/fuzz tests. Fixtures are clearly labeled and never represent real funds.
-Role-scoped buyer/contributor conversations and durable tool decisions are implemented.
-Durable chain intents, exact receipt verification and wallet-owned fixed-budget
-funding/publication and receipt-gated reservation/submission/review accounting are
-implemented and tested against a local chain. The canonical escrow is now deployed
-and runtime-verified on Arc testnet; a synthetic Gemini smoke passed. The complete
-funded browser/physical-task workflow and model evaluation remain pending. See
-[live validation evidence](docs/live-validation.md); deployment is not job funding.
-See [workboard](docs/workboard.md).
+This integrated branch includes in-app video capture, Circle Google login (email
+OTP optional), optional browser wallets, and guarded Arc mainnet support. Live
+Circle login and real-USDC settlement still need account setup and validation;
+no real funds have been spent. See [Circle setup](docs/CIRCLE_SETUP.md).
+Vercel/Railway/Supabase deployment configuration and private object storage are
+prepared, with no hosted deployment performed: [hosting guide](docs/DEPLOY.md).
 
-Protected posts use the V3 escrow: fixed budget/requirements, expiry-bound funding,
-up-to-2x task reservation windows, a one-hour payment window after on-chain
-verification, optional early buyer batch release and permissionless settlement.
-Unpaid buyer media access is reduced and watermarked; originals unlock only after
-confirmed payment. Provider failures stay pending and retry. Paid counterparties
-can cast permanent on-chain up/down votes, shown as separate buyer/contributor
-counts. V1/V2 posts keep their original rules and funding address. These contract
-rules do not decentralize the AI oracle or private storage, prevent screenshotting,
-or eliminate collusion in ratings. See [decision 0012](docs/decisions/0012-protected-escrow-and-reputation.md).
+Robotics demonstration video is the launch example, not the product boundary: “20 towel-folding videos, including at least five large towels and five dark surfaces, under a 20 USDC contributor budget.”
 
-V3 is deployed and runtime-verified on Arc testnet at
-`0xe613799458201e41830a5be3da5c2a7d18140da0`; migration 0007 is active in the local
-demo. The complete live funded V3 walkthrough and real-task AI evaluation remain
-pending; deployment alone is not proof of those flows.
+> **UBC 2026 Hackathon**
+> Main track: **Agentic Payments & AI**
+> Chain award: **Best use of Arc**
+> Demo video: **TODO before submission**
+> Arc testnet escrow V3: [`0xe613799458201e41830a5be3da5c2a7d18140da0`](https://explorer.testnet.arc.io/address/0xe613799458201e41830a5be3da5c2a7d18140da0)
 
-Describe your task in the buyer workspace, for example: "I want 20 images of a
-cat climbing a tree under 20 test USDC." The configured buyer AI generates an
-image or video post with its own requirements. Review the preview, approve the
-terms with one publishing action; the app guides the required MetaMask signatures automatically. Missing count, budget or media type prompts a question rather than a guess. **Collections & review**
-automatically shows your posts, their media type and whether they are actually
-open. Drafts are private until funding is verified. Contributors use their agent
-to search real funded listings, confirm a task and upload the required type.
-Images: still JPEG/PNG up to 20 MiB / 16 megapixels. Videos: 10-30 seconds,
-recorded inside FrameBounty with the camera after reservation, up to 100 MiB.
-The browser records MP4 when supported and otherwise WebM. Existing-video file
-selection is intentionally unavailable. The fixture planner offers fixed examples,
-not general inference.
+## Why this exists
 
-Automatic AI verification uses each post's actual criteria. Run the media worker
-with `ALLOW_MODEL_MEDIA=true`; only submissions whose contributor explicitly
-consents are sent as reduced JPEG samples to Gemini. Older uploads without that
-consent are not sent. AI findings are visible to contributors and reviewers;
-uncertainty/provider failures never become automatic acceptance or payment.
-Default posts use automatic verification: a mandatory failure at >=80% model-reported confidence is rejected with reasons; uncertain/provider failures retry. Only AI-verified submissions can enter the final buyer funds-release batch. There are no required manual quality checkboxes. Confidence is a model estimate, not a calibrated probability.
-See [image/video posting decisions](docs/decisions/0009-image-video-agent-posts.md).
+Labs need specific coverage, not a folder of interchangeable clips. A robotics team may need an action filmed with particular objects, surfaces, viewpoints, or end states. Today that work often depends on contractors, spreadsheets, manual review, and manual payment.
 
-In an owned collection's buyer conversation,
-`Inspect my coverage` observes records; `Commission next batch` publishes within the
-approved simulated policy. Saved conversations and pending intentions can be resumed.
-Neither agent can approve quality. Live Gemini text additionally requires
-`ALLOW_MODEL_TEXT=true` and an account-verified model/key configured locally.
+FrameBounty addresses four problems:
 
-## Local setup (PowerShell)
+- **Planning:** turn an open-ended request into fixed requirements, quantities, rights, and rewards.
+- **Discovery:** match contributors to real funded tasks they can complete with the equipment and time they have.
+- **Verification:** assess every required criterion and hold uncertain work rather than treating uncertainty as success.
+- **Coverage:** spend the remaining budget on missing categories instead of repeatedly buying the easiest example.
+
+## Product flow
+
+### Buyer
+
+1. Sign in with MetaMask on Arc testnet by signing a server challenge. The login signature grants no payment authority.
+2. Describe an image or video collection in chat. The buyer agent asks for a missing count, budget, or media type instead of guessing.
+3. Review the plan, including the fixed budget, per-item reward, requirements, usage rights, task estimate, and expiry.
+4. Publish through one guided wallet flow: `createProtectedJob`, exact USDC `approve`, then `deposit`.
+5. Review AI findings and coverage. The buyer may pay verified work early with one atomic batch transaction; otherwise protected work becomes permissionlessly settleable after the one-hour payment window.
+6. Export paid data and a manifest, rate contributors, and refund uncommitted funds after the collection expires.
+
+### Contributor
+
+1. Sign in with a wallet different from the buyer wallet.
+2. Tell the contributor agent what equipment, objects, and time are available.
+3. Review ranked, currently funded listings. Confirm the exact task, version, reward, deadline, and rights before reservation.
+4. Upload the required JPEG/PNG image, or open the in-app camera after reservation
+   and record/review a 10–30 second video. Video file selection is unavailable.
+   Recording uses MP4 when supported and WebM otherwise; camera access begins
+   only after **Open camera**, without requesting audio. Authorize `submit(contentHash)`
+   with the signed-in wallet. A browser capture token does not prove authenticity.
+5. See per-criterion AI findings, retry or rejection reasons, the payment window, and the confirmed payment state.
+6. Rate the buyer after a confirmed paid trade.
+
+Self-trading is blocked. Fixture listings and fixture rewards are visibly simulated and never represent blockchain funds.
+
+## Architecture
+
+```text
+Next.js 16 / React 19
+  Buyer and contributor workspaces
+  MetaMask through window.ethereum
+              |
+              | signed-session REST
+              v
+FastAPI / PostgreSQL
+  Buyer agent and contributor agent
+  Plan, search, reservation, coverage, export, and authorization services
+  Private local media adapter and watermarked previews
+  Durable transaction intents and receipt reconciliation
+        |                         |
+        | media jobs              | chain intents
+        v                         v
+FFmpeg + Gemini             Arc chain worker
+  bounded decode              reserve / verify / reject
+  five sampled frames         settle / expire
+  criterion JSON              receipt projection
+        |                         |
+        +------------+------------+
+                     v
+             FrameBountyEscrow V3
+                  Arc testnet
+```
+
+| Layer | Implementation |
+| --- | --- |
+| Web | Next.js 16, React 19, TypeScript, MetaMask EIP-1193 provider |
+| API | FastAPI, Pydantic, SQLAlchemy, Alembic, PostgreSQL |
+| AI | Google Gemini REST `generateContent` with a server-defined JSON schema; model selected by `GEMINI_MODEL` |
+| Media | FFmpeg/ffprobe, Pillow, SHA-256, perceptual hashes |
+| Private storage | Local development disk or Supabase objects with a private decoder cache |
+| Contract | Solidity 0.8.24, OpenZeppelin, Foundry-compatible Arc toolchain |
+| Chain | Arc testnet, native USDC gas, canonical USDC ERC-20 interface |
+
+## Agent decision loop
+
+The language models interpret requests and observations. Deterministic application code and the escrow contract enforce quantities, authorization, state transitions, and money movement.
+
+```text
+PLAN
+  Buyer agent drafts a plan from chat.
+  Server validation requires the stated count, media type, budget, requirements, and rights.
+  Missing facts cause a question, not an invented value.
+
+FUND
+  Buyer signs createProtectedJob, exact USDC approval, and one fixed deposit.
+  Drafts remain private until the funding receipt is verified.
+
+PUBLISH
+  The initial batch exposes at most two funded task slots.
+
+MATCH
+  Contributor agent searches actual open funded listings and ranks them using the contributor's stated resources.
+  The contributor confirms the exact task, version, reward, rights, and deadline.
+  The allocator records reserve() on chain after rechecking availability.
+
+SUBMIT
+  Contributor uploads private media and signs submit(sha256).
+  The reservation deadline is bounded by the collection expiry and twice the task estimate.
+
+VERIFY
+  The media worker validates and decodes the file.
+  Video sampling uses five timestamps: start, quarter, midpoint, three quarters, and end minus 250 ms.
+  Gemini returns pass, fail, or uncertain for task completion, visibility, and every task criterion, with an integer confidence, explanation, and supplied timestamps.
+
+DECIDE
+  Deterministic threshold: 80.
+  Every mandatory criterion passes at 80 or above: verified.
+  Any mandatory criterion fails at 80 or above: rejected with reasons.
+  Anything else, including provider failure: pending and non-paying. Protected work retries after a cooldown.
+
+ATTEST AND SETTLE
+  The allocator calls verify(id, evidenceHash), which starts the one-hour payment window.
+  The buyer may pay earlier with approveBatch for up to 20 verified submissions.
+  After the window, anyone may call settle(id); the app keeper normally does so.
+  Recipients and rewards were fixed at reservation and each obligation can pay once.
+
+REPLAN
+  After a confirmed payout, code recomputes requirement deficits from accepted work, active obligations, and open slots.
+  It publishes at most two new slots for the missing categories without exceeding the funded budget.
+
+STOP
+  Coverage is complete, the remaining budget cannot fund another slot, or the collection expires.
+  After expiry, the buyer may refund only uncommitted funds.
+```
+
+## Verification policy
+
+The verifier evaluates the post that the buyer actually approved; it does not contain towel-specific business logic.
+
+- Videos must be MP4/MOV, 10–30 seconds, and at most 100 MiB. Images must be JPEG/PNG, at most 20 MiB and 16 megapixels.
+- The worker fully probes and decodes media before model assessment.
+- Five video frames are scaled to fit within 640 px. Still images are re-encoded as metadata-free JPEG samples.
+- Mandatory checks are `task_completion`, `visibility`, and the reserved task’s target criteria.
+- Visibility requires the relevant hands and task objects for a human-performed action. A sharp but out-of-frame attempt cannot pass.
+- Completion requires evidence that the requested action happened and that its end state is visible. Merely holding the objects or attempting the action is insufficient.
+- Exact hashes and perceptual hashes flag potential duplicates. Similarity alone does not reject a submission.
+- Confidence is reported by the model and is not a calibrated probability.
+- The system does not claim that sampled frames prove consent, ownership, genuine capture, physical dimensions, or scientific ground truth.
+
+Uncertain and unavailable-provider outcomes remain pending and cannot authorize payment.
+
+## Safety limits and trust assumptions
+
+| Limit | Enforcement |
+| --- | --- |
+| Buyer tools are limited to `draft_plan`, `inspect_job`, and `next_batch`. Contributor tools are limited to `search_tasks`, `read_task`, `prepare_confirmation`, `reserve_task`, and `my_work`. | Backend authorization and tool schemas |
+| Agents hold no wallet keys and cannot send arbitrary transactions. | Architecture and backend |
+| Plans contain no more than 20 items and cannot spend more than the approved integer-atomic budget. | Backend domain validation |
+| Reservation requires explicit task-specific confirmation and a fresh atomic availability check. | Backend and contract |
+| One fixed deposit funds a protected job. A retry cannot double-deposit. | Contract and receipt matching |
+| Each reservation has an immutable recipient and reward and can pay exactly once. | Contract |
+| The buyer cannot veto protected work after oracle verification. | Contract |
+| `settle` is permissionless after the one-hour window. | Contract |
+| Early release batches contain at most 20 items and revert atomically if any item is invalid. | Contract |
+| The buyer cannot refund before expiry and can refund only uncommitted funds. | Contract |
+| Buyer and contributor must be different wallets. | Backend and contract |
+| Transaction destination, function selector, chain, receipt, and expected event are validated before database projection. | Backend chain services |
+| The buyer sees reduced, watermarked previews before payment. Originals unlock only after confirmed payment. | Backend media authorization |
+
+Trust remains explicit:
+
+- The allocator/oracle key and Gemini judgment are centralized. A compromised or incorrect oracle could attest a bad result. The contract still prevents it from changing the reserved recipient or reward.
+- Private media storage and authentication are service-operated.
+- Watermarks discourage reuse but cannot prevent screenshots, cropping, or model-based removal.
+- Paid-trade ratings do not prevent collusion, retaliation, or Sybil wallets.
+- Worker downtime can delay transactions. Permissionless settlement remains available on chain after the payment window.
+
+## How FrameBounty uses Arc
+
+Arc testnet is the enforceable payment and reputation layer, not a decorative deployment target.
+
+- Chain ID: `5042002` (`0x4cef52`)
+- RPC: `https://rpc.testnet.arc.io`
+- Explorer: `https://explorer.testnet.arc.io`
+- Faucet: [`https://faucet.circle.com`](https://faucet.circle.com)
+- Escrow token interface: `0x3600000000000000000000000000000000000000`
+- Current escrow V3: [`0xe613799458201e41830a5be3da5c2a7d18140da0`](https://explorer.testnet.arc.io/address/0xe613799458201e41830a5be3da5c2a7d18140da0)
+- Verified deployment transaction: [`0x5fa53f…477b`](https://explorer.testnet.arc.io/tx/0x5fa53fe2a9d61756daada30a42dcf9d5361682f73c8a03c6a2c23f6f7cc0477b)
+
+Arc uses USDC as its native gas asset. The escrow uses the canonical USDC ERC-20 interface with 6-decimal token amounts, while native gas accounting uses 18 decimals. FrameBounty keeps those unit boundaries separate.
+
+The contract provides:
+
+- a fixed collection budget, rubric hash, task estimate, and expiry;
+- immutable per-task recipients and rewards;
+- oracle verification evidence and a one-hour payment window;
+- permissionless exact-once settlement;
+- an optional atomic early-release batch;
+- refunds of uncommitted funds after expiry;
+- one permanent `+1` or `-1` vote per side after a paid trade.
+
+V1 and V2 deployments remain bound to their original funded jobs. Application migrations do not move old escrow funds or assign new V3 guarantees to old bytecode.
+
+**Current evidence:** V3 is deployed and its runtime was verified on Arc testnet. A complete funded V3 buyer-to-contributor walkthrough has not yet been run, so deployment is not presented as payout evidence.
+
+**TODO before submission:** add public links for a real collection’s creation, deposit, reservation, submission, verification, and payout transactions after the team completes the funded testnet walkthrough.
+
+## Validation results
+
+| Gate | Result | What it proves |
+| --- | --- | --- |
+| Backend tests with PostgreSQL | **210 passed, 24 skipped** | Domain, auth, private storage, hosted config, media, agents, verification, protected marketplace, and HTTP behavior. Chain cases run separately. |
+| Solidity contract tests | **29 passed** | Security, accounting, protected settlement, ratings, mainnet constructor guards and local fuzz tests. |
+| PostgreSQL plus local-chain integration | **25 passed** | Receipt-gated funding, reservations, submission, verification, payout/recovery, and protected flows against local contracts. |
+| Web unit tests | **15 passed** | API error semantics, Arc switching, Circle intent dispatch, camera behavior and durable publishing. |
+| Web typecheck and production build | **passed** | The committed Next.js application compiles and builds. |
+| Browser end-to-end | **8 passed, 1 skipped** | Isolated Chromium flow with wallet signatures, PostgreSQL, API, Next.js, FFmpeg, and fixture model/chain boundaries. |
+| Fixture launcher lifecycle | **passed** | Migrations, API, media worker, and web started; API and web returned HTTP 200; recorded processes stopped cleanly. |
+| Real labeled-clip sanity check | **3 of 3 decisions correct, 0 false pay** | A small earlier run using `gemini-3.5-flash-lite`; this is not a statistically meaningful accuracy benchmark. |
+| Arc V3 deployment | **runtime verified** | Correct bytecode exists at the listed Arc testnet address. It does not prove a funded collection or payout. |
+| Funded live Arc flow | **pending** | No claim yet for buyer funding through contributor payout on Arc testnet. |
+
+The three-clip model sanity check used two successful physical tasks and one failed task. The verification wording was later tightened to require visible hands/task objects and a visible end state. A live recheck of those private clips remains pending explicit permission to send reduced sampled frames to Google Gemini. Local prompt, adapter, and deterministic policy tests pass, but they do not replace that live recheck.
+
+## Run locally
+
+### Prerequisites
+
+- Python 3.12 or newer
+- Node.js 22
+- PostgreSQL, through Docker Compose or another reachable server
+- MetaMask or another compatible injected wallet
+- Testnet by default; real-USDC mainnet remains explicitly gated and not activated
+
+### Install
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r services/api/requirements.lock
 .\.venv\Scripts\python.exe -m pip install --no-deps -e './services/api[test]'
 .\.venv\Scripts\python.exe scripts/setup_media_tools.py
+npm ci --prefix apps/web
 Copy-Item .env.example .env
 docker compose up -d postgres
-$env:DATABASE_URL='postgresql+psycopg://framebounty:framebounty@localhost:5432/framebounty'
-$env:APP_MODE='fixture'
-.\.venv\Scripts\python.exe -m alembic -c services/api/alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m uvicorn framebounty.main:app --reload
-# In another terminal:
-cd apps/web
-npm ci
-npm run dev
 ```
 
-Open http://localhost:3000 and sign in with your wallet. Minimal public liveness is
-at http://localhost:8000/health. Every product route, including search and plan
-validation, requires a signed session; public API docs/schema are disabled.
-The API does not automatically load `.env`. Run `./scripts/load-env.ps1` in each
-terminal before starting the API or workers; it loads documented settings without
-displaying values or evaluating shell expressions. The explicit shell exports
-above are an alternative for fixture mode. Do not put any
-Gemini or signing secret in a `NEXT_PUBLIC_` variable. No Gemini key is needed for
-sign-in or deterministic fixture mode. Workspace access requires a browser wallet
-on Arc testnet and a signed challenge (no payment authority). Sign-out revokes the
-server session; account/network changes and expiry return to sign-in.
+The API does not automatically load `.env`. The demo launcher loads it without displaying values, applies migrations, and starts the required child processes. Never place a Gemini key or signing key in a `NEXT_PUBLIC_` setting.
 
-To seed clearly labeled **simulated** listings, explicitly set `APP_MODE=fixture`
-and run:
+### Fixture walkthrough
+
+Fixture mode makes no Arc transaction and sends no media to Gemini. It clears live credentials from its child processes and labels every simulated result.
 
 ```powershell
-.\.venv\Scripts\python.exe -m framebounty.demo --buyer 0xYOUR_PUBLIC_DEMO_WALLET
+.\scripts\demo.ps1 -Mode fixture -Action start
+.\scripts\demo.ps1 -Action status
+# Open http://localhost:3000
+.\scripts\demo.ps1 -Action stop
 ```
 
-In the contributor workspace, tell the chat agent what you have and how much time
-you have. The agent asks for missing details and searches real funded tasks.
-Review a displayed task and reserve its fixed reward with one explicit click. Seed rewards are not
-redeemable. Re-running seed creates another
-fixture job; it never resets or deletes other users' data.
+See [`docs/DEMO.md`](docs/DEMO.md) for the complete runbook, phone/LAN setup, evidence checklist, and troubleshooting.
 
-Alternatively, describe the task in buyer chat and choose the clearly labeled
-Publish simulated post action to publish the first two fixture slots. The contributor
-can reserve, acknowledge the displayed usage rights, open the camera, record and
-review a 10–30 second clip, then submit it. Camera access is requested only after
-the contributor selects **Open camera**; audio is not requested. In another terminal,
-set the same `DATABASE_URL` and `APP_MODE=fixture` and run:
+### Arc testnet mode
 
-```powershell
-.\.venv\Scripts\python.exe -m framebounty.worker
+Use three distinct, test-only wallets:
+
+1. Buyer wallet with the collection budget and gas.
+2. Contributor wallet with gas for `submit(contentHash)`.
+3. Dedicated allocator/oracle wallet with gas for reservation, verification, rejection, expiry, and settlement transactions.
+
+Required `.env` settings:
+
+```dotenv
+DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST:PORT/DATABASE
+APP_MODE=testnet
+AUTH_ORIGIN=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:8000
+
+GEMINI_API_KEY=<server-side-secret>
+GEMINI_MODEL=gemini-3.5-flash-lite
+ALLOW_MODEL_TEXT=true
+ALLOW_MODEL_MEDIA=true
+
+ARC_RPC_URL=https://rpc.testnet.arc.io
+ARC_CHAIN_ID=5042002
+ARC_ESCROW_ADDRESS=0xe613799458201e41830a5be3da5c2a7d18140da0
+ARC_ALLOCATOR_ADDRESS=<dedicated-public-address>
+ARC_ALLOCATOR_PRIVATE_KEY=<dedicated-local-secret>
+ALLOW_CHAIN_TRANSACTIONS=true
+NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true
 ```
 
-The reviewer loads their collections, watches the full video and timestamped frames,
-confirms task completion and category definitions, and accepts/rejects with a reason.
-Acceptance updates the **simulated** ledger and overlapping coverage. It does not
-show a confirmed payment. Commission another fixture batch or export accepted media.
-For phone testing configure `AUTH_ORIGIN` and `NEXT_PUBLIC_API_URL` for the HTTPS
-origin. `getUserMedia` requires a secure context on remote devices, so an ordinary
-`http://192.168...` LAN URL is not a supported camera path. Local desktop testing on
-`http://localhost` is permitted by browsers; actual phone testing is pending.
-
-The optional `docker compose --profile worker up -d worker` imposes a 768 MiB
-memory limit and one CPU. Apply migrations first and configure `LOCAL_UID`/`LOCAL_GID`
-to match ownership of `.local/media` on Linux. Container image/runtime is not yet tested.
-
-## Checks
+Then run:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest services/api/tests -q
-# Enable real PostgreSQL integration tests (isolated schemas, not SQLite):
+.\scripts\demo.ps1 -Mode testnet -Action start
+```
+
+For a production web build, load the same public configuration before `npm run build`; see `docs/DEMO.md` for the exact command.
+
+### Checks
+
+```powershell
+# Backend and real PostgreSQL integration tests
 $env:TEST_DATABASE_URL=$env:DATABASE_URL
 .\.venv\Scripts\python.exe -m pytest services/api/tests -q
-cd apps/web
-npm run typecheck
-npm run build
-```
 
-`scripts/check.ps1` runs unit/HTTP tests (plus PostgreSQL tests when
-`TEST_DATABASE_URL` is set), typecheck and production build. If Windows profile
-temp permissions fail, add `--basetemp=.local/pytest-UNIQUE_RUN_NAME` using a fresh
-workspace directory. Additional gates from the repository root:
-
-```powershell
-npm ci --prefix contracts
-.\.venv\Scripts\python.exe scripts/setup_arc_tools.py
+# Contract and local-chain gates
 .\scripts\test-contract.ps1
-.\.venv\Scripts\python.exe scripts/export_contract.py --check
-# Owned ephemeral local chain + real PostgreSQL transaction/funding tests:
 .\.venv\Scripts\python.exe scripts/test_chain.py
-# Isolated Chromium + real PostgreSQL/FFmpeg workflow:
-$env:PLAYWRIGHT_BROWSERS_PATH="$PWD/.local/browsers"
-npm exec --prefix apps/web -- playwright install chromium
+
+# Browser end-to-end
 .\.venv\Scripts\python.exe scripts/test_e2e.py
-# Explicit read-only live Arc preflight; does not send transactions:
-.\.venv\Scripts\python.exe scripts/inspect_arc.py
+
+# Web unit, types, and production build
+npm --prefix apps/web run test:publishing
+npm --prefix apps/web run typecheck
+npm --prefix apps/web run build
 ```
 
-The browser harness uses dedicated ports 3002/8002, a random temporary PostgreSQL
-schema and generated non-human video. It removes its schema and stops its servers.
-No live provider calls or testnet fund transfers occur in ordinary tests.
-See [test matrix](docs/test-matrix.md), [architecture](docs/architecture.md)
-and [state machine](docs/state-machine.md).
+Ordinary automated tests do not call Gemini or transfer Arc testnet funds.
 
-Optional Arc funding requires a separately deployed canonical escrow,
-`APP_MODE=testnet`, `ALLOW_CHAIN_TRANSACTIONS=true`, and public
-`ARC_RPC_URL`, `ARC_ESCROW_ADDRESS`, `ARC_ALLOCATOR_ADDRESS` configuration.
-Use a dedicated allocator address. Set `NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true`
-when building the web app to expose saved-job funding/recovery controls. Buyer
-wallets sign creation, exact-budget allowance and deposit separately; no buyer key
-is configured on the server. Apply Alembic through migration 0005 first. Keep live
-validation disabled until the canonical escrow and funded testnet wallets are ready.
-The actual Arc wallet flow has not yet been validated.
+## Repository map
 
-Funding confirmations are tied to the saved plan hash. Wallet-response recovery
-accepts its existing hash from wallet activity; automatic event discovery and
-fee replacement are pending. Verified reverted/invalid intentions are terminal;
-the current UI does not automatically create another signing attempt. Server-side
-retry tests reuse persisted signed bytes and nonce, including after lost responses.
-
-For testnet reservation dispatch, configure only the dedicated allocator's
-`ARC_ALLOCATOR_PRIVATE_KEY` locally. Never use a buyer/reviewer key. Run the durable
-chain worker alongside the media worker:
-
-```powershell
-.\.venv\Scripts\python.exe -m framebounty.chain_worker
+```text
+apps/web/       Next.js buyer and contributor workspaces
+services/api/   FastAPI services, workers, migrations, and tests
+contracts/      FrameBountyEscrow Solidity source and Foundry tests
+docs/           Architecture, decisions, test matrix, live evidence, and demo runbook
+scripts/        Setup, deployment, inspection, evaluation, and test harnesses
 ```
 
-The contributor confirms a task, waits for `reserved`, uploads and confirms its
-content hash in their wallet. Human review records the decision before a separate
-reviewer-wallet transaction. Only its verified receipt changes payment/coverage.
-Expiry/timeout controls also wait for chain receipts. `projected` recovers a crash
-between receipt verification and ledger update. Testnet accepted data is included
-in exports/replanning; fixture data remains explicitly simulated. Pending unsigned
-allocations have no automatic cancellation, and close/refund UI is still pending.
+## Current limitations
 
-For a new local allocator, `python scripts/setup_local_allocator.py` creates a
-dedicated wallet directly in ignored `.env` and prints only its public address.
-It preserves existing allocator settings and leaves live transactions disabled.
-Fund that public address using the Arc testnet faucet; keep buyer/reviewer wallets
-separate. Put the Gemini API key only in `GEMINI_API_KEY` in `.env`; account/model
-access must be checked before selecting `GEMINI_MODEL` or enabling inference.
+- The complete funded Arc flow has not been validated through the browser.
+- AI verification and the allocator/oracle key remain centralized.
+- Phone/LAN upload has not been proven on a physical phone.
+- Automatic hashless recovery, fee replacement, and cancellation of unsigned pending allocations remain incomplete.
+- Provider failure can keep protected funds committed until the service and verification process resume.
+- Hosting configuration is prepared; live provider connectivity and Docker image
+  build remain unverified (the local Docker daemon is unavailable).
 
-`python scripts/deploy_arc.py` prepares one bounded canonical deployment and saves
-its signature privately in `.local/arc-deployment.json`; it does not broadcast.
-After explicit deployment authorization, `--broadcast` reuses that same signature
-and verifies receipt/runtime before saving the escrow address in `.env`. It never
-enables application flags. Parallel deployment processes are excluded by an OS lock.
+## Next steps
 
-Model metadata access does not establish free-tier billing or inference quality.
-`scripts/smoke_gemini.py` requires explicit `ALLOW_LIVE_MODEL_SMOKE=true` and human
-confirmation `GEMINI_FREE_TIER_CONFIRMED=true` that billing is disabled. It sends
-only generated synthetic color cards in one request and checks the existing schema;
-it never uploads private task media or enables app inference. It is not an accuracy
-evaluation. Leave both flags false until the setup checks and consent are complete.
+- Complete and record the funded Arc walkthrough with three pre-funded wallets.
+- Add a moderation path for uncertain work and measure model behavior on a larger, consented dataset.
+- Finish Circle account setup and validate Google/email sign-in; gas sponsorship
+  remains separate from the implemented user-controlled EOA integration.
+- Extend the marketplace to annotation and labeling jobs.
+- Replace the single trusted oracle with a more decentralized verification design.
 
-Current automatic workflow: reservations last at most twice the task's estimated
-collection time (and never past the listing deadline). Submission starts the
-separate funds-release window. The buyer's final release pays verified work;
-failed work and expired commitments release automatically without paying.
-V2 is deployed at `0xea83a29db7486295b93318081447222481d0dbea` on Arc testnet.
-Migration 0006 preserves each original funded job's V1 escrow address; old funds
-are not moved. V1 final releases may require a wallet signature per submission.
-New V2 jobs support one atomic batch transaction. See decision 0011 and live evidence.
+## Team
 
-Fixture AI outcomes are explicitly simulated. For a successful fixture workflow,
-set `FIXTURE_VERIFICATION_RESULT=pass` only in fixture mode; the default is uncertain.
-This flag cannot substitute simulated results in testnet mode.
+- **Rithvik Reddy Siddenki** — repository owner and full-stack implementation
+- **Ayaan Ameen** — AI verification evaluation and integration
+- **TODO before submission:** add the other two team members, roles, and links
+
+Built during the UBC 2026 hackathon window.
