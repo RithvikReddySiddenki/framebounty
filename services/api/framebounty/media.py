@@ -45,6 +45,15 @@ class LocalStorage:
                 digest.update(chunk)
         return digest.hexdigest()
 
+    def materialize(self, key: str) -> Path:
+        """Return private local bytes; hosted adapters may restore their cache."""
+        return self.path(key)
+
+    def persist(self, key: str, content_type: str):
+        """Local mode is already durable on its configured private volume."""
+        if not self.path(key).is_file():
+            raise MediaUnavailable("Private media is unavailable")
+
 
 def validate_container_header(header: bytes, expected_mime: str | None = None):
     """Reject obvious container/MIME mismatches before bounded FFmpeg decode."""

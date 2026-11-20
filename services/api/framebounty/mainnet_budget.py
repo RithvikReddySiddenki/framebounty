@@ -21,6 +21,11 @@ class BudgetFailure(RuntimeError): pass
 
 
 def path():
+    configured = os.getenv("MAINNET_BUDGET_PATH")
+    if configured:
+        result = Path(configured).resolve()
+        result.parent.mkdir(parents=True, exist_ok=True)
+        return result
     root = Path(__file__).resolve().parents[3] / ".local"
     root.mkdir(exist_ok=True)
     return root / "mainnet-budget.json"

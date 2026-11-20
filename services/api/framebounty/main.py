@@ -26,6 +26,7 @@ from .payouts import router as payouts_router
 from .reputation import router as reputation_router
 from .refunds import router as refunds_router
 from .circle_wallets import router as circle_router
+from .media import MediaUnavailable
 
 app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -48,6 +49,11 @@ app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http
 def database_unavailable(_request, _exc):
     # Never disclose DSNs, SQL statements or credentials in a client-facing error.
     return JSONResponse(status_code=503, content={"detail": "Database unavailable. Start PostgreSQL and apply the documented migrations, then retry."})
+
+
+@app.exception_handler(MediaUnavailable)
+def storage_unavailable(_request, _exc):
+    return JSONResponse(status_code=503, content={"detail": "Private media storage is unavailable. Retry the same action; no submission or payment is assumed."})
 
 
 @app.get("/health")

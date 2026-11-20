@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .auth import current_wallet
+from .object_storage import private_storage
 from .db import session
 from .marketplace import new_id
 from .media import MAX_UPLOAD, InvalidMedia, LocalStorage, validate_container_header, validate_image_header
@@ -67,7 +68,7 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
     if declared < 0 or declared > limit:
         raise HTTPException(413, "Media exceeds this post type upload limit")
     db.rollback()  # No budget locks or database transaction during network streaming.
-    storage = LocalStorage()
+    storage = private_storage()
     name = new_id()
     temporary, final = storage.path(name + ".upload"), storage.path(name + "." + kind)
     digest, count, header, retained = hashlib.sha256(), 0, b"", False
@@ -87,6 +88,9 @@ async def upload(reservation_id: str, request: Request, rights_ack: bool = False
         if declared and declared != count:
             raise HTTPException(400, "Upload was truncated")
         temporary.replace(final)
+        # Remote durability precedes the DB reference. Slow object I/O must not
+        # block the API event loop or hold a financial database lock.
+        await asyncio.to_thread(storage.persist, name + "." + kind, mime)
         item = finalize_upload(db, wallet, reservation_id, name + "." + kind, digest.hexdigest(), count, mime,
                                model_ack, capture_hash)
         retained = item.object_key == name + "." + kind
@@ -121,7 +125,7 @@ def video(submission_id: str, wallet: str = Depends(current_wallet), db: Session
     if not owns_original(item, wallet):
         if item.content_type.startswith("image/"): return preview_response(item)
         raise HTTPException(403, "Original video unlocks after confirmed payment; use the watermarked preview")
-    path = LocalStorage().path(item.object_key)
+    path = private_storage().materialize(item.object_key)
     if not path.is_file():
         raise HTTPException(404, "Video object is unavailable")
     return FileResponse(path, media_type=item.content_type, headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
@@ -135,7 +139,7 @@ def frame(submission_id: str, index: int, wallet: str = Depends(current_wallet),
         raise HTTPException(404, "Frame not found")
     from .previews import owns_original, preview_response
     if not owns_original(item, wallet): return preview_response(item, index)
-    path = LocalStorage().path(frames[index]["key"])
+    path = private_storage().materialize(frames[index]["key"])
     if not path.is_file():
         raise HTTPException(404, "Frame object is unavailable")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
@@ -206,11 +210,11 @@ def export_dataset(job_id: str, wallet: str = Depends(current_wallet), db: Sessi
     if len(items) > job.plan["total"]:
         raise HTTPException(409, "Accepted data exceeds the approved plan; export requires reconciliation")
     archive = zipstream.ZipStream(compress_type=zipstream.ZIP_STORED)
-    storage = LocalStorage()
+    storage = private_storage()
     records = []
     total_bytes = 0
     for item in items:
-        source = storage.path(item.object_key)
+        source = storage.materialize(item.object_key)
         if not source.is_file():
             raise HTTPException(409, "An accepted media object is missing; export requires storage repair")
         # Archive paths contain only server-generated identifiers, never filenames

@@ -44,6 +44,7 @@ jobs:
       - run: pip install -r services/api/requirements.lock
       - run: pip install --no-deps -e './services/api[test]'
       - run: python -m pytest services/api/tests -q
+      - run: python scripts/check_hosted_startup.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

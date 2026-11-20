@@ -1,5 +1,19 @@
 # Workboard
 
+2026-11-20 hosting/integration (implementation lead, feat/circle-mainnet): user
+approved configuration only for Vercel frontend, Railway API/workers and Supabase
+PostgreSQL/private media. Existing Vercel/Supabase accounts, no Railway account;
+no resources, deployment, subscriptions or hosting spend authorized. Integrate
+main camera work, feat/deploy container and integration-branch README/reason fix.
+Own private object storage interface, hosted startup, schema/volume guards and
+deployment templates. Camera keeps migration 0008; unapplied Circle becomes 0009.
+Circle decision renumbered 0014 to preserve camera decision 0013; hosting is 0015.
+Supabase tests restore into separate worker/API caches and preserve payment gates.
+Initial combined validation: backend 207 passed/24 separate-chain skips, Node 15
+passed, build passed, browser 8 passed/1 separate funding skip; supervisor behavior
+passed through real Linux Bash. Docker daemon unavailable; image build/live
+provider connectivity remain unverified. Final integration regression follows.
+
 2026-11-20 Circle/mainnet integration (implementation lead, feat/circle-mainnet):
 base origin/main 4e30c64 to preserve teammate redesign/evaluation work. User wants
 Arc mainnet USDC, Circle Google login (email OTP optional) and existing wallets; total agent
@@ -19,7 +33,7 @@ budget. Validation: backend 185 passed/24 separate-chain skips; local EVM 25 pas
 contracts 29 passed; Node 13 passed; Chromium 8 passed/1 funding-mode skip plus
 separate funding-mode 1 passed; production build passed. Migration tested only in
 isolated schemas. Existing running preview and database unchanged. Setup guide
-docs/CIRCLE_SETUP.md and decision 0013 explain user account setup and remaining
+docs/CIRCLE_SETUP.md and decision 0014 explain user account setup and remaining
 live gates. Real Google/Circle login and real-USDC settlement remain unverified;
 mainnet spend is zero. Contract milestone already pushed as 2954a04.
 ## Active slice: camera-only contributor capture (2026-11-20)

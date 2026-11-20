@@ -3,7 +3,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from fastapi import HTTPException
 from fastapi.responses import Response
-from .media import LocalStorage
+from .object_storage import private_storage
 
 
 def owns_original(item, wallet):
@@ -14,7 +14,7 @@ def preview_response(item, index=0):
     frames = item.findings.get("frames", [])
     if index < 0 or index >= len(frames):
         raise HTTPException(409, "Preview is not ready; verification is still processing")
-    path = LocalStorage().path(frames[index]["key"])
+    path = private_storage().materialize(frames[index]["key"])
     if not path.is_file(): raise HTTPException(404, "Preview unavailable")
     with Image.open(path) as source:
         image = ImageOps.exif_transpose(source).convert("RGB")

@@ -13,6 +13,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .db import engine
+from .object_storage import private_storage
 from .marketplace import new_id
 from .media import InvalidMedia, LocalStorage, MediaUnavailable, decode_video, inspect_video, inspect_image, sample_frames
 from .models import Job, Submission, VerificationJob
@@ -59,7 +60,7 @@ def claim(db: Session) -> tuple[str, str] | None:
 
 
 def analyze(storage: LocalStorage, key: str, rubric: dict, fixture: bool, content_type: str | None = None, model_consent: bool = False) -> dict:
-    path = storage.path(key)
+    path = storage.materialize(key)
     kind = rubric.get("media_type", "video")
     if kind == "image":
         metadata_dict, frames = inspect_image(path, storage, content_type)
@@ -122,7 +123,7 @@ def finish(db: Session, job_id: str, lease_token: str, findings: dict | None, er
 
 
 def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
-    db_engine, storage = db_engine or engine(), storage or LocalStorage()
+    db_engine, storage = db_engine or engine(), storage or private_storage()
     # Recover a crash between durable decoding and policy evaluation. This path
     # cannot pay and rechecks reservation state under financial row locks.
     with Session(db_engine) as db:
@@ -145,6 +146,10 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
     findings, error, invalid = None, None, False
     try:
         findings = analyze(storage, key, rubric, fixture, content_type, model_consent)
+        # Publish durable frame references only after every model sample is saved.
+        # Storage outages follow infrastructure retries, never quality rejection.
+        for frame in findings["frames"]:
+            storage.persist(frame["key"], "image/jpeg")
         with Session(db_engine) as db:
             # Only disclose duplicate candidates within the same private job.
             exact = db.scalars(select(Submission.id).where(Submission.job_id == job.id,
@@ -161,6 +166,7 @@ def run_once(db_engine=None, storage: LocalStorage | None = None) -> bool:
     except InvalidMedia as exc:
         error, invalid = str(exc), True
     except (MediaUnavailable, OSError) as exc:
+        findings = None  # Partly persisted samples cannot authorize acceptance.
         error = type(exc).__name__ + ": verification infrastructure unavailable"
     with Session(db_engine) as db:
         committed = finish(db, job_id, token, findings, error, invalid)

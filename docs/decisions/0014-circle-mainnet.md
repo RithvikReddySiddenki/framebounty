@@ -1,5 +1,8 @@
 # Circle login and separate Arc mainnet operation
 
+Renumbered to 0014 during integration because main already contains decision
+0013 for camera capture. Circle migration is now 0009 after camera migration 0008.
+
 The user authorized real USDC, email-based access with optional existing wallets,
 and at most 1 USDC total for deployment and the initial payment test. They have
 no Circle account or sender domain. Google login through Circle is the primary
