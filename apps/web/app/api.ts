@@ -52,27 +52,45 @@ export async function request<T>(
 
 type Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (event: string, listener: () => void) => void;
-  removeListener?: (event: string, listener: () => void) => void;
+  on?: (event: string, listener: (payload?: unknown) => void) => void;
+  removeListener?: (event: string, listener: (payload?: unknown) => void) => void;
 };
 
+export type WalletEvent = "accountsChanged" | "chainChanged" | "disconnect";
+const WALLET_EVENTS: WalletEvent[] = ["accountsChanged", "chainChanged", "disconnect"];
+
+/** Decide whether a wallet event must end the signed-in session.
+ *
+ * Sign-in itself calls eth_requestAccounts and switches to Arc, which makes
+ * MetaMask emit accountsChanged/chainChanged, sometimes after login returns.
+ * Treating those as "the user changed wallets" signed people out the instant
+ * they signed in. So: with no session, events are ignored (the server already
+ * verifies the signature matches the wallet). With a session, only a real
+ * change ends it: another account, a non-Arc chain, a disconnect, or an event
+ * with no usable payload (fail closed). */
+export function walletEventEndsSession(event: WalletEvent, payload: unknown, wallet?: string): boolean {
+  if (!wallet) return false;
+  if (event === "accountsChanged")
+    return !(Array.isArray(payload) && typeof payload[0] === "string" && payload[0].toLowerCase() === wallet.toLowerCase());
+  if (event === "chainChanged") return payload !== "0x4cef52";
+  return true;
+}
+
 export function watchWalletChange(
-  disconnect: () => void,
-  sessionExpired: (token: string) => void = disconnect,
+  onEvent: (event: WalletEvent, payload: unknown) => void,
+  sessionExpired: (token: string) => void,
 ): () => void {
   const provider = (window as Window & { ethereum?: Provider }).ethereum;
-  provider?.on?.("accountsChanged", disconnect);
-  provider?.on?.("chainChanged", disconnect);
-  provider?.on?.("disconnect", disconnect);
+  // Keep exact references so removeListener detaches the same functions.
+  const listeners = WALLET_EVENTS.map(event => [event, (payload?: unknown) => onEvent(event, payload)] as const);
+  listeners.forEach(([event, listener]) => provider?.on?.(event, listener));
   const expired = (event: Event) => {
     const token = (event as CustomEvent<{ token: string }>).detail?.token;
     if (token) sessionExpired(token);
   };
   window.addEventListener("framebounty:session-expired", expired);
   return () => {
-    provider?.removeListener?.("accountsChanged", disconnect);
-    provider?.removeListener?.("chainChanged", disconnect);
-    provider?.removeListener?.("disconnect", disconnect);
+    listeners.forEach(([event, listener]) => provider?.removeListener?.(event, listener));
     window.removeEventListener("framebounty:session-expired", expired);
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { authenticate, request, watchWalletChange } from "./api";
+import { authenticate, request, walletEventEndsSession, watchWalletChange } from "./api";
 import Contributor from "./contributor";
 import Posts from "./posts";
 import PostComposer from "./post-composer";
@@ -69,7 +69,10 @@ export default function Workspace() {
     if (previous) void request("/auth/logout", previous.token, {}).catch(() => {});
   }
   useEffect(
-    () => watchWalletChange(signOut, (token) => { if (sessionRef.current?.token === token) signOut(); }),
+    () => watchWalletChange(
+      (event, payload) => { if (walletEventEndsSession(event, payload, sessionRef.current?.wallet)) signOut(); },
+      (token) => { if (sessionRef.current?.token === token) signOut(); },
+    ),
     [],
   );
   useEffect(() => {
