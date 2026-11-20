@@ -92,8 +92,8 @@ def inspect_image(path: Path, storage: LocalStorage, expected_mime: str | None =
                 if expected_mime and mime != expected_mime:
                     raise InvalidMedia("Image content does not match its declared type")
                 width, height = source.size
-                if min(width, height) < 240 or max(width, height) > 8192 or width * height > 16_000_000:
-                    raise InvalidMedia("Image must be at least 240px per side and at most 16 megapixels / 8192px per side")
+                if max(width, height) > 8192 or width * height > 16_000_000:
+                    raise InvalidMedia("Image exceeds the processing limit of 16 megapixels or 8192px per side")
                 source.load()
                 image = ImageOps.exif_transpose(source).convert("RGB")
                 image.thumbnail((640, 640))

@@ -136,6 +136,16 @@ def test_non_towel_video_uses_its_own_post_criteria(pg, flow, video):
     assert "cat_climbing_tree" in findings["assessment"] and "large_towel" not in findings["assessment"]
 
 
+@pytest.mark.parametrize("size", [(1, 1), (120, 180), (239, 320)])
+def test_small_images_reach_verification_without_minimum_resolution_rejection(tmp_path, size):
+    storage = LocalStorage(tmp_path)
+    path = storage.path("a" * 32 + ".image")
+    path.write_bytes(image_bytes(size=size))
+    metadata, frames = inspect_image(path, storage)
+    assert (metadata["width"], metadata["height"]) == size
+    assert len(frames) == 1 and storage.path(frames[0]["key"]).exists()
+
+
 def test_bounded_image_decoder_rejects_too_large_or_animated(tmp_path):
     storage = LocalStorage(tmp_path)
     path = storage.path("a" * 32 + ".image")

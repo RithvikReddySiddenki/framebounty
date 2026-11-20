@@ -1,5 +1,13 @@
 # Workboard
 
+2026-11-20 user-requested image minimum removal: still JPEG/PNG uploads no longer
+require 240 pixels per side. Preserve decoder validation, file-size/animation
+guards and upper processing limits (16 MP / 8192px per side). AI still assesses
+the actual requested content. Existing rejected/on-chain records are preserved;
+this change applies to newly processed submissions.
+Validation: image/media suites 38 passed, including 1x1, 120x180 and 239x320
+images and existing oversized/animated/corrupt-file protections.
+
 2026-11-20 active teammate frontend integration: merging origin/main d7eb9bc
 into feat/circle-mainnet. Preserve new dark/lime consumer UI, buyer/contributor
 dashboard, capture/review panels, all-open-task matching and dead Circle challenge
