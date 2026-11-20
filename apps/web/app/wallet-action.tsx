@@ -52,7 +52,7 @@ export default function WalletAction({
       if (send) {
         if (!result || result.state !== "intent" || existing)
           throw new Error("Reconcile the existing transaction first.");
-        const tx_hash = await sendWalletTransaction(result.transaction);
+        const tx_hash = await sendWalletTransaction(result.transaction, result.intent_id);
         existing = { intent_id: result.intent_id, tx_hash };
         sessionStorage.setItem(key, JSON.stringify(existing));
       }

@@ -28,6 +28,22 @@ class AuthSession(Base):
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     wallet: Mapped[str] = mapped_column(String(42), index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    chain_id: Mapped[int] = mapped_column(Integer, default=5042002, server_default="5042002")
+    circle_wallet_id: Mapped[str | None] = mapped_column(String(36))
+
+
+class AuthRateBucket(Base):
+    __tablename__ = "auth_rate_buckets"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer)
+
+
+class CircleChallenge(Base):
+    __tablename__ = "circle_challenges"
+    intent_id: Mapped[str] = mapped_column(ForeignKey("transaction_intents.id"), primary_key=True)
+    challenge_id: Mapped[str] = mapped_column(String(36), unique=True)
+    wallet_id: Mapped[str] = mapped_column(String(36))
 
 
 class Job(Base):
@@ -44,6 +60,7 @@ class Job(Base):
     state: Mapped[str] = mapped_column(String(20), default="draft")
     fixture: Mapped[bool] = mapped_column(Boolean, default=False)
     escrow_address: Mapped[str | None] = mapped_column(String(42))
+    chain_id: Mapped[int | None] = mapped_column(Integer)
     protection_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deposited_atomic: Mapped[int] = mapped_column(BigInteger, default=0)

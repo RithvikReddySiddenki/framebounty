@@ -3,6 +3,11 @@ An AI-powered marketplace where labs and developers commission custom data, agen
 
 ## Current status
 
+The `feat/circle-mainnet` branch prepares Circle Google sign-in (email OTP optional),
+optional browser wallets, and separately gated real-USDC Arc mainnet operation.
+Account setup and a live payment walkthrough are still required; this is not a
+claim of production activation. Follow [Circle setup](docs/CIRCLE_SETUP.md).
+
 Implemented locally: signed EOA wallet login, buyer-owned versioned draft plans,
 database-backed filtered task search, explicit version/reward confirmation,
 atomic and idempotent fixture reservations, private reservation lists, strict

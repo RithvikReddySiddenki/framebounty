@@ -10,7 +10,7 @@ export type FundingStep = {
 export type PendingFunding = { intent_id: string; tx_hash: string };
 export async function publishApprovedPlan(options: {
   load: (pending?: PendingFunding) => Promise<FundingStep>;
-  send: (transaction: NonNullable<FundingStep["transaction"]>) => Promise<string>;
+  send: (transaction: NonNullable<FundingStep["transaction"]>, intentId?: string) => Promise<string>;
   read: () => PendingFunding | undefined;
   save: (pending?: PendingFunding) => void;
   changed: (step: FundingStep) => void;
@@ -30,7 +30,7 @@ export async function publishApprovedPlan(options: {
     if (step.state === "intent" && !pending) {
       if (!step.transaction || !step.intent_id) throw new Error("The server did not provide a complete publishing step.");
       check();
-      const hash = await options.send(step.transaction);
+      const hash = await options.send(step.transaction, step.intent_id);
       // Persist even if navigation happened while the wallet was open. The next
       // browser session must recover this hash rather than send another payment.
       pending = { intent_id: step.intent_id, tx_hash: hash };

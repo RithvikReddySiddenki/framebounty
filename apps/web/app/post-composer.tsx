@@ -10,7 +10,7 @@ type Plan = PlanProposal & { media_type: "image" | "video"; posting_hours?: numb
 
 const STARTERS = [
   "I need 20 short videos of people folding towels, at least 5 with large towels and 5 on dark surfaces. Budget 20 USDC.",
-  "I want 20 images of a cat climbing a tree, with a 20 test USDC budget.",
+  "I want 20 images of a cat climbing a tree, with a 20 USDC budget.",
   "Collect 10 videos of someone pouring water from a bottle into a glass.",
 ];
 

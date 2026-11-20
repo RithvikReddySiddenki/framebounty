@@ -1,4 +1,5 @@
 "use client";
+import { explorerUrl } from "./api";
 /** Shared presentation primitives. Nothing here calls the API or decides
  * business rules: lifecycle helpers only *map* backend state strings onto a
  * visual progress track. The backend remains the source of truth, and the raw
@@ -134,14 +135,14 @@ export function Requirements({ items, title = "Requirements", note = "AI checks 
   </div>;
 }
 
-export const EXPLORER = "https://explorer.testnet.arc.io";
+
 
 export function short(value: string, head = 6, tail = 4) {
   return value.length > head + tail + 1 ? `${value.slice(0, head)}…${value.slice(-tail)}` : value;
 }
 
-/** Link a transaction hash or address to the Arc testnet explorer. */
+/** Link a transaction hash or address to the selected Arc network explorer. */
 export function ExplorerLink({ value, kind = "tx" }: { value: string; kind?: "tx" | "address" }) {
-  return <a className="mono" href={`${EXPLORER}/${kind}/${value}`} target="_blank" rel="noreferrer" title={value}>
+  return <a className="mono" href={`${explorerUrl()}/${kind}/${value}`} target="_blank" rel="noreferrer" title={value}>
     {short(value, 8, 6)} ↗</a>;
 }

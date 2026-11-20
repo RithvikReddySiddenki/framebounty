@@ -38,11 +38,11 @@ class NetworkSnapshot:
     gas_price_native_atomic_per_gas: str
 
 
-def preflight(client: httpx.Client, url: str = RPC_URL) -> NetworkSnapshot:
+def preflight(client: httpx.Client, url: str = RPC_URL, chain_id: int = CHAIN_ID) -> NetworkSnapshot:
     try:
         chain = int(rpc(client, url, "eth_chainId", [], 1), 16)
-        if chain != CHAIN_ID:
-            raise ChainUnavailable("Wrong chain: Arc testnet is required")
+        if chain_id not in {5042, 5042002} or chain != chain_id:
+            raise ChainUnavailable("Wrong chain: explicitly selected Arc network is required")
         decimals = int(rpc(client, url, "eth_call", [{"to": USDC_ADDRESS, "data": "0x313ce567"}, "latest"], 2), 16)
         if decimals != 6:
             raise ChainUnavailable("Unexpected USDC token decimals")

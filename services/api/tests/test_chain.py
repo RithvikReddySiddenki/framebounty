@@ -36,10 +36,16 @@ def receipt(rpc, tx_hash):
 
 
 @pytest.fixture
-def chain(pg):
+def chain(pg, monkeypatch):
     url = os.getenv("TEST_CHAIN_RPC_URL")
     if not url:
         pytest.skip("Set TEST_CHAIN_RPC_URL for the separately gated real local-chain suite")
+    # Domain services must use the same explicit local network as the RPC
+    # fixture. Production still permits only the two real Arc chain IDs.
+    from dataclasses import replace
+    from framebounty import networks
+    monkeypatch.setattr(networks, "TESTNET", replace(networks.TESTNET, chain_id=31337))
+    monkeypatch.setenv("ARC_CHAIN_ID", "31337")
     dummy = ChainRPC(ChainConfig(url, 31337, "0x" + "1" * 40, "0x" + "2" * 40, allow_local=True))
     dummy.check_network()
     snapshot = dummy.rpc("evm_snapshot", [])

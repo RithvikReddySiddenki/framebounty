@@ -1,4 +1,4 @@
-"""Prepare/reconcile one canonical Arc testnet deployment; --broadcast opts in.
+"""Prepare/reconcile a canonical Arc deployment; testnet is the default.
 
 Load .env with scripts/load-env.ps1 first. Signed authorization data stays in
 ignored .local; only public identifiers and native gas bounds reach stdout.
@@ -10,7 +10,8 @@ import tempfile
 import time
 from pathlib import Path
 
-from framebounty.arc import CHAIN_ID, USDC_ADDRESS
+from framebounty.arc import USDC_ADDRESS
+from framebounty.networks import active_network
 from framebounty.chain_rpc import ChainConfig, ChainFailure, ChainRPC
 from framebounty.deployment import broadcast, exclusive_state, prepare, reconcile, validate
 from framebounty.transactions import KeySigner
@@ -59,7 +60,8 @@ def configure(root, contract, replace_existing=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bounded Arc TESTNET escrow deployment, never mainnet")
+    parser = argparse.ArgumentParser(description="Bounded, explicitly selected Arc escrow deployment")
+    parser.add_argument("--network", choices=["testnet", "mainnet"], default="testnet")
     parser.add_argument("--broadcast", action="store_true")
     parser.add_argument("--state-file", default=".local/arc-deployment.json", help="Workspace .local file; retain a separate signed state for each escrow version")
     parser.add_argument("--replace-existing", help="Explicit previous default address; existing jobs must already be pinned by migration 0006")
@@ -71,18 +73,24 @@ def main():
 
 
 def execute(root, args):
-    path = (root / getattr(args, "state_file", ".local/arc-deployment.json")).resolve()
+    network = active_network()
+    target = "mainnet" if network.real_money else "testnet"
+    if getattr(args, "network", "testnet") != target:
+        raise SystemExit("Explicit deployment network differs from application configuration")
+    state_file = getattr(args, "state_file", ".local/arc-deployment.json")
+    if network.real_money and state_file == ".local/arc-deployment.json": state_file = ".local/arc-mainnet-deployment.json"
+    path = (root / state_file).resolve()
     if path.parent != (root / ".local").resolve() or path.suffix != ".json":
         raise SystemExit("Deployment state must remain a JSON file in this workspace's .local directory")
     path.parent.mkdir(exist_ok=True)
-    if os.getenv("ARC_CHAIN_ID") != str(CHAIN_ID):
-        raise SystemExit("Only explicitly configured Arc testnet 5042002 is allowed")
+    if os.getenv("ARC_CHAIN_ID") != str(network.chain_id):
+        raise SystemExit("Explicit Arc chain configuration is required")
     if os.getenv("ALLOW_CHAIN_TRANSACTIONS") != "false":
         raise SystemExit("Keep application chain actions disabled during deployment setup")
     signer = KeySigner(os.getenv("ARC_ALLOCATOR_PRIVATE_KEY", ""))
     if signer.address != os.getenv("ARC_ALLOCATOR_ADDRESS", "").lower():
         raise SystemExit("Allocator key/address mismatch")
-    rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), CHAIN_ID, "0x" + "1" * 40, USDC_ADDRESS))
+    rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), network.chain_id, "0x" + "1" * 40, USDC_ADDRESS))
     try:
         record = json.loads(path.read_text()) if path.exists() else prepare(rpc, signer)
         validate(rpc, record)

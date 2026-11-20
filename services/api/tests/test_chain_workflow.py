@@ -247,7 +247,7 @@ def test_refund_after_post_expiry_preserves_and_pays_verified_obligations(pg, ch
     assert token_balance(rpc, accounts[2]) == 2_000_000
 
 
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3])
 def test_original_escrow_funds_remain_bound_and_release_through_legacy_path(pg, chain, live_mode, version):
     from dataclasses import replace
     from eth_abi import encode
@@ -260,7 +260,15 @@ def test_original_escrow_funds_remain_bound_and_release_through_legacy_path(pg, 
     legacy = receipt(rpc, legacy_hash)["contractAddress"].lower()
     old_rpc = ChainRPC(replace(rpc.config, escrow=legacy))
     try:
-        old_rpc.check_contract(); assert old_rpc.contract_version == version
+        old_rpc.check_contract()
+        # V4 changes constructor network admission only. V3's deployed runtime
+        # is identical, so bytecode verification classifies both as V4-compatible.
+        if version == 3:
+            from framebounty.chain_rpc import expected_runtime
+            assert expected_runtime(rpc.config.token, 3) == expected_runtime(rpc.config.token, 4)
+            assert old_rpc.contract_version == 4
+        else:
+            assert old_rpc.contract_version == version
         jid, ids = ai_image_ready(pg, old_rpc, accounts, reject=False)
         with Session(pg) as db:
             assert db.get(Job, jid).escrow_address == legacy

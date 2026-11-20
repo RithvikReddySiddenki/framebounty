@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
-from .arc import CHAIN_ID, USDC_ADDRESS
+from .arc import USDC_ADDRESS
+from .networks import active_network, chain_enabled
 from .auth import current_wallet
 from .chain_rpc import ChainConfig, ChainFailure, ChainRPC, address
 from .db import session
@@ -16,15 +17,17 @@ router = APIRouter()
 
 
 def configured_rpc(db, job_id=None, reservation_id=None):
-    if os.getenv("APP_MODE") != "testnet" or os.getenv("ALLOW_CHAIN_TRANSACTIONS") != "true":
+    if not chain_enabled():
         raise HTTPException(503, "Chain funding is disabled; no transaction was requested")
     try:
         reference = db.get(Reservation, reservation_id) if reservation_id else None
         job = db.get(Job, job_id or reference.job_id) if job_id or reference else None
         escrow = job.escrow_address if job and job.escrow_address else os.getenv("ARC_ESCROW_ADDRESS", "")
-        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), CHAIN_ID, escrow, USDC_ADDRESS))
+        if job and job.chain_id is not None and job.chain_id != active_network().chain_id:
+            raise ChainFailure("This collection belongs to another network")
+        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), active_network().chain_id, escrow, USDC_ADDRESS))
     except ChainFailure:
-        raise HTTPException(503, "Configure and verify the deployed Arc testnet escrow first") from None
+        raise HTTPException(503, "Configure and verify the escrow on the selected Arc network first") from None
     try:
         yield rpc
     finally:

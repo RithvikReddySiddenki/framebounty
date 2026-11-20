@@ -10,6 +10,7 @@
     "test:publishing": "node --test tests/publishing.cjs tests/api.cjs"
   },
   "dependencies": {
+    "@circle-fin/w3s-pw-web-sdk": "1.1.11",
     "next": "^16.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -21,5 +22,10 @@
     "@types/react-dom": "^19.0.0",
     "ethers": "^6.17.0",
     "typescript": "^5.9.0"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "1.14.7",
+    "undici": "6.29.1",
+    "uuid": "11.1.1"
   }
 }

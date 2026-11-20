@@ -1,4 +1,5 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 import { useEffect, useState } from "react";
 import { request, usdc } from "./api";
 import Upload, { type Submission } from "./upload";
@@ -117,7 +118,7 @@ export default function Contributor({
                 </div>
                 <div className="task-reward">
                   {usdc(r.reward_atomic)}
-                  <small>{r.fixture ? "fixture USDC" : "test USDC"} fixed reward</small>
+                  <small>{moneyUnit(r.fixture)} fixed reward</small>
                 </div>
               </div>
               <Lifecycle steps={ITEM_STEPS} progress={itemProgress(r.state, submission?.state ?? (r.submission_id ? "submitted" : null), submission?.payment_confirmed)} label={`Lifecycle for reservation ${r.id.slice(0, 8)}`} />

@@ -1,5 +1,6 @@
 """Authenticated marketplace API; testnet actions are explicitly gated."""
 import os
+from .networks import chain_enabled
 from datetime import UTC, datetime
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -24,6 +25,7 @@ from .chat import router as chat_router
 from .payouts import router as payouts_router
 from .reputation import router as reputation_router
 from .refunds import router as refunds_router
+from .circle_wallets import router as circle_router
 
 app = FastAPI(title="FrameBounty", version="0.1.0", dependencies=[Depends(require_service_auth)],
               docs_url=None, redoc_url=None, openapi_url=None)
@@ -35,6 +37,7 @@ app.include_router(chat_router)
 app.include_router(payouts_router)
 app.include_router(reputation_router)
 app.include_router(refunds_router)
+app.include_router(circle_router)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("AUTH_ORIGIN", "http://localhost:3000")],
                    allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"], expose_headers=["X-Data-Bytes"])
 
@@ -52,7 +55,7 @@ def health():
 
 @app.get("/me/status")
 def service_status():
-    enabled = (os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    enabled = (chain_enabled()
                and bool(os.getenv("ARC_RPC_URL")) and bool(os.getenv("ARC_ESCROW_ADDRESS")))
     return {"status": "ok", "mode": os.getenv("APP_MODE", "fixture"), "payments_enabled": enabled,
             "settlement_requires_verified_receipt": True}

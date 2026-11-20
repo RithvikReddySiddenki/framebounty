@@ -1,5 +1,21 @@
 # Test matrix
 
+2026-11-20 Circle/mainnet feature branch: `python -m pytest services/api/tests -q
+--tb=short -p no:cacheprovider --basetemp=.local/pytest-circle-final-2` with real
+TEST_DATABASE_URL and feature-worktree PYTHONPATH: 185 passed, 24 separate-chain
+skips. `npm run test:publishing`: 13 passed. `npm run build`: passed. Standard
+Chromium run: 8 passed, 1 separate funding-panel skip; funding-panel gate with
+NEXT_PUBLIC_ENABLE_CHAIN_FUNDING=true: 1 passed. Contract suite: 29 passed,
+including mainnet constructor admission and two 256-run fuzz tests. Read-only
+Arc mainnet preflight verified chain 5042 and six-decimal canonical USDC.
+No real Circle login or mainnet payment was performed; operator spend is zero.
+Final separate local-EVM gate: `PYTEST_ADDOPTS="-p no:cacheprovider
+--basetemp=.local/pytest-circle-chain-final --tb=short" python scripts/test_chain.py`
+passed all 25 cases, including legacy escrow funding and release compatibility.
+Default Windows pytest temp access failed; workspace-owned --basetemp resolves
+that infrastructure issue. Browser harness must use feature-worktree PYTHONPATH
+or it loads the older editable API installation instead of this branch.
+
 Buyer timeout regression (2026-11-19): `npm --prefix apps/web run test:publishing`
 passes nine Node tests (six wallet coordinator cases plus three API timeout/error
 cases); production build passes. `python scripts/test_e2e.py --grep 'buyer retries

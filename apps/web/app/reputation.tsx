@@ -1,4 +1,5 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 import { useEffect, useRef, useState } from "react";
 import { request, sendWalletTransaction } from "./api";
 import { publishApprovedPlan, type FundingStep, type PendingFunding } from "./publishing";
@@ -42,7 +43,7 @@ export default function Reputation({ token, submissionId }: { token: string; sub
     {rating?.supported ? <>
       <p><strong>{rating.role} reputation</strong>: {rating.up} up / {rating.down} down</p>
       <p className="muted">{rating.target?.slice(0, 8)}… · {rating.notice}</p>
-      <a href={`https://explorer.testnet.arc.io/address/${rating.escrow}`} target="_blank" rel="noreferrer">View reputation contract</a>
+      <a href={`${explorerUrl()}/address/${rating.escrow}`} target="_blank" rel="noreferrer">View reputation contract</a>
       {rating.vote ? <p>Your permanent vote: {rating.vote === 1 ? "Up" : "Down"}</p> : rating.eligible ? <>
         <p>Your vote is public and permanent. Wallet confirmation uses testnet gas.</p>
         <button disabled={busy} onClick={() => void vote(1)}>Vote up</button>{" "}<button disabled={busy} onClick={() => void vote(-1)}>Vote down</button>

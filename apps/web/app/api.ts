@@ -3,6 +3,19 @@
 export const apiBase =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+export type WalletTransaction = { from: string; to: string; data: string; value: string; chainId: string };
+let embeddedSender: ((transaction: WalletTransaction, intentId?: string) => Promise<string>) | undefined;
+export function setEmbeddedWalletSender(sender?: (transaction: WalletTransaction, intentId?: string) => Promise<string>) { embeddedSender = sender; }
+let activeChain = Number(process.env.NEXT_PUBLIC_ARC_CHAIN_ID || "5042002");
+export function configureArcNetwork(chainId: number) {
+  if (![5042, 5042002].includes(chainId)) throw new Error("Unsupported FrameBounty network.");
+  activeChain = chainId;
+}
+export const moneyUnit = (fixture = false) => fixture ? "simulated USDC" : activeChain === 5042 ? "USDC" : "test USDC";
+export const networkName = () => activeChain === 5042 ? "Arc mainnet" : "Arc testnet";
+export const explorerUrl = () => activeChain === 5042 ? "https://explorer.arc.io" : "https://explorer.testnet.arc.io";
+const chainHex = () => "0x" + activeChain.toString(16);
+
 export function notifySessionExpired(token: string) {
   window.dispatchEvent(
     new CustomEvent("framebounty:session-expired", { detail: { token } }),
@@ -18,6 +31,7 @@ export async function request<T>(
   // Contributor chat may make two bounded 45-second model calls (intake and
   // ranking). Do not abandon a healthy request at the normal API's 15s limit.
   const agentMessage = body !== undefined && /^\/(chat-sessions|agent-sessions)\/[^/]+\/messages$/.test(path);
+  const circleRequest = path.startsWith("/auth/circle/") || path.startsWith("/circle/transactions");
   try {
     response = await fetch(apiBase + path, {
       method: body === undefined ? "GET" : "POST",
@@ -26,11 +40,11 @@ export async function request<T>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      signal: AbortSignal.timeout(agentMessage ? 120000 : 15000),
+      signal: AbortSignal.timeout(agentMessage || circleRequest ? 120000 : 15000),
     });
   } catch (error) {
     if (error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)) {
-      throw new Error(agentMessage
+      throw new Error(circleRequest ? "Circle is taking longer than expected. Retry the same action to check its existing authorization." : agentMessage
         ? "The AI is taking longer than expected. Your message is kept; retry the same message to check for its result."
         : "FrameBounty took too long to respond. Please retry.");
     }
@@ -72,7 +86,7 @@ export function walletEventEndsSession(event: WalletEvent, payload: unknown, wal
   if (!wallet) return false;
   if (event === "accountsChanged")
     return !(Array.isArray(payload) && typeof payload[0] === "string" && payload[0].toLowerCase() === wallet.toLowerCase());
-  if (event === "chainChanged") return payload !== "0x4cef52";
+  if (event === "chainChanged") return payload !== chainHex();
   return true;
 }
 
@@ -95,18 +109,19 @@ export function watchWalletChange(
   };
 }
 
-const ARC_TESTNET = {
-  chainId: "0x4cef52",
-  chainName: "Arc Testnet",
+const arcNetwork = () => ({
+  chainId: chainHex(),
+  chainName: activeChain === 5042 ? "Arc" : "Arc Testnet",
   // Arc's native gas balance is USDC with 18 decimals (the ERC-20 view uses 6).
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
-  rpcUrls: ["https://rpc.testnet.arc.io"],
-  blockExplorerUrls: ["https://explorer.testnet.arc.io"],
-};
+  rpcUrls: [activeChain === 5042 ? "https://rpc.mainnet.arc.io" : "https://rpc.testnet.arc.io"],
+  blockExplorerUrls: [activeChain === 5042 ? "https://explorer.arc.io" : "https://explorer.testnet.arc.io"],
+});
 
 /** Ask the wallet to switch to Arc testnet, adding the network first if the
  * wallet doesn't know it (EIP-3085 / EIP-3326). Returns the resulting chain. */
 async function ensureArcTestnet(provider: Provider): Promise<unknown> {
+  const ARC_TESTNET = arcNetwork();
   const chain = await provider.request({ method: "eth_chainId" });
   if (chain === ARC_TESTNET.chainId) return chain;
   try {
@@ -149,6 +164,7 @@ export async function authenticate(): Promise<{
     throw new Error(
       "Install or open an Ethereum-compatible browser wallet to sign in.",
     );
+  configureArcNetwork((await request<{ chain_id: number }>("/auth/config")).chain_id);
   let accounts: string[];
   try {
     accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[];
@@ -163,9 +179,9 @@ export async function authenticate(): Promise<{
   } catch {
     chain = await provider.request({ method: "eth_chainId" });
   }
-  if (chain !== "0x4cef52")
+  if (chain !== chainHex())
     throw new Error(
-      "Switch your wallet to Arc testnet (chain 5042002), then try again.",
+      activeChain === 5042 ? "Switch your wallet to Arc mainnet (chain 5042), then try again." : "Switch your wallet to Arc testnet (chain 5042002), then try again.",
     );
   const challenge = await request<{ nonce: string; message: string }>(
     "/auth/challenge",
@@ -213,16 +229,17 @@ export async function sendFundingTransaction(transaction: {
   data: string;
   value: string;
   chainId: string;
-}): Promise<string> {
+}, intentId?: string): Promise<string> {
+  if (embeddedSender) return embeddedSender(transaction, intentId);
   const provider = (window as Window & { ethereum?: Provider }).ethereum;
   if (!provider) throw new Error("Open your connected browser wallet.");
   const accounts = (await provider.request({
     method: "eth_accounts",
   })) as string[];
   const chain = await provider.request({ method: "eth_chainId" });
-  if (chain !== "0x4cef52" || transaction.chainId !== chain)
+  if (chain !== chainHex() || transaction.chainId !== chain)
     throw new Error(
-      "Switch to Arc testnet before authorizing this transaction.",
+      "Switch to " + networkName() + " before authorizing this transaction.",
     );
   if (accounts[0]?.toLowerCase() !== transaction.from.toLowerCase())
     throw new Error("Reconnect the wallet that owns this action.");

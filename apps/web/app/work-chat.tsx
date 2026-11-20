@@ -1,4 +1,5 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 import { useEffect, useRef, useState } from "react";
 import { request, usdc } from "./api";
 import { BuyerReputation } from "./reputation";
@@ -105,15 +106,15 @@ export default function WorkChat({ token, onReserved }: { token: string; onReser
           <h3>{task.title}</h3>
           <p className="muted"><Icon name="clock" /> about {task.minutes} min · reserve up to {2 * task.minutes} min · closes {new Date(task.deadline).toLocaleString()}</p>
         </div>
-        <div className="task-reward">{usdc(task.reward_atomic)}<small>{task.fixture ? "fixture" : "test"} USDC per accepted item</small></div>
+        <div className="task-reward">{usdc(task.reward_atomic)}<small>{moneyUnit(task.fixture)} per accepted item</small></div>
       </div>
       <p>{task.explanation}</p>
       <BuyerReputation token={token} jobId={task.job_id} />
       <p className="section-label">What the AI will check</p>
       <ul className="requirements">{task.requirements.map(r => <li key={r.key}><Icon name="check" /><span>{r.description}</span></li>)}</ul>
       <details><summary>Usage rights & payment terms</summary><p className="muted">{task.rights_declaration}</p><p className="muted">Reviewer: {task.reviewer}. Payment requires passing AI verification and is not guaranteed by reservation; protected posts then pay automatically after a one-hour payment window.</p></details>
-      {prepared?.task === task.task_id && <p className="notice">Accept {usdc(task.reward_atomic)} {task.fixture ? "simulated fixture" : "test"} USDC for these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
-      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {usdc(task.reward_atomic)} {task.fixture ? "fixture" : "test"} USDC</button>
+      {prepared?.task === task.task_id && <p className="notice">Accept {usdc(task.reward_atomic)} {moneyUnit(task.fixture)} for these fixed requirements. Upload deadline: {new Date(prepared.deadline).toLocaleString()}. Your deadline will not extend after accepting.</p>}
+      <button className="primary" disabled={busy} onClick={() => void reserve(task)}>{prepared?.task === task.task_id ? "Accept fixed terms for" : "Review reservation for"} {usdc(task.reward_atomic)} {moneyUnit(task.fixture)}</button>
     </article>)}
     <form className="chat-form" onSubmit={e => { e.preventDefault(); void send(); }}>
       <label htmlFor="work-message">Message your work agent</label>

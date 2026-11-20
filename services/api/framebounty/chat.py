@@ -178,7 +178,7 @@ def extract(role: str, message: str, history: list[str], facts: dict, awaiting: 
     if os.getenv("APP_MODE", "fixture") == "fixture":
         try: return fixture_intake(message, facts, awaiting)
         except ValueError as exc: raise HTTPException(422, "Use a count from 1 to 20 and time from 1 to 1440 minutes.") from exc
-    if os.getenv("APP_MODE") not in {"live", "testnet"} or os.getenv("ALLOW_MODEL_TEXT") != "true":
+    if os.getenv("APP_MODE") not in {"live", "testnet", "mainnet"} or os.getenv("ALLOW_MODEL_TEXT") != "true":
         raise ProviderFailure("AI chat text is not enabled")
     adapter = adapter or GeminiFrames(os.getenv("GEMINI_API_KEY", ""), os.getenv("GEMINI_MODEL", ""))
     instruction = (

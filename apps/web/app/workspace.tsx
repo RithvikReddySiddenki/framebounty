@@ -1,13 +1,15 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 
 import { useEffect, useRef, useState } from "react";
-import { authenticate, request, walletEventEndsSession, watchWalletChange } from "./api";
+import { authenticate, request, walletEventEndsSession, watchWalletChange, setEmbeddedWalletSender } from "./api";
 import Contributor from "./contributor";
+import CircleLogin from "./circle-login";
 import Posts from "./posts";
 import PostComposer from "./post-composer";
 import { ExplorerLink, Icon, type IconName } from "./ui";
 
-type Session = { wallet: string; token: string; expiresAt: number };
+type Session = { wallet: string; token: string; expiresAt: number; method?: "circle" | "wallet" };
 type Overview = {
   collections: number;
   open_collections: number;
@@ -23,7 +25,7 @@ const ESCROW = process.env.NEXT_PUBLIC_ARC_ESCROW_ADDRESS || "";
  * first-time viewer understands who does what before touching anything. */
 const PIPELINE: { who: string; cls: string; icon: IconName; title: string; body: string }[] = [
   { who: "Buyer agent", cls: "who-buyer", icon: "bot", title: "Plan the dataset", body: "Describe what you need in plain English. The agent drafts tasks, requirements and rewards." },
-  { who: "Arc escrow", cls: "who-chain", icon: "lock", title: "Lock USDC", body: "Approve once and the fixed budget is deposited into the escrow contract on Arc testnet." },
+  { who: "Arc escrow", cls: "who-chain", icon: "lock", title: "Lock USDC", body: "Approve once and the fixed budget is deposited into the escrow contract on Arc." },
   { who: "Contributor agent", cls: "who-contributor", icon: "search", title: "Match work", body: "Contributors say what gear and time they have. The agent finds funded tasks that fit." },
   { who: "Contributor", cls: "who-contributor", icon: "upload", title: "Record & upload", body: "Reserve a task at a fixed reward, capture it on a phone and upload before the deadline." },
   { who: "AI verifier", cls: "who-ai", icon: "eye", title: "Verify automatically", body: "Sampled frames are checked against every requirement and the result is attested." },
@@ -68,6 +70,7 @@ export default function Workspace() {
 
   function signOut() {
     const previous = sessionRef.current;
+    setEmbeddedWalletSender(undefined);
     sessionRef.current = undefined;
     attemptRef.current += 1;
     setSession(undefined);
@@ -82,7 +85,7 @@ export default function Workspace() {
   }
   useEffect(
     () => watchWalletChange(
-      (event, payload) => { if (walletEventEndsSession(event, payload, sessionRef.current?.wallet)) signOut(); },
+      (event, payload) => { if (sessionRef.current?.method !== "circle" && walletEventEndsSession(event, payload, sessionRef.current?.wallet)) signOut(); },
       (token) => { if (sessionRef.current?.token === token) signOut(); },
     ),
     [],
@@ -146,7 +149,7 @@ export default function Workspace() {
       <main className="signin-page theme-dark">
         <header className="landing-nav rise" style={delay(0)}>
           <div className="brand"><span className="mark">F</span>FrameBounty</div>
-          <span className="environment-badge"><i />Arc testnet · chain 5042002</span>
+          <span className="environment-badge"><i />{networkName()}</span>
         </header>
 
         <section className="hero">
@@ -154,6 +157,7 @@ export default function Workspace() {
           <h1 className="rise" style={delay(140)}>Agents buy verified data.<br /><span>Contributors get paid in USDC.</span></h1>
           <p className="hero-sub rise" style={delay(220)}>Describe the dataset you need. People capture it, AI checks every clip, and escrow pays the moment it passes.</p>
           <section className="hero-cta rise" style={delay(300)} aria-label="Sign in">
+            <CircleLogin authenticated={authenticated => { attemptRef.current += 1; sessionRef.current = authenticated; setSession(authenticated); setAuthError(""); }} />
             <div className="hero-actions">
               <button className="primary signin-button" onClick={() => void connect()} disabled={connecting}>
                 <Icon name="wallet" />{connecting ? "Check your wallet to sign…" : "Connect wallet & sign in"}<Icon name="arrow" />
@@ -162,13 +166,13 @@ export default function Workspace() {
             </div>
             <p className="signature-note"><Icon name="check" />One message signature. No gas, no payment authority.</p>
             {connecting && <p className="signature-note"><Icon name="info" />Don&apos;t see a popup? Click the MetaMask icon in your browser toolbar; the request may be waiting there.</p>}
-            {!hasWallet && <p className="notice">No browser wallet detected. Install <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, then reload this page.</p>}
+            {!hasWallet && <p className="notice">Prefer an existing wallet? Install <a href="https://metamask.io/download/" target="_blank" rel="noreferrer">MetaMask</a>, then reload this page.</p>}
             {authError && <p role="alert" aria-label="Sign-in error" className="error">{authError}</p>}
             <details className="signin-help">
               <summary>First time here?</summary>
               <ol>
                 <li>Install MetaMask (or another EVM browser wallet) and unlock it.</li>
-                <li>Click sign in. We&apos;ll ask your wallet to add and switch to Arc Testnet (chain 5042002).</li>
+                <li>Click sign in. We&apos;ll ask your wallet to add and switch to {networkName()}.</li>
                 <li>Approve the &ldquo;FrameBounty wallet sign-in&rdquo; message. That&apos;s it: no gas, no funds.</li>
                 <li>Have several wallet extensions? Disable all but one so they don&apos;t fight over the page.</li>
               </ol>
@@ -207,7 +211,7 @@ export default function Workspace() {
           <div className="float-card receipt-card">
             <div className="receipt-head">
               <span className="receipt-icon"><Icon name="coins" /></span>
-              <div><strong>Escrow payout</strong><span>Arc testnet</span></div>
+              <div><strong>Escrow payout</strong><span>{networkName()}</span></div>
             </div>
             <div className="receipt-body">
               <span className="verified-chip"><Icon name="check" />Verified</span>
@@ -293,8 +297,8 @@ export default function Workspace() {
         </nav>
         <div className="sidebar-proof">
           <dl>
-            <div><dt>Network</dt><dd>Arc testnet · 5042002</dd></div>
-            <div><dt>Mode</dt><dd>{overview ? fixture ? "Fixture (simulated funds)" : "Testnet (real test USDC)" : "Checking…"}</dd></div>
+            <div><dt>Network</dt><dd>{networkName()}</dd></div>
+            <div><dt>Mode</dt><dd>{overview ? fixture ? "Fixture (simulated funds)" : networkName() + " (" + moneyUnit() + ")" : "Checking…"}</dd></div>
             {ESCROW && <div><dt>Escrow contract</dt><dd><ExplorerLink value={ESCROW} kind="address" /></dd></div>}
           </dl>
         </div>
@@ -309,7 +313,7 @@ export default function Workspace() {
           <div className="breadcrumbs">{role === "buyer" ? "Buyer" : "Contributor"}<span>/</span><strong>{title}</strong></div>
           <div className="header-actions">
             <span className={`environment-badge ${fixture ? "fixture" : ""}`}><i />
-              {overview ? fixture ? "Fixture workspace" : "Arc testnet" : "Verifying workspace"}</span>
+              {overview ? fixture ? "Fixture workspace" : networkName() : "Verifying workspace"}</span>
             {role === "buyer" && <button className="primary compact" onClick={newCollection}><Icon name="plus" />New collection</button>}
           </div>
         </header>
@@ -318,7 +322,7 @@ export default function Workspace() {
             <Icon name="info" />
             {fixture
               ? "Fixture rewards are simulated and have no monetary value."
-              : "Arc testnet · Transactions need your wallet authorization. Payment is recognized only after verified receipts."}
+              : networkName() + " · Transactions need your wallet authorization. Payment is recognized only after verified receipts."}
           </div>
           {role === "buyer" ? <>
             <section hidden={view !== "overview"} className="stack">

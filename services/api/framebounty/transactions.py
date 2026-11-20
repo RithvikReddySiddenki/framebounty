@@ -55,6 +55,10 @@ class KeySigner:
         self.address = self._account.address.lower()
 
     def sign(self, rpc: ChainRPC, unsigned: dict) -> str:
+        if rpc.config.chain_id == 5042:
+            from .mainnet_budget import reserve, BudgetFailure
+            try: reserve(self.address, unsigned)
+            except (BudgetFailure, ValueError, OSError): raise ChainFailure("Mainnet operator budget/configuration prevents signing") from None
         signed = self._account.sign_transaction(unsigned)
         return "0x" + bytes(signed.raw_transaction).hex()
 
@@ -106,6 +110,8 @@ def create_intent(db: Session, rpc: ChainRPC, action: Action) -> TransactionInte
     if action.job_id:
         from .models import Job
         job = db.get(Job, action.job_id)
+        if job and job.chain_id is None: job.chain_id = rpc.config.chain_id
+        elif job and job.chain_id != rpc.config.chain_id: raise ChainFailure("Job belongs to another network")
         if job and job.escrow_address is None:
             job.escrow_address = address(rpc.config.escrow)
         elif job and job.escrow_address != address(rpc.config.escrow):
@@ -190,6 +196,10 @@ def reconcile(db: Session, rpc: ChainRPC, intent_id: str) -> TransactionIntent:
         result = rpc.verified_receipt(item.tx_hash, item.sender, item.destination, item.call_data, item.expected_event, item.nonce)
         if result is None:
             return item
+        if item.chain_id == 5042 and item.raw_transaction is not None:
+            from .mainnet_budget import settle, BudgetFailure
+            try: settle(item.sender, item.nonce, result["receipt"])
+            except (BudgetFailure, ValueError, OSError): raise ChainFailure("Mainnet fee budget requires reconciliation") from None
         item.state = result["status"]
         item.confirmed_block = int(result["receipt"]["blockNumber"], 16)
         item.verified_event = result.get("event")

@@ -5,6 +5,7 @@ does not cancel existing commitments when another clip fills a category quota.
 """
 import hashlib
 import os
+from .networks import chain_enabled
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
@@ -61,7 +62,7 @@ def next_collection_batch(db: Session, wallet: str, job_id: str, request_id: str
     if job is None or job.buyer != wallet:
         raise HTTPException(404, "Job not found")
     enabled = (job.fixture and os.getenv("APP_MODE", "fixture") == "fixture") or (
-        not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true")
+        not job.fixture and chain_enabled())
     if not enabled or job.state != "open" or job.deposited_atomic <= 0:
         raise HTTPException(409, "Job must have confirmed funding before replanning")
     audit_id = hashlib.sha256(f"batch:{job_id}:{wallet}:{request_id}".encode()).hexdigest()

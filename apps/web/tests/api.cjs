@@ -9,6 +9,25 @@ const compiled = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../app
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
+test("Circle signing retains the exact durable intent and mainnet configuration", async () => {
+  const sandbox = { exports: {}, process: { env: {} }, Error };
+  vm.runInNewContext(compiled, sandbox);
+  const api = sandbox.exports;
+  api.configureArcNetwork(5042);
+  assert.equal(api.networkName(), "Arc mainnet");
+  assert.equal(api.walletEventEndsSession("chainChanged", "0x13b2", "wallet"), false);
+  assert.equal(api.walletEventEndsSession("chainChanged", "0x4cef52", "wallet"), true);
+  const transaction = { from: "wallet", to: "escrow", data: "0x1234", value: "0x0", chainId: "0x13b2" };
+  api.setEmbeddedWalletSender(async (actual, intentId) => {
+    assert.equal(actual, transaction);
+    assert.equal(intentId, "durable-intent");
+    return "confirmed-candidate-hash";
+  });
+  assert.equal(await api.sendFundingTransaction(transaction, "durable-intent"), "confirmed-candidate-hash");
+  api.setEmbeddedWalletSender(undefined);
+  assert.throws(() => api.configureArcNetwork(1));
+});
+
 function harness(fetch) {
   const sandbox = { exports: {}, process: { env: {} }, Error, fetch,
     AbortSignal: { timeout: milliseconds => ({ milliseconds }) } };
@@ -43,7 +62,7 @@ test("network failures and provider errors retain their distinct messages", asyn
 function walletHarness(provider) {
   const fetch = async (url) => ({
     ok: true,
-    json: async () => url.endsWith("/auth/challenge")
+    json: async () => url.endsWith("/auth/config") ? { chain_id: 5042002 } : url.endsWith("/auth/challenge")
       ? { nonce: "nonce", message: "Sign in to FrameBounty" }
       : { token: "session-token", expires_in_seconds: 60 },
   });

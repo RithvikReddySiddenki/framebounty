@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from .db import session
 from .models import AuthSession, Nonce
+from .networks import active_network
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -31,9 +32,7 @@ def wallet_address(value: str) -> str:
 
 def challenge_message(wallet: str, nonce: str, expires: datetime) -> str:
     origin = os.getenv("AUTH_ORIGIN", "http://localhost:3000")
-    chain = os.getenv("ARC_CHAIN_ID", "5042002")
-    if chain != "5042002":
-        raise RuntimeError("Only Arc testnet authentication is enabled")
+    chain = str(active_network().chain_id)
     return (f"FrameBounty wallet sign-in\nURI: {origin}\nChain ID: {chain}\n"
             f"Wallet: {wallet_address(wallet)}\nNonce: {nonce}\n"
             f"Expiration: {expires.isoformat()}\nThis signature does not authorize payments.")
@@ -60,12 +59,19 @@ def sign_in(db: Session, nonce_id: str, signature: str) -> str:
     nonce = db.scalar(select(Nonce).where(Nonce.id == nonce_id).with_for_update())
     if nonce is None or nonce.used or nonce.expires_at <= datetime.now(UTC):
         raise HTTPException(401, "Expired or consumed challenge")
+    if (f"\nChain ID: {active_network().chain_id}\n" not in nonce.message
+        or f"URI: {os.getenv('AUTH_ORIGIN', 'http://localhost:3000')}\n" not in nonce.message):
+        raise HTTPException(401, "Challenge belongs to another network or origin")
     if not verify_signature(nonce.message, signature, nonce.wallet):
         raise HTTPException(401, "Signature does not match this challenge")
     nonce.used = True
+    return create_session(db, nonce.wallet)
+
+
+def create_session(db, wallet, circle_wallet_id=None):
     token = secrets.token_urlsafe(32)
-    db.add(AuthSession(token_hash=hashlib.sha256(token.encode()).hexdigest(), wallet=nonce.wallet,
-                       expires_at=datetime.now(UTC) + timedelta(hours=8)))
+    db.add(AuthSession(token_hash=hashlib.sha256(token.encode()).hexdigest(), wallet=wallet_address(wallet),
+        expires_at=datetime.now(UTC) + timedelta(hours=8), chain_id=active_network().chain_id, circle_wallet_id=circle_wallet_id))
     db.commit()
     return token
 
@@ -74,7 +80,7 @@ def current_wallet(credentials: HTTPAuthorizationCredentials | None = Depends(be
     if credentials is None:
         raise HTTPException(401, "Connect and authenticate your wallet")
     item = db.get(AuthSession, hashlib.sha256(credentials.credentials.encode()).hexdigest())
-    if item is None or item.expires_at <= datetime.now(UTC):
+    if item is None or item.expires_at <= datetime.now(UTC) or item.chain_id != active_network().chain_id:
         raise HTTPException(401, "Session expired")
     return item.wallet
 
@@ -87,6 +93,7 @@ def require_service_auth(request: Request, credentials: HTTPAuthorizationCredent
     remains enforced by each service; authentication alone grants no buyer powers.
     """
     public = {("POST", "/auth/challenge"), ("POST", "/auth/login"), ("GET", "/health")}
+    public |= {("GET", "/auth/config"), *(("POST", "/auth/circle/" + name) for name in ("otp", "initialize", "wallets", "login"))}
     if (request.method, request.url.path) not in public:
         return current_wallet(credentials, db)
 

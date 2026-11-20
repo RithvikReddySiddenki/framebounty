@@ -12,7 +12,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
-from .arc import CHAIN_ID, USDC_ADDRESS
+from .arc import USDC_ADDRESS
+from .networks import active_network, chain_enabled
 from .chain_rpc import ChainConfig, ChainFailure, ChainRPC
 from .chain_workflow import project, sync_allocation
 from .db import engine
@@ -96,16 +97,16 @@ def main():
     parser = argparse.ArgumentParser(description="Dispatch reservations and reconcile receipts; never approve quality")
     parser.add_argument("--once", action="store_true")
     args = parser.parse_args()
-    if os.getenv("APP_MODE") != "testnet" or os.getenv("ALLOW_CHAIN_TRANSACTIONS") != "true":
-        raise SystemExit("Explicit testnet mode and chain transaction consent are required")
+    if not chain_enabled():
+        raise SystemExit("Explicit matching network mode and chain transaction consent are required")
     try:
         signer = KeySigner(os.getenv("ARC_ALLOCATOR_PRIVATE_KEY", ""))
         if signer.address != os.getenv("ARC_ALLOCATOR_ADDRESS", "").lower():
             raise ChainFailure("Allocator address/key mismatch")
-        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), CHAIN_ID, os.getenv("ARC_ESCROW_ADDRESS", ""), USDC_ADDRESS))
+        rpc = ChainRPC(ChainConfig(os.getenv("ARC_RPC_URL", ""), active_network().chain_id, os.getenv("ARC_ESCROW_ADDRESS", ""), USDC_ADDRESS))
         rpc.check_contract()
     except ChainFailure:
-        raise SystemExit("Verify the dedicated allocator and deployed testnet escrow configuration") from None
+        raise SystemExit("Verify the dedicated allocator and deployed escrow network configuration") from None
     try:
         while True:
             run_once(engine(), rpc, signer)

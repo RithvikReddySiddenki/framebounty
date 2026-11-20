@@ -1,4 +1,5 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 import { useEffect, useRef, useState } from "react";
 import { request, sendWalletTransaction, usdc } from "./api";
 import { publishApprovedPlan, type FundingStep, type PendingFunding } from "./publishing";
@@ -46,7 +47,7 @@ export default function ReleaseFunds({ token, jobId, count, pending, fixture, am
     finally { running.current = false; if (!active.signal.aborted) setBusy(false); }
   }
   return <section className="notice" aria-label="Final funds release">
-    <h3>{count} AI-verified submission{count === 1 ? "" : "s"} ready · {usdc(amountAtomic)} {fixture ? "simulated" : "test"} USDC</h3>
+    <h3>{count} AI-verified submission{count === 1 ? "" : "s"} ready · {usdc(amountAtomic)} {moneyUnit(fixture)}</h3>
     <p>Verification is automatic. This action releases the fixed rewards early to their reserved contributors. Protected posts pay automatically one hour after on-chain verification if you take no action. Failed or uncertain submissions cannot enter this batch.</p>
     <button className="primary" disabled={busy || (!count && !pending)} onClick={() => void release()}>{busy ? "Releasing…" : pending ? "Continue funds release" : fixture ? "Release simulated funds" : "Release approved funds"}</button>
     {status && <p role="status">{status}</p>}{error && <p className="error" role="alert">{error}</p>}

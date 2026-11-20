@@ -1,4 +1,5 @@
 "use client";
+import { moneyUnit, networkName, explorerUrl } from "./api";
 import { useEffect, useRef, useState } from "react";
 import { request, sendFundingTransaction, usdc } from "./api";
 import { publishApprovedPlan, type FundingStep, type PendingFunding } from "./publishing";
@@ -45,10 +46,10 @@ export default function Funding({ token, jobId, planHash, onPublished, termsAppr
     return () => window.clearTimeout(timer);
   }, [autoStart, termsApproved, jobId, token]);
   const label = (step?.step === "create_job" || step?.step === "create_protected") ? "Creating escrow" : step?.step === "token_approve" ? "Approving the exact budget" : "Depositing budget";
-  return <section aria-label="Arc testnet funding">
+  return <section aria-label={`${networkName()} funding`}>
     <h3>{step?.funded ? "Open for contributors" : busy ? "Publishing your post" : "Publish your saved post"}</h3>
     <p>One publishing action guides the whole process. MetaMask still asks you to authorize escrow creation, the exact allowance and the deposit. No funds move without your wallet approval.</p>
-    {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - check MetaMask" : " - waiting for confirmation"}`}{step.amount_atomic && ` ? ${usdc(step.amount_atomic)} test USDC`}</p>}
+    {step && <p role="status">{step.funded ? "Funding verified. Your first tasks are now public." : `${label}${step.state === "intent" ? " - check MetaMask" : " - waiting for confirmation"}`}{step.amount_atomic && ` ? ${usdc(step.amount_atomic)} ${moneyUnit()}`}</p>}
     {!step?.funded && <button className="primary" disabled={busy} onClick={() => void publish()}>{busy ? "Follow the prompts in MetaMask?" : "Publish post"}</button>}
     {!step?.funded && <details><summary>Recover a wallet transaction</summary><p>Only if the wallet lost its response: enter the existing hash, then continue. Existing transactions are checked before any new signature.</p><label>Existing transaction hash<input value={recoveryHash} disabled={busy} onChange={e => setRecoveryHash(e.target.value)} placeholder="0x?" /></label></details>}
     {error && <p role="alert" className="error">{error}</p>}

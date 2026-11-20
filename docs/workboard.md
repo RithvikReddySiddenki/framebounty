@@ -1,5 +1,28 @@
 # Workboard
 
+2026-11-20 Circle/mainnet integration (implementation lead, feat/circle-mainnet):
+base origin/main 4e30c64 to preserve teammate redesign/evaluation work. User wants
+Arc mainnet USDC, Circle Google login (email OTP optional) and existing wallets; total agent
+deployment/initial-test spend capped at 1 USDC including fees. Circle account,
+Google OAuth client and production credentials are not configured. No paid plans
+or domain purchases authorized. Own network guards, Circle authorization bridge,
+wallet UI, migrations, deployment budgeting and tests. Existing running testnet
+preview and archived funded jobs remain untouched. Acceptance: Circle verifies
+user-wallet ownership; no arbitrary transaction proxy, no cross-network
+account/funding confusion; original receipt/idempotency rules still govern money;
+no mainnet transaction before bounded costs and funded mainnet setup are known.
+
+Implemented and locally verified: Circle Google/optional OTP user-controlled EOA
+login, exact durable intent signing bridge, cross-network session/job pins,
+migration 0008, explicit mainnet deployment selection and persistent operator gas
+budget. Validation: backend 185 passed/24 separate-chain skips; local EVM 25 passed;
+contracts 29 passed; Node 13 passed; Chromium 8 passed/1 funding-mode skip plus
+separate funding-mode 1 passed; production build passed. Migration tested only in
+isolated schemas. Existing running preview and database unchanged. Setup guide
+docs/CIRCLE_SETUP.md and decision 0013 explain user account setup and remaining
+live gates. Real Google/Circle login and real-USDC settlement remain unverified;
+mainnet spend is zero. Contract milestone already pushed as 2954a04.
+
 2026-11-19 buyer-agent timeout fix (implementation lead): API health succeeds but
 the browser uses a 15-second timeout for 45-second model requests (up to two calls
 for contributor ranking). Give agent-message calls a bounded longer timeout,

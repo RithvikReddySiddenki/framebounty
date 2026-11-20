@@ -6,6 +6,7 @@ Job-before-task row locking serializes budget changes across different task reco
 import hashlib
 import json
 import os
+from .networks import chain_enabled, active_network
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -41,6 +42,7 @@ def search_tasks(db: Session, equipment: set[str], minutes: int | None) -> list[
     rows = db.execute(select(Task, Job).join(Job, Task.job_id == Job.id).where(
         Job.state == "open", Task.state == "open", Task.deadline > now,
         Job.fixture == (os.getenv("APP_MODE", "fixture") == "fixture"),
+        *([] if os.getenv("APP_MODE", "fixture") == "fixture" else [Job.chain_id == active_network().chain_id]),
         Task.equipment.contained_by(sorted(equipment)),
         Task.claimed < Task.slots, *([] if minutes is None else [Task.minutes <= minutes]),
         Job.deposited_atomic - Job.committed_atomic - Job.paid_atomic - Job.refunded_atomic >= Task.reward_atomic,
@@ -61,6 +63,8 @@ def prepare_confirmation(db: Session, wallet: str, task_id: str, confirmation_id
     if task is None or task.state != "open" or task.deadline <= datetime.now(UTC):
         raise HTTPException(409, "Task is no longer available; refresh search")
     job = db.get(Job, task.job_id)
+    if not job.fixture and job.chain_id != active_network().chain_id:
+        raise HTTPException(409, "This task belongs to another network")
     if job.state != "open" or task.claimed >= task.slots or job.deposited_atomic - job.committed_atomic - job.paid_atomic - job.refunded_atomic < task.reward_atomic:
         raise HTTPException(409, "Task is no longer funded or available")
     item = Confirmation(id=confirmation_id or new_id(), wallet=wallet, task_id=task.id, version=task.version,
@@ -105,7 +109,9 @@ def reserve(db: Session, wallet: str, confirmation_id: str, task_id: str, versio
     job = db.scalar(select(Job).where(Job.id == reference.job_id).with_for_update().execution_options(populate_existing=True))
     task = db.scalar(select(Task).where(Task.id == task_id).with_for_update().execution_options(populate_existing=True))
     fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
-    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    live = not job.fixture and chain_enabled()
+    if live and job.chain_id != active_network().chain_id:
+        raise HTTPException(409, "This reservation belongs to another network")
     if not (fixture or live):
         raise HTTPException(503, "Reservations are disabled for this mode")
     if task.version != version or task.reward_atomic != reward_atomic or task.state != "open" or task.deadline <= datetime.now(UTC) or task.claimed >= task.slots or job.state != "open":

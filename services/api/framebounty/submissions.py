@@ -4,6 +4,7 @@ Upload bytes are staged before locking budget rows. Finalization rechecks owner,
 reservation state and expiry atomically. Accepted fixture work is never called paid.
 """
 import os
+from .networks import chain_enabled
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
@@ -32,7 +33,7 @@ def finalize_upload(db: Session, wallet: str, reservation_id: str, key: str, dig
             raise HTTPException(409, "Different media was already submitted for this reservation")
         return old
     fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
-    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    live = not job.fixture and chain_enabled()
     if not (fixture or live):
         raise HTTPException(503, "Uploads are disabled for this mode")
     if reservation.state != ("fixture_reserved" if fixture else "reserved") or reservation.expires_at <= datetime.now(UTC):
@@ -103,7 +104,7 @@ def review(db: Session, wallet: str, submission_id: str, decision: str, task_com
     if item.review_deadline <= datetime.now(UTC):
         raise HTTPException(409, "Review window expired; use the timeout release path")
     fixture = job.fixture and os.getenv("APP_MODE", "fixture") == "fixture"
-    live = not job.fixture and os.getenv("APP_MODE") == "testnet" and os.getenv("ALLOW_CHAIN_TRANSACTIONS") == "true"
+    live = not job.fixture and chain_enabled()
     if not (fixture or live):
         raise HTTPException(503, "Review is disabled for this mode")
     if decision == "accept" and (not task_completed or not watched_full_video or not item.findings.get("decoded") or item.state == "invalid"):

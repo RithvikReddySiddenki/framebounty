@@ -69,7 +69,7 @@ def prepare(rpc: ChainRPC, signer):
     estimate = int(rpc.rpc("eth_estimateGas", [{"from": signer.address, "data": data, "value": "0x0"}]), 16)
     gas = estimate * 12 // 10 + 10000
     quote = int(rpc.rpc("eth_gasPrice", []), 16)
-    fee = max(quote * 2, 20_000_000_000 if rpc.config.chain_id == 5042002 else 1)
+    fee = max(quote * 2, 20_000_000_000 if rpc.config.chain_id in {5042, 5042002} else 1)
     if not 21000 <= gas <= MAX_GAS or not 0 < fee <= MAX_FEE:
         raise ChainFailure("Deployment gas/fee exceeds the fixed safety limits")
     if int(rpc.rpc("eth_getBalance", [signer.address, "pending"]), 16) < gas * fee:
@@ -125,6 +125,10 @@ def reconcile(rpc, record):
     block = rpc.rpc("eth_getBlockByNumber", [receipt["blockNumber"], False])
     if block is None or block["hash"].lower() != receipt["blockHash"].lower():
         return False
+    if rpc.config.chain_id == 5042:
+        from .mainnet_budget import settle, BudgetFailure
+        try: settle(record["sender"], record["nonce"], receipt)
+        except (BudgetFailure, ValueError, OSError): raise ChainFailure("Mainnet fee budget requires reconciliation") from None
     if int(receipt["status"], 16) == 0:
         record["state"] = "reverted"
         return True

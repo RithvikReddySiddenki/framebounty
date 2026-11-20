@@ -104,7 +104,7 @@ test("image request becomes a labeled post, automatic verification and final fun
   await expect(match.getByText("Image post", { exact: true })).toBeVisible();
   await actor.screenshot({ path: path.join(path.dirname(process.env.E2E_VIDEO!), "work-chat-mobile.png"), fullPage: true });
   await match.getByRole("button", { name: /Review reservation for/ }).click();
-  await expect(match.getByText(/simulated fixture USDC/)).toBeVisible();
+  await expect(match.locator(".notice")).toContainText(/simulated USDC/);
   await match.getByRole("button", { name: /Accept fixed terms for/ }).click();
   const png = await actor.evaluate(() => { const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 240; const context = canvas.getContext("2d")!; context.fillStyle = "green"; context.fillRect(0, 0, 320, 240); return canvas.toDataURL("image/png").split(",")[1]; });
   await actor.getByLabel("Choose an image").setInputFiles({ name: "synthetic-color.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
